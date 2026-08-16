@@ -1,0 +1,22 @@
+{
+  "functions": [
+    { "name": "admin-create-student", "classification": "internal-only", "signal": "called from src/ via functions.invoke", "outcome": "left" },
+    { "name": "analyze-site", "classification": "internal-only", "signal": "called from src/ via functions.invoke", "outcome": "left" },
+    { "name": "generate-article", "classification": "internal-only", "signal": "called from src/ via functions.invoke", "outcome": "left" },
+    { "name": "generate-social-post", "classification": "internal-only", "signal": "called from src/ via functions.invoke", "outcome": "left" },
+    { "name": "generate-whatsapp-post", "classification": "internal-only", "signal": "called from src/ via functions.invoke", "outcome": "left" },
+    { "name": "ingest-plus-draft", "classification": "webhook receiver", "signal": "external caller: News Creator Plus app posts drafts to the function URL", "outcome": "left" },
+    { "name": "news-sitemap", "classification": "custom response / crawler endpoint", "signal": "fixed URL advertised to Google News crawlers", "outcome": "left" },
+    { "name": "og-meta", "classification": "custom response / crawler endpoint", "signal": "serves social-preview meta to crawlers at a fixed URL", "outcome": "left" },
+    { "name": "paypal-capture-order", "classification": "internal-only", "signal": "called from src/ only; payment-critical, deliberately left to avoid destabilizing live payments mid-upgrade", "outcome": "left" },
+    { "name": "paypal-config", "classification": "internal-only", "signal": "called from src/ only; payment-critical, deliberately left", "outcome": "left" },
+    { "name": "paypal-create-order", "classification": "internal-only", "signal": "called from src/ only; payment-critical, deliberately left", "outcome": "left" },
+    { "name": "publish-scheduled", "classification": "cron target", "signal": "pg_cron schedule created from dashboard; live state only in database", "outcome": "left" },
+    { "name": "send-admin-notification", "classification": "internal-only", "signal": "called from 4 src/ files via functions.invoke", "outcome": "left" },
+    { "name": "sitemap", "classification": "custom response / crawler endpoint", "signal": "fixed URL referenced by robots.txt and GSC", "outcome": "left" },
+    { "name": "ssr-article", "classification": "custom response / crawler endpoint", "signal": "fixed URL serving bot-facing SSR article HTML", "outcome": "left" },
+    { "name": "ssr-home", "classification": "custom response / crawler endpoint", "signal": "fixed URL serving bot-facing SSR home HTML", "outcome": "left" },
+    { "name": "submit-sitemap", "classification": "internal-only", "signal": "called from src/ via functions.invoke (GSC Indexing API automation)", "outcome": "left" },
+    { "name": "verify-article", "classification": "internal-only", "signal": "called from src/ via functions.invoke", "outcome": "left" }
+  ]
+}
