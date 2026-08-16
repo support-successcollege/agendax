@@ -16,7 +16,6 @@ import { useCourse, useCourseStructure, useMyEnrollment, enrollInCourse, CourseL
 import { GraduationCap, PlayCircle, Lock, Clock, User, CheckCircle2, FileText, Check } from "lucide-react";
 import CourseAccountMenu from "@/components/CourseAccountMenu";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import { useServerFn } from "@tanstack/react-start";
 import { getPaypalConfig, createPaypalOrder, capturePaypalOrder } from "@/lib/paypal.functions";
 import RichHtmlContent from "@/components/RichHtmlContent";
 
@@ -56,9 +55,9 @@ const CourseLanding = () => {
   const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
   const [showPayPal, setShowPayPal] = useState(false);
   const [authMode, setAuthMode] = useState<"choose" | "signup">("choose");
-  const getPaypalConfigFn = useServerFn(getPaypalConfig);
-  const createPaypalOrderFn = useServerFn(createPaypalOrder);
-  const capturePaypalOrderFn = useServerFn(capturePaypalOrder);
+  const getPaypalConfigFn = getPaypalConfig;
+  const createPaypalOrderFn = createPaypalOrder;
+  const capturePaypalOrderFn = capturePaypalOrder;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {

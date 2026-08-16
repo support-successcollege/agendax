@@ -7,7 +7,7 @@ import {
   createRootRouteWithContext,
   useRouter,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -15,9 +15,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
 import FloatingSocials from "@/components/FloatingSocials";
 import PageViewTracker from "@/components/PageViewTracker";
-import { reportLovableError } from "@/lib/lovable-error-reporting";
 
 import appCss from "../styles.css?url";
+
+const SUPABASE_ORIGIN =
+  import.meta.env["VITE_SUPABASE_URL"] ?? "https://gplszhhmothdbrqnpier.supabase.co";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -31,7 +33,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "העדכונים החמים ביותר משוקי הההון, ניתוח מניות מובילות, אירועי מאקרו-כלכלה בארה\"ב ודיווחים שוטפים מהבורסות האמריקאיות. כל הדיווחים שחשובים למשקיעים במקום אחד.",
       },
       { name: "google-site-verification", content: "dngVRAfNgIAWjQb7weDfwod_hMlikFCR0yA_ovFN0JM" },
-      { name: "author", content: "Lovable" },
+      { name: "author", content: "YZ News" },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "he_IL" },
       { property: "og:site_name", content: "YZ News" },
@@ -40,8 +42,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.png" },
-      { rel: "preconnect", href: "https://cmduasmuprlntbhgldlc.supabase.co", crossOrigin: "anonymous" },
-      { rel: "dns-prefetch", href: "https://cmduasmuprlntbhgldlc.supabase.co" },
+      { rel: "preconnect", href: SUPABASE_ORIGIN, crossOrigin: "anonymous" },
+      { rel: "dns-prefetch", href: SUPABASE_ORIGIN },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -114,9 +116,6 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-6 text-center">
       <h1 className="text-2xl font-bold mb-2">הדף לא נטען</h1>

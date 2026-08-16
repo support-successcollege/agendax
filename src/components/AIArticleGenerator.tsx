@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { generateArticle, verifyArticle } from "@/lib/ai.functions";
 import {
   Dialog,
@@ -48,8 +47,8 @@ interface VerificationResult {
 }
 
 const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticleGeneratorProps) => {
-  const generateArticleFn = useServerFn(generateArticle);
-  const verifyArticleFn = useServerFn(verifyArticle);
+  const generateArticleFn = generateArticle;
+  const verifyArticleFn = verifyArticle;
   const [topic, setTopic] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);

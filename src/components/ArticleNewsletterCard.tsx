@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Loader2, CheckCircle } from "lucide-react";
-import { useServerFn } from "@tanstack/react-start";
 import { sendAdminNotification } from "@/lib/admin.functions";
 
 interface ArticleNewsletterCardProps {
@@ -19,7 +18,7 @@ const ArticleNewsletterCard = ({ category }: ArticleNewsletterCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const { toast } = useToast();
-  const notifyAdmin = useServerFn(sendAdminNotification);
+  const notifyAdmin = sendAdminNotification;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,1 +1,31 @@
 project_id = "gplszhhmothdbrqnpier"
+
+# Everything not listed below keeps Supabase's default verify_jwt = true, which
+# is what makes the Edge Functions a safe replacement for the old server
+# functions: the gateway rejects anonymous calls before our code runs.
+
+# Receives drafts from the News Creator Plus app; authenticated by its own
+# x-plus-secret header, not by a Supabase session.
+[functions.ingest-plus-draft]
+verify_jwt = false
+
+# Invoked by pg_cron inside the database, which carries no user JWT.
+[functions.publish-scheduled]
+verify_jwt = false
+
+# Crawler-facing endpoints kept alive only until DNS cuts over to GitHub Pages;
+# after cutover the static build serves these and they can be deleted.
+[functions.sitemap]
+verify_jwt = false
+
+[functions.news-sitemap]
+verify_jwt = false
+
+[functions.og-meta]
+verify_jwt = false
+
+[functions.ssr-article]
+verify_jwt = false
+
+[functions.ssr-home]
+verify_jwt = false

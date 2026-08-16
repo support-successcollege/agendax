@@ -13,10 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccessibilityRouteImport } from './routes/accessibility'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as NewsSitemapDotxmlRouteImport } from './routes/news-sitemap[.]xml'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ToolboxRouteImport } from './routes/toolbox'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -27,10 +25,6 @@ import { Route as CoursesAccountRouteImport } from './routes/courses.account'
 import { Route as EventsSlugRouteImport } from './routes/events.$slug'
 import { Route as JobsIndexRouteImport } from './routes/jobs.index'
 import { Route as JobsIdRouteImport } from './routes/jobs.$id'
-import { Route as ApiPublicIngestPlusDraftRouteImport } from './routes/api/public/ingest-plus-draft'
-import { Route as ApiPublicNewsSitemapDotxmlRouteImport } from './routes/api/public/news-sitemap[.]xml'
-import { Route as ApiPublicPublishScheduledRouteImport } from './routes/api/public/publish-scheduled'
-import { Route as ApiPublicSitemapDotxmlRouteImport } from './routes/api/public/sitemap[.]xml'
 import { Route as AdminCoursesIdBuilderRouteImport } from './routes/admin.courses.$id.builder'
 
 const IndexRoute = IndexRouteImport.update({
@@ -53,11 +47,6 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const NewsSitemapDotxmlRoute = NewsSitemapDotxmlRouteImport.update({
-  id: '/news-sitemap.xml',
-  path: '/news-sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -66,11 +55,6 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -123,29 +107,6 @@ const JobsIdRoute = JobsIdRouteImport.update({
   path: '/jobs/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicIngestPlusDraftRoute =
-  ApiPublicIngestPlusDraftRouteImport.update({
-    id: '/api/public/ingest-plus-draft',
-    path: '/api/public/ingest-plus-draft',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicNewsSitemapDotxmlRoute =
-  ApiPublicNewsSitemapDotxmlRouteImport.update({
-    id: '/api/public/news-sitemap.xml',
-    path: '/api/public/news-sitemap.xml',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicPublishScheduledRoute =
-  ApiPublicPublishScheduledRouteImport.update({
-    id: '/api/public/publish-scheduled',
-    path: '/api/public/publish-scheduled',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicSitemapDotxmlRoute = ApiPublicSitemapDotxmlRouteImport.update({
-  id: '/api/public/sitemap.xml',
-  path: '/api/public/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminCoursesIdBuilderRoute = AdminCoursesIdBuilderRouteImport.update({
   id: '/admin/courses/$id/builder',
   path: '/admin/courses/$id/builder',
@@ -157,10 +118,8 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
   '/auth': typeof AuthRoute
-  '/news-sitemap.xml': typeof NewsSitemapDotxmlRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/article/$id': typeof ArticleIdRoute
@@ -171,10 +130,6 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/courses/': typeof CoursesIndexRoute
   '/jobs/': typeof JobsIndexRoute
-  '/api/public/ingest-plus-draft': typeof ApiPublicIngestPlusDraftRoute
-  '/api/public/news-sitemap.xml': typeof ApiPublicNewsSitemapDotxmlRoute
-  '/api/public/publish-scheduled': typeof ApiPublicPublishScheduledRoute
-  '/api/public/sitemap.xml': typeof ApiPublicSitemapDotxmlRoute
   '/admin/courses/$id/builder': typeof AdminCoursesIdBuilderRoute
 }
 export interface FileRoutesByTo {
@@ -182,10 +137,8 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
   '/auth': typeof AuthRoute
-  '/news-sitemap.xml': typeof NewsSitemapDotxmlRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/article/$id': typeof ArticleIdRoute
@@ -196,10 +149,6 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/courses': typeof CoursesIndexRoute
   '/jobs': typeof JobsIndexRoute
-  '/api/public/ingest-plus-draft': typeof ApiPublicIngestPlusDraftRoute
-  '/api/public/news-sitemap.xml': typeof ApiPublicNewsSitemapDotxmlRoute
-  '/api/public/publish-scheduled': typeof ApiPublicPublishScheduledRoute
-  '/api/public/sitemap.xml': typeof ApiPublicSitemapDotxmlRoute
   '/admin/courses/$id/builder': typeof AdminCoursesIdBuilderRoute
 }
 export interface FileRoutesById {
@@ -208,10 +157,8 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
   '/auth': typeof AuthRoute
-  '/news-sitemap.xml': typeof NewsSitemapDotxmlRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/article/$id': typeof ArticleIdRoute
@@ -222,10 +169,6 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/courses/': typeof CoursesIndexRoute
   '/jobs/': typeof JobsIndexRoute
-  '/api/public/ingest-plus-draft': typeof ApiPublicIngestPlusDraftRoute
-  '/api/public/news-sitemap.xml': typeof ApiPublicNewsSitemapDotxmlRoute
-  '/api/public/publish-scheduled': typeof ApiPublicPublishScheduledRoute
-  '/api/public/sitemap.xml': typeof ApiPublicSitemapDotxmlRoute
   '/admin/courses/$id/builder': typeof AdminCoursesIdBuilderRoute
 }
 export interface FileRouteTypes {
@@ -235,10 +178,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/accessibility'
     | '/auth'
-    | '/news-sitemap.xml'
     | '/privacy'
     | '/reset-password'
-    | '/sitemap.xml'
     | '/terms'
     | '/toolbox'
     | '/article/$id'
@@ -249,10 +190,6 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/courses/'
     | '/jobs/'
-    | '/api/public/ingest-plus-draft'
-    | '/api/public/news-sitemap.xml'
-    | '/api/public/publish-scheduled'
-    | '/api/public/sitemap.xml'
     | '/admin/courses/$id/builder'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -260,10 +197,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/accessibility'
     | '/auth'
-    | '/news-sitemap.xml'
     | '/privacy'
     | '/reset-password'
-    | '/sitemap.xml'
     | '/terms'
     | '/toolbox'
     | '/article/$id'
@@ -274,10 +209,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/courses'
     | '/jobs'
-    | '/api/public/ingest-plus-draft'
-    | '/api/public/news-sitemap.xml'
-    | '/api/public/publish-scheduled'
-    | '/api/public/sitemap.xml'
     | '/admin/courses/$id/builder'
   id:
     | '__root__'
@@ -285,10 +216,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/accessibility'
     | '/auth'
-    | '/news-sitemap.xml'
     | '/privacy'
     | '/reset-password'
-    | '/sitemap.xml'
     | '/terms'
     | '/toolbox'
     | '/article/$id'
@@ -299,10 +228,6 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/courses/'
     | '/jobs/'
-    | '/api/public/ingest-plus-draft'
-    | '/api/public/news-sitemap.xml'
-    | '/api/public/publish-scheduled'
-    | '/api/public/sitemap.xml'
     | '/admin/courses/$id/builder'
   fileRoutesById: FileRoutesById
 }
@@ -311,10 +236,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AccessibilityRoute: typeof AccessibilityRoute
   AuthRoute: typeof AuthRoute
-  NewsSitemapDotxmlRoute: typeof NewsSitemapDotxmlRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   ToolboxRoute: typeof ToolboxRoute
   ArticleIdRoute: typeof ArticleIdRoute
@@ -325,10 +248,6 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   CoursesIndexRoute: typeof CoursesIndexRoute
   JobsIndexRoute: typeof JobsIndexRoute
-  ApiPublicIngestPlusDraftRoute: typeof ApiPublicIngestPlusDraftRoute
-  ApiPublicNewsSitemapDotxmlRoute: typeof ApiPublicNewsSitemapDotxmlRoute
-  ApiPublicPublishScheduledRoute: typeof ApiPublicPublishScheduledRoute
-  ApiPublicSitemapDotxmlRoute: typeof ApiPublicSitemapDotxmlRoute
   AdminCoursesIdBuilderRoute: typeof AdminCoursesIdBuilderRoute
 }
 
@@ -362,13 +281,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/news-sitemap.xml': {
-      id: '/news-sitemap.xml'
-      path: '/news-sitemap.xml'
-      fullPath: '/news-sitemap.xml'
-      preLoaderRoute: typeof NewsSitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -381,13 +293,6 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -460,34 +365,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JobsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/ingest-plus-draft': {
-      id: '/api/public/ingest-plus-draft'
-      path: '/api/public/ingest-plus-draft'
-      fullPath: '/api/public/ingest-plus-draft'
-      preLoaderRoute: typeof ApiPublicIngestPlusDraftRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/news-sitemap.xml': {
-      id: '/api/public/news-sitemap.xml'
-      path: '/api/public/news-sitemap.xml'
-      fullPath: '/api/public/news-sitemap.xml'
-      preLoaderRoute: typeof ApiPublicNewsSitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/publish-scheduled': {
-      id: '/api/public/publish-scheduled'
-      path: '/api/public/publish-scheduled'
-      fullPath: '/api/public/publish-scheduled'
-      preLoaderRoute: typeof ApiPublicPublishScheduledRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/sitemap.xml': {
-      id: '/api/public/sitemap.xml'
-      path: '/api/public/sitemap.xml'
-      fullPath: '/api/public/sitemap.xml'
-      preLoaderRoute: typeof ApiPublicSitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/courses/$id/builder': {
       id: '/admin/courses/$id/builder'
       path: '/admin/courses/$id/builder'
@@ -503,10 +380,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AccessibilityRoute: AccessibilityRoute,
   AuthRoute: AuthRoute,
-  NewsSitemapDotxmlRoute: NewsSitemapDotxmlRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   ToolboxRoute: ToolboxRoute,
   ArticleIdRoute: ArticleIdRoute,
@@ -517,10 +392,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   CoursesIndexRoute: CoursesIndexRoute,
   JobsIndexRoute: JobsIndexRoute,
-  ApiPublicIngestPlusDraftRoute: ApiPublicIngestPlusDraftRoute,
-  ApiPublicNewsSitemapDotxmlRoute: ApiPublicNewsSitemapDotxmlRoute,
-  ApiPublicPublishScheduledRoute: ApiPublicPublishScheduledRoute,
-  ApiPublicSitemapDotxmlRoute: ApiPublicSitemapDotxmlRoute,
   AdminCoursesIdBuilderRoute: AdminCoursesIdBuilderRoute,
 }
 export const routeTree = rootRouteImport
@@ -528,11 +399,10 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
+import type { createStart } from '@tanstack/react-start'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

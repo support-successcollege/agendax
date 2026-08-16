@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Rebuild on a schedule so newly published articles get real prerendered HTML
+  # without anyone pushing a commit.
+  schedule:
+    - cron: "*/30 * * * *"
+  # Fired by the admin dashboard / a database trigger right after publishing.
+  repository_dispatch:
+    types: [content-updated]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let a scheduled rebuild race a push deploy; finish the running one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PROJECT_ID: ${{ vars.VITE_SUPABASE_PROJECT_ID }}
+      SITE_URL: ${{ vars.SITE_URL }}
+      BASE_PATH: ${{ vars.BASE_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      # Prerenders every published article, course, event and job into static
+      # HTML, then writes sitemap.xml and news-sitemap.xml.
+      - run: bun run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/client
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

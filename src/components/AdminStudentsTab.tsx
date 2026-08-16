@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, KeyRound, GraduationCap, Trash2, Search, UserPlus } from "lucide-react";
 import { useCourses } from "@/hooks/useCourses";
-import { useServerFn } from "@tanstack/react-start";
 import { adminCreateStudent } from "@/lib/admin.functions";
 
 type StudentRow = {
@@ -204,7 +203,7 @@ const CreateStudentDialog = ({
   onCreated: () => void;
 }) => {
   const { toast } = useToast();
-  const createStudent = useServerFn(adminCreateStudent);
+  const createStudent = adminCreateStudent;
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

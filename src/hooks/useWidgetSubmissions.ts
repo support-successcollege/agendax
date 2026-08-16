@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useServerFn } from "@tanstack/react-start";
 import { sendAdminNotification } from "@/lib/admin.functions";
 
 export interface WidgetSubmission {
@@ -15,7 +14,7 @@ export const useWidgetSubmissions = (widgetId?: string) => {
   const [submissions, setSubmissions] = useState<WidgetSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const notifyAdmin = useServerFn(sendAdminNotification);
+  const notifyAdmin = sendAdminNotification;
 
   const fetchSubmissions = async (wId: string) => {
     setIsLoading(true);

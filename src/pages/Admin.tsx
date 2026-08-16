@@ -71,14 +71,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useServerFn } from "@tanstack/react-start";
 import { submitSitemap } from "@/lib/admin.functions";
 
 const SitemapSubmitCard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<{ success: boolean; submittedAt: string } | null>(null);
   const { toast } = useToast();
-  const submitSitemapFn = useServerFn(submitSitemap);
+  const submitSitemapFn = submitSitemap;
 
   const handleSubmit = async () => {
     setIsSubmitting(true);

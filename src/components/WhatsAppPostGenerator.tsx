@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Article } from "@/hooks/useArticles";
-import { useServerFn } from "@tanstack/react-start";
 import { generateWhatsappPost } from "@/lib/ai.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +22,7 @@ interface WhatsAppPostGeneratorProps {
 const PUBLISHED_BASE_URL = "https://yznews.store";
 
 const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGeneratorProps) => {
-  const generateWhatsappPostFn = useServerFn(generateWhatsappPost);
+  const generateWhatsappPostFn = generateWhatsappPost;
   const [generatedPost, setGeneratedPost] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);

@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useServerFn } from "@tanstack/react-start";
 import { sendAdminNotification } from "@/lib/admin.functions";
 
 export interface Comment {
@@ -45,7 +44,7 @@ export const useArticleComments = (articleId: string | undefined) => {
 export const useSubmitComment = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const notifyAdmin = useServerFn(sendAdminNotification);
+  const notifyAdmin = sendAdminNotification;
 
   return useMutation({
     mutationFn: async ({

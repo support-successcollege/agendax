@@ -24,10 +24,21 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { orderID, course_id, full_name, email, phone, coupon_code, user_id } = body;
+    const { orderID, course_id, full_name, email, phone, coupon_code } = body;
     if (!orderID || !course_id || !full_name || !email) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // The enrolled account is taken from the caller's own JWT, never from the
+    // request body — otherwise any signed-in user could grant a paid enrollment
+    // to an arbitrary user_id.
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!jwt) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -35,6 +46,14 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    const { data: claims, error: claimsError } = await admin.auth.getClaims(jwt);
+    const user_id = claims?.claims?.sub;
+    if (claimsError || !user_id) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { data: course } = await admin
       .from('courses').select('id,price,currency').eq('id', course_id).maybeSingle();

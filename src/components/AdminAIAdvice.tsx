@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useServerFn } from "@tanstack/react-start";
 import { analyzeSite } from "@/lib/ai.functions";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
 
 const AdminAIAdvice = () => {
-  const analyzeSiteFn = useServerFn(analyzeSite);
+  const analyzeSiteFn = analyzeSite;
   const [advice, setAdvice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();

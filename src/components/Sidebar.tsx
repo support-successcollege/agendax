@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebarWidgets, SidebarWidget } from "@/hooks/useSidebarWidgets";
 import WidgetRotating from "@/components/WidgetRotating";
-import { useServerFn } from "@tanstack/react-start";
 import { sendAdminNotification } from "@/lib/admin.functions";
 
 interface SidebarProps {
@@ -175,7 +174,7 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const { toast } = useToast();
   const { widgets } = useSidebarWidgets();
-  const notifyAdmin = useServerFn(sendAdminNotification);
+  const notifyAdmin = sendAdminNotification;
 
   const displayWidgets = rotatingWidgets ?? widgets.filter(w => w.isActive);
 

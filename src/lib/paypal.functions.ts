@@ -1,12 +1,27 @@
-import { createServerFn } from '@tanstack/react-start';
-import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
+// PayPal operations, executed in Supabase Edge Functions.
+//
+// PAYPAL_CLIENT_SECRET stays server-side; only the public client id is returned
+// to the browser. `user_id` is intentionally NOT sent from here — the capture
+// function derives it from the caller's JWT so a client cannot enroll a
+// different account.
+import { invokeEdge } from "@/lib/edge";
 
-type CreatePaypalOrderInput = {
+export type PaypalConfig = { clientId: string; mode: string };
+
+export const getPaypalConfig = () => invokeEdge<PaypalConfig>("paypal-config", {});
+
+export type CreatePaypalOrderInput = {
   course_id: string;
   coupon_code?: string | null;
 };
 
-type CapturePaypalOrderInput = {
+export const createPaypalOrder = ({ data }: { data: CreatePaypalOrderInput }) =>
+  invokeEdge<{ orderID: string; amount: number; currency: string }>(
+    "paypal-create-order",
+    data,
+  );
+
+export type CapturePaypalOrderInput = {
   orderID: string;
   course_id: string;
   full_name: string;
@@ -15,24 +30,8 @@ type CapturePaypalOrderInput = {
   coupon_code?: string | null;
 };
 
-export const getPaypalConfig = createServerFn({ method: 'GET' }).handler(async () => {
-  const clientId = process.env['PAYPAL_CLIENT_ID'] ?? '';
-  const mode = (process.env['PAYPAL_MODE'] ?? 'live').toLowerCase();
-  return { clientId, mode };
-});
-
-export const createPaypalOrder = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: CreatePaypalOrderInput) => d)
-  .handler(async ({ data }) => {
-    const { createPaypalOrderLogic } = await import('@/lib/paypal.server');
-    return createPaypalOrderLogic(data);
-  });
-
-export const capturePaypalOrder = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: CapturePaypalOrderInput) => d)
-  .handler(async ({ data, context }) => {
-    const { capturePaypalOrderLogic } = await import('@/lib/paypal.server');
-    return capturePaypalOrderLogic({ ...data, user_id: context.userId });
-  });
+export const capturePaypalOrder = ({ data }: { data: CapturePaypalOrderInput }) =>
+  invokeEdge<{ success: true; orderID: string; paidAmount: number; paidCurrency: string }>(
+    "paypal-capture-order",
+    data,
+  );

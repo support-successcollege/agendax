@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Article } from "@/hooks/useArticles";
-import { useServerFn } from "@tanstack/react-start";
 import { generateSocialPost } from "@/lib/ai.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +22,7 @@ interface SocialPostGeneratorProps {
 const PUBLISHED_BASE_URL = "https://yznews.store";
 
 const SocialPostGenerator = ({ article, open, onOpenChange }: SocialPostGeneratorProps) => {
-  const generateSocialPostFn = useServerFn(generateSocialPost);
+  const generateSocialPostFn = generateSocialPost;
   const [generatedPost, setGeneratedPost] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
