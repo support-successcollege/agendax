@@ -13,6 +13,16 @@ verify_jwt = false
 [functions.publish-scheduled]
 verify_jwt = false
 
+# Fired by anonymous visitors (newsletter signup, pending comments, widget
+# forms). It only re-reads existing rows and emails the admin, so it was always
+# a public endpoint; input is zod-validated inside.
+[functions.send-admin-notification]
+verify_jwt = false
+
+# Returns the public PayPal client id to the course landing page before login.
+[functions.paypal-config]
+verify_jwt = false
+
 # Crawler-facing endpoints kept alive only until DNS cuts over to GitHub Pages;
 # after cutover the static build serves these and they can be deleted.
 [functions.sitemap]
