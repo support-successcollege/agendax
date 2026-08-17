@@ -52,7 +52,7 @@ const Accessibility = () => {
               אם נתקלתם בבעיית נגישות באתר, אנא פנו אלינו ונשמח לסייע:
             </p>
             <ul className="list-none space-y-1 text-foreground/80 mt-2">
-              <li>📧 דוא"ל: <a href="mailto:info@agendax.co.il" className="text-primary underline">info@agendax.co.il</a></li>
+              <li>📧 דוא"ל: <a href="mailto:info@agendax.co.il" className="text-primary underline" dir="ltr">info@agendax.co.il</a></li>
               <li>📞 טלפון: <a href="tel:0559774484" className="text-primary underline">055-9774484</a></li>
             </ul>
           </section>

@@ -50,7 +50,7 @@ const About = () => {
                   יש לכם שאלות, הערות או טיפים לכתבות? אנחנו תמיד שמחים לשמוע מכם!
                 </p>
                 <ul className="list-none space-y-2 mt-4">
-                  <li>📧 אימייל: info@agendax.co.il</li>
+                  <li>📧 אימייל: <span dir="ltr">info@agendax.co.il</span></li>
                   <li className="whitespace-pre-line text-sm text-muted-foreground mt-8">
                     הגבלת אחריות: בעלי האתר, הכותבים או מי מטעמם לא יהיו אחראים לכל נזק, ישיר או עקיף, שייגרם כתוצאה מהשימוש באתר או מהסתמכות על התכנים המופיעים בו.{"\n\n\n"}אין לראות בכל הנאמר באתר המלצה לביצוע פעולות בשוק ההון. השקעה כרוכה בסיכון.
                   </li>

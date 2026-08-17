@@ -17,7 +17,11 @@
  */
 
 @theme inline {
-  --font-sans: "Heebo", sans-serif;
+  /* Arimo carries both Hebrew and Latin, so a mixed sentence — and this site is
+     full of them ("מניית אנבידיה", "AI", "PostgreSQL") — stays in one typeface
+     instead of swapping mid-line. JetBrains Mono is reserved for metadata. */
+  --font-sans: "Arimo", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -49,6 +53,11 @@
   --color-brand-navy: hsl(var(--brand-navy));
   --color-brand-blue: hsl(var(--brand-blue));
   --color-brand-cyan: hsl(var(--brand-cyan));
+
+  --color-surface-deep: hsl(var(--surface-deep));
+  --color-surface-1: hsl(var(--surface-1));
+  --color-surface-2: hsl(var(--surface-2));
+  --color-surface-3: hsl(var(--surface-3));
 
   --color-news-blue: hsl(var(--news-blue));
   --color-news-red: hsl(var(--news-red));
@@ -91,106 +100,110 @@
   --brand-blue: 221 100% 43%;
   --brand-cyan: 190 100% 49%;
 
-  --background: 213 40% 99%;
-  --foreground: 222 55% 12%;
+  /* ---- Surfaces -------------------------------------------------------
+     Dark-first. The tonal tiers step up in lightness, never in hue, so the
+     whole stack reads as one material lit from different distances. */
+  --surface-deep: 220 91% 5%;    /* deep space — the page floor */
+  --background: 214 58% 8%;      /* void navy — the ambient surface */
+  --surface-1: 216 36% 11%;      /* raised: cards at rest */
+  --surface-2: 218 30% 15%;      /* raised: hover, popovers */
+  --surface-3: 218 27% 19%;      /* raised: chips, inputs */
 
-  --card: 0 0% 100%;
-  --card-foreground: 222 55% 12%;
+  --foreground: 221 69% 91%;
+  --card: 216 36% 11%;
+  --card-foreground: 221 69% 91%;
+  --popover: 218 30% 15%;
+  --popover-foreground: 221 69% 91%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 55% 12%;
+  /* Cyan is the action colour: on navy it is the only brand hue with enough
+     luminance to carry a control. Navy-on-navy would vanish. */
+  --primary: 190 100% 49%;
+  --primary-foreground: 193 100% 11%;
 
-  --primary: 222 94% 13%;
-  --primary-foreground: 0 0% 100%;
+  --secondary: 218 27% 19%;
+  --secondary-foreground: 221 69% 91%;
 
-  --secondary: 215 32% 96%;
-  --secondary-foreground: 222 94% 13%;
+  --muted: 218 27% 18%;
+  --muted-foreground: 215 25% 72%;
 
-  --muted: 215 28% 94%;
-  --muted-foreground: 218 16% 42%;
-
-  /* Blue, not red: the accent is what the reader is meant to click. */
+  /* Circuit blue backs the cyan up for lower-priority actions. */
   --accent: 221 100% 43%;
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 4 90% 68%;
+  --destructive-foreground: 356 100% 15%;
 
-  --border: 215 26% 90%;
-  --input: 215 26% 90%;
-  --ring: 221 100% 43%;
+  --border: 217 28% 20%;
+  --input: 217 28% 20%;
+  --ring: 190 100% 49%;
 
-  /* Rounder than the old 0.5rem, to echo the icon's soft square. */
   --radius: 0.75rem;
 
-  --news-blue: 221 100% 43%;
-  --news-red: 0 75% 50%;
-  --news-gold: 45 90% 50%;
-  --news-gray: 218 16% 42%;
-  --news-light: 215 32% 97%;
+  --news-blue: 190 100% 49%;
+  --news-red: 4 90% 68%;
+  --news-gold: 45 92% 62%;
+  --news-gray: 215 25% 72%;
+  --news-light: 218 27% 18%;
+
+  /* ---- Type scale -----------------------------------------------------
+     Tracking is size-specific: large text reads too loose as it grows, small
+     text too tight. Leading moves inversely to size. Hebrew has no ascender
+     drama but a taller x-height, so body leading runs a touch looser than a
+     Latin-only scale would. */
+  --text-display: clamp(2rem, 1.2rem + 3.2vw, 3.25rem);
+  --leading-display: 1.08;
+  --tracking-display: -0.022em;
+
+  --text-headline: clamp(1.5rem, 1.1rem + 1.6vw, 2rem);
+  --leading-headline: 1.18;
+  --tracking-headline: -0.014em;
+
+  --text-title: 1.25rem;
+  --leading-title: 1.35;
+  --tracking-title: -0.008em;
+
+  --leading-body: 1.65;
+  --tracking-body: 0em;
+
+  --tracking-label: 0.08em;
+
+  /* ---- Motion ---------------------------------------------------------
+     Real spring solutions sampled into linear(), not eased approximations.
+     Damping and response are Apple's two parameters; the curves below are the
+     analytic solution of each spring, so overshoot is physical.
+       default  ζ=1.0  response 0.4s — critically damped, never overshoots
+       momentum ζ=0.8  response 0.4s — overshoots ~1.5%, for flicks and drops
+       sheet    ζ=0.8  response 0.3s — snappier, for panels and drawers */
+  --spring-default: linear(0,0.078,0.235,0.401,0.549,0.669,0.762,0.831,0.882,0.918,0.944,0.962,0.974,0.982,0.988,0.992,0.995,0.996,0.998,0.998,0.999);
+  --spring-momentum: linear(0,0.053,0.175,0.324,0.473,0.609,0.723,0.814,0.883,0.934,0.968,0.991,1.005,1.012,1.015,1.015,1.014,1.012,1.009,1.007,1.005,1.004,1.002,1.001,1.001);
+  --duration-default: 586ms;
+  --duration-momentum: 549ms;
+  --duration-sheet: 412ms;
+  /* Pressed feedback has to land inside the perceptual "instant" window. */
+  --duration-press: 100ms;
 
   --gradient-hero: linear-gradient(135deg, hsl(var(--brand-navy)) 0%, hsl(221 100% 30%) 55%, hsl(196 100% 38%) 100%);
   /* The X in the logo runs blue into cyan; every brand gradient repeats it. */
   --gradient-brand: linear-gradient(90deg, hsl(var(--brand-blue)) 0%, hsl(var(--brand-cyan)) 100%);
   --gradient-breaking: var(--gradient-brand);
 
-  --shadow-card: 0 1px 2px hsl(var(--brand-navy) / 0.06), 0 8px 24px -12px hsl(var(--brand-navy) / 0.16);
-  --shadow-hover: 0 2px 4px hsl(var(--brand-navy) / 0.08), 0 16px 40px -16px hsl(var(--brand-navy) / 0.24);
-  --shadow-nav: 0 1px 0 hsl(var(--border)), 0 8px 24px -20px hsl(var(--brand-navy) / 0.5);
+  /* ---- Depth ----------------------------------------------------------
+     On a dark ground a drop shadow is nearly invisible, so elevation is
+     carried by a bright top edge (light catching the material) plus a cool
+     cast below — and, for emissive elements, an actual glow. */
+  --shadow-card: 0 1px 0 hsl(0 0% 100% / 0.04) inset, 0 8px 24px -12px hsl(var(--surface-deep) / 0.9);
+  --shadow-hover: 0 1px 0 hsl(0 0% 100% / 0.07) inset, 0 20px 48px -18px hsl(var(--surface-deep) / 1);
+  --shadow-nav: 0 8px 32px -24px hsl(var(--surface-deep));
+  --glow-cyan: 0 0 24px -4px hsl(var(--brand-cyan) / 0.45);
 
-  --sidebar-background: 215 32% 97%;
-  --sidebar-foreground: 222 30% 26%;
-  --sidebar-primary: 222 94% 13%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 215 32% 93%;
-  --sidebar-accent-foreground: 222 94% 13%;
-  --sidebar-border: 215 26% 90%;
-  --sidebar-ring: 221 100% 43%;
-}
-
-.dark {
-  /* The dark theme sits on the brand navy itself rather than a neutral grey. */
-  --background: 222 60% 7%;
-  --foreground: 210 30% 96%;
-
-  --card: 222 52% 11%;
-  --card-foreground: 210 30% 96%;
-
-  --popover: 222 52% 11%;
-  --popover-foreground: 210 30% 96%;
-
-  /* Navy is unreadable on navy, so the dark theme promotes cyan to primary. */
-  --primary: 193 100% 62%;
-  --primary-foreground: 222 94% 13%;
-
-  --secondary: 222 40% 17%;
-  --secondary-foreground: 210 30% 96%;
-
-  --muted: 222 40% 17%;
-  --muted-foreground: 214 20% 68%;
-
-  --accent: 219 100% 62%;
-  --accent-foreground: 222 94% 13%;
-
-  --destructive: 0 62.8% 45%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 222 35% 20%;
-  --input: 222 35% 20%;
-  --ring: 193 100% 62%;
-
-  --news-blue: 219 100% 62%;
-  --news-gray: 214 20% 68%;
-  --news-light: 222 40% 17%;
-
-  --sidebar-background: 222 52% 11%;
-  --sidebar-foreground: 210 30% 92%;
-  --sidebar-primary: 193 100% 62%;
-  --sidebar-primary-foreground: 222 94% 13%;
-  --sidebar-accent: 222 40% 17%;
-  --sidebar-accent-foreground: 210 30% 96%;
-  --sidebar-border: 222 35% 20%;
-  --sidebar-ring: 193 100% 62%;
+  --sidebar-background: 216 36% 11%;
+  --sidebar-foreground: 221 60% 88%;
+  --sidebar-primary: 190 100% 49%;
+  --sidebar-primary-foreground: 193 100% 11%;
+  --sidebar-accent: 218 27% 18%;
+  --sidebar-accent-foreground: 221 69% 91%;
+  --sidebar-border: 217 28% 20%;
+  --sidebar-ring: 190 100% 49%;
 }
 
 /* Custom utilities ported from tailwind.config.ts */
@@ -230,6 +243,112 @@
   text-wrap: balance;
 }
 
+@utility shadow-glow {
+  box-shadow: var(--glow-cyan);
+}
+
+/* ---- Typography roles ---------------------------------------------------
+   Each role ships size, leading and tracking as one set. Emphasis comes from
+   weight, which adds presence without taking more width — worth more in
+   Hebrew, where there are no capitals to lean on. */
+@utility type-display {
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+@utility type-headline {
+  font-size: var(--text-headline);
+  line-height: var(--leading-headline);
+  letter-spacing: var(--tracking-headline);
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+@utility type-title {
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  letter-spacing: var(--tracking-title);
+  font-weight: 700;
+}
+
+/* Metadata, kickers, live badges. Latin and digits only by design — Hebrew
+   has no monospace tradition and JetBrains Mono carries no Hebrew glyphs, so
+   Hebrew labels stay in Arimo and take the tracking without the mono face. */
+@utility type-label {
+  font-size: 0.75rem;
+  line-height: 1.33;
+  letter-spacing: var(--tracking-label);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+@utility type-label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.33;
+  letter-spacing: var(--tracking-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Materials ----------------------------------------------------------
+   A translucent layer that content scrolls under, rather than an opaque strip
+   that eats a band of the viewport. Bigger surfaces read as thicker glass, so
+   the chrome blurs harder than a chip would. */
+@utility glass {
+  background-color: hsl(var(--background) / 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  /* The bright top edge is the light catching the material. */
+  border-block-end: 1px solid hsl(0 0% 100% / 0.06);
+}
+
+@utility glass-panel {
+  background-color: hsl(var(--surface-1) / 0.66);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid hsl(0 0% 100% / 0.07);
+}
+
+/* Text sitting on glass needs more weight and a touch more tracking than the
+   same text on a solid surface, or the blur eats its edges. */
+@utility vibrant {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: hsl(var(--foreground));
+}
+
+/* Where floating chrome overlaps content, fade the content out beneath it
+   instead of drawing a hard 1px rule. */
+@utility scroll-edge {
+  mask-image: linear-gradient(to bottom, transparent 0, black 2.5rem);
+}
+
+/* ---- Motion -------------------------------------------------------------
+   Only transform and opacity are animated: both stay on the compositor. */
+@utility spring {
+  transition-timing-function: var(--spring-default);
+  transition-duration: var(--duration-default);
+}
+
+@utility spring-momentum {
+  transition-timing-function: var(--spring-momentum);
+  transition-duration: var(--duration-momentum);
+}
+
+/* Press feedback lands on pointer-down, not on release. */
+@utility press {
+  transition: transform var(--duration-press) ease-out;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));
@@ -237,13 +356,88 @@
 
   html {
     direction: rtl;
+    color-scheme: dark;
+    /* Resist at the edges instead of chaining the scroll to the page behind. */
+    overscroll-behavior-y: none;
   }
 
   body {
-    background-color: hsl(var(--background));
+    /* A radial lift from the centre keeps a full-height dark page from reading
+       as a flat void — the surface has a light source. */
+    background-color: hsl(var(--surface-deep));
+    background-image: radial-gradient(
+      120% 80% at 50% 0%,
+      hsl(var(--background)) 0%,
+      hsl(var(--surface-deep)) 70%
+    );
+    background-attachment: fixed;
     color: hsl(var(--foreground));
-    font-family: "Heebo", sans-serif;
+    font-family: "Arimo", system-ui, sans-serif;
+    line-height: var(--leading-body);
+    letter-spacing: var(--tracking-body);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Headings inherit the display tracking rather than the body's. */
+  h1, h2, h3 {
+    letter-spacing: var(--tracking-headline);
+    text-wrap: balance;
+  }
+}
+
+/* ---- Accessibility preferences ------------------------------------------
+   Three independent signals, each answered on its own terms. Reduced motion
+   is not "no feedback" — it is the same feedback without vestibular travel. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 150ms !important;
+    transition-timing-function: ease !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Travel and overshoot go; opacity and colour stay, because they carry
+     meaning rather than motion. */
+  .animate-slide-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass {
+    background-color: hsl(var(--background));
+  }
+
+  .glass-panel {
+    background-color: hsl(var(--surface-1));
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --foreground: 210 100% 98%;
+    --muted-foreground: 214 40% 86%;
+    --border: 215 35% 42%;
+  }
+
+  .glass,
+  .glass-panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: hsl(var(--background));
+    border-color: hsl(var(--border));
   }
 }
 

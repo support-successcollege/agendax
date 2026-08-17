@@ -430,7 +430,7 @@ const CourseLanding = () => {
 
         {!enrolled && (
           <section className="container pb-14">
-            <Card className="bg-primary text-primary-foreground">
+            <Card className="bg-surface-2 text-foreground border-primary/30">
               <CardContent className="p-8 text-center space-y-3">
                 <h3 className="text-2xl font-bold">מוכנים להתחיל?</h3>
                 <p>{priceNum === 0 ? "הרשמה חינמית מלאה לקורס." : "בצעו רכישה מאובטחת דרך PayPal לקבלת גישה מיידית."}</p>

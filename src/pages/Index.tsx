@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "@/lib/router-compat";
 import Header from "@/components/Header";
-import FinancialTicker from "@/components/FinancialTicker";
 import BreakingNews from "@/components/BreakingNews";
 import FeaturedArticle from "@/components/FeaturedArticle";
 import ArticleGrid from "@/components/ArticleGrid";
@@ -53,7 +52,6 @@ const Index = () => {
 
       <div className="min-h-screen bg-background">
         <Header activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
-        <FinancialTicker />
         <BreakingNews articles={publishedArticles} />
 
         <main className="container py-8" id="main-content">

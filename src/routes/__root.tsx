@@ -50,8 +50,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
+        // Arimo covers Hebrew and Latin in one face; JetBrains Mono is only
+        // ever used for Latin/numeric metadata, so it ships fewer weights.
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@500;700&display=swap",
       },
     ],
     scripts: [

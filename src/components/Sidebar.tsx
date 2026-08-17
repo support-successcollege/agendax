@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Article } from "@/hooks/useArticles";
 import { Loader2, CheckCircle, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,158 +12,6 @@ interface SidebarProps {
   rotatingWidgets?: SidebarWidget[];
 }
 
-const StockHeatmap = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = "";
-
-    const widgetContainer = document.createElement("div");
-    widgetContainer.className = "tradingview-widget-container";
-    widgetContainer.style.height = "400px";
-
-    const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container__widget";
-    widgetDiv.style.height = "100%";
-    widgetDiv.style.width = "100%";
-    widgetContainer.appendChild(widgetDiv);
-
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      dataSource: "SPX500",
-      blockSize: "market_cap_basic",
-      blockColor: "change",
-      grouping: "sector",
-      locale: "en",
-      symbolUrl: "",
-      colorTheme: "dark",
-      exchanges: [],
-      hasTopBar: false,
-      isDataSetEnabled: false,
-      isZoomEnabled: true,
-      hasSymbolTooltip: true,
-      isMonoSize: false,
-      width: "100%",
-      height: "100%",
-    });
-
-    widgetContainer.appendChild(script);
-    containerRef.current.appendChild(widgetContainer);
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
-      }
-    };
-  }, []);
-
-  return (
-    <div className="bg-card rounded-xl p-4 shadow-card overflow-hidden">
-      <h3 className="font-bold text-lg text-foreground mb-3">מפת חום - S&P 500</h3>
-      <div ref={containerRef} style={{ height: "400px" }} dir="ltr" />
-    </div>
-  );
-};
-
-const MarketOverview = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = "";
-
-    const widgetContainer = document.createElement("div");
-    widgetContainer.className = "tradingview-widget-container";
-    widgetContainer.style.height = "660px";
-
-    const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container__widget";
-    widgetDiv.style.height = "100%";
-    widgetDiv.style.width = "100%";
-    widgetContainer.appendChild(widgetDiv);
-
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      colorTheme: "dark",
-      dateRange: "12M",
-      showChart: true,
-      locale: "he_IL",
-      largeChartUrl: "",
-      isTransparent: false,
-      showSymbolLogo: true,
-      showFloatingTooltip: false,
-      width: "100%",
-      height: "100%",
-      tabs: [
-        {
-          title: "מדדים",
-          symbols: [
-            { s: "FOREXCOM:SPXUSD", d: "S&P 500" },
-            { s: "FOREXCOM:NSXUSD", d: "נאסד\"ק 100" },
-            { s: "FOREXCOM:DJI", d: "דאו ג'ונס" },
-            { s: "INDEX:NKY", d: "ניקיי 225" },
-            { s: "INDEX:DAX", d: "דאקס" },
-            { s: "TASE:TA35", d: "ת\"א 35" },
-          ],
-          originalTitle: "Indices",
-        },
-        {
-          title: "מט\"ח",
-          symbols: [
-            { s: "FX:USDILS", d: "דולר/שקל" },
-            { s: "FX:EURILS", d: "אירו/שקל" },
-            { s: "FX:EURUSD", d: "אירו/דולר" },
-            { s: "FX:GBPUSD", d: "פאונד/דולר" },
-            { s: "FX:USDJPY", d: "דולר/ין" },
-          ],
-          originalTitle: "Forex",
-        },
-        {
-          title: "סחורות",
-          symbols: [
-            { s: "TVC:GOLD", d: "זהב" },
-            { s: "TVC:SILVER", d: "כסף" },
-            { s: "TVC:USOIL", d: "נפט WTI" },
-            { s: "NYMEX:NG1!", d: "גז טבעי" },
-          ],
-          originalTitle: "Commodities",
-        },
-        {
-          title: "קריפטו",
-          symbols: [
-            { s: "BITSTAMP:BTCUSD", d: "ביטקוין" },
-            { s: "BITSTAMP:ETHUSD", d: "את'ריום" },
-            { s: "BINANCE:SOLUSDT", d: "סולנה" },
-            { s: "BINANCE:XRPUSDT", d: "ריפל" },
-          ],
-          originalTitle: "Crypto",
-        },
-      ],
-    });
-
-    widgetContainer.appendChild(script);
-    containerRef.current.appendChild(widgetContainer);
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
-      }
-    };
-  }, []);
-
-  return (
-    <div className="bg-card rounded-xl p-4 shadow-card overflow-hidden">
-      <h3 className="font-bold text-lg text-foreground mb-3">סקירת מדדים</h3>
-      <div ref={containerRef} style={{ height: "660px" }} dir="ltr" />
-    </div>
-  );
-};
 
 const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
   const [email, setEmail] = useState("");
@@ -244,12 +92,8 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
 
   return (
     <aside className="space-y-8">
-      {/* Stock Heatmap Widget */}
-      <StockHeatmap />
-
-
       {/* Newsletter */}
-      <div className="bg-primary rounded-xl p-5">
+      <div className="glass-panel rounded-xl p-5">
         <h3 className="font-bold text-lg mb-2 text-white">הרשמו לניוזלטר</h3>
         <p className="text-sm text-white/80 mb-4">
           קבלו את החדשות החמות ביותר ישירות לתיבת המייל

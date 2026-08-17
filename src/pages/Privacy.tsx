@@ -121,7 +121,7 @@ const Privacy = () => {
                   לשאלות או בקשות בנוגע למדיניות פרטיות זו, ניתן ליצור איתנו קשר:
                 </p>
                 <ul className="list-none space-y-2 mt-4">
-                  <li>📧 אימייל: info@agendax.co.il</li>
+                  <li>📧 אימייל: <span dir="ltr">info@agendax.co.il</span></li>
                   <li>📱 טלפון: 055-9774484</li>
                 </ul>
               </section>

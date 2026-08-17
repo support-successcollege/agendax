@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="he"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>שוקי הון - AgendaX</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Sora:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error": "#ffb4ab",
+                      "secondary-fixed-dim": "#b7c4ff",
+                      "inverse-primary": "#00677d",
+                      "outline-variant": "#3c494e",
+                      "tertiary-fixed-dim": "#b6c5f9",
+                      "deep-space": "#010816",
+                      "secondary-container": "#0046dc",
+                      "on-tertiary-fixed-variant": "#364571",
+                      "glow-cyan": "rgba(0, 210, 252, 0.35)",
+                      "surface-bright": "#303a4a",
+                      "error-container": "#93000a",
+                      "inverse-surface": "#d9e3f8",
+                      "primary-container": "#00d2fc",
+                      "on-primary-container": "#005669",
+                      "void-navy": "#02143F",
+                      "on-secondary": "#002682",
+                      "surface-container-lowest": "#050e1d",
+                      "on-tertiary-fixed": "#061943",
+                      "surface-container-highest": "#2b3545",
+                      "tertiary-container": "#b0bff3",
+                      "on-tertiary": "#1f2e59",
+                      "primary-fixed-dim": "#39d7ff",
+                      "tertiary-fixed": "#dbe1ff",
+                      "primary": "#a1e7ff",
+                      "surface-dim": "#091422",
+                      "surface-container": "#16202f",
+                      "glass-surface": "rgba(2, 20, 63, 0.6)",
+                      "secondary-fixed": "#dde1ff",
+                      "surface-tint": "#39d7ff",
+                      "secondary": "#b7c4ff",
+                      "surface-container-high": "#212a3a",
+                      "on-background": "#d9e3f8",
+                      "on-primary": "#003642",
+                      "circuit-blue": "#0046DD",
+                      "on-primary-fixed-variant": "#004e5f",
+                      "on-secondary-fixed": "#001452",
+                      "on-error": "#690005",
+                      "tertiary": "#d3dbff",
+                      "surface": "#091422",
+                      "on-surface-variant": "#bbc9ce",
+                      "on-error-container": "#ffdad6",
+                      "surface-container-low": "#121c2b",
+                      "background": "#091422",
+                      "outline": "#859398",
+                      "surface-variant": "#2b3545",
+                      "on-tertiary-container": "#3e4d79",
+                      "on-secondary-fixed-variant": "#0038b6",
+                      "inverse-on-surface": "#273140",
+                      "on-secondary-container": "#c0cbff",
+                      "neon-cyan": "#00D2FC",
+                      "primary-fixed": "#b3ebff",
+                      "on-surface": "#d9e3f8",
+                      "on-primary-fixed": "#001f27"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "unit": "4px",
+                      "max-width": "1440px",
+                      "gutter": "24px",
+                      "margin-desktop": "40px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Sora"
+                      ],
+                      "label-sm": [
+                              "JetBrains Mono"
+                      ],
+                      "body-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "display-lg": [
+                              "Sora"
+                      ],
+                      "label-md": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-md": [
+                              "Sora"
+                      ],
+                      "headline-lg-mobile": [
+                              "Sora"
+                      ],
+                      "body-lg": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.08em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "34px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+      </script>
+<style>
+        body {
+            background: radial-gradient(circle at center, #010816 0%, #02143F 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: #d9e3f8;
+        }
+        .glow-card {
+            border: 1px solid rgba(0, 210, 252, 0.2);
+            transition: all 0.3s ease;
+        }
+        .glow-card:hover {
+            border-color: #00D2FC;
+            box-shadow: 0 0 15px rgba(0, 210, 252, 0.2);
+        }
+      </style>
+</head>
+<body class="font-body-md text-body-md antialiased overflow-x-hidden flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-glass-surface backdrop-blur-xl border-b border-neon-cyan/20 shadow-[0_0_15px_rgba(0,210,252,0.1)] transition-all duration-300 ease-out">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 max-w-max-width mx-auto">
+<div class="flex items-center gap-6">
+<a class="font-headline-md text-headline-md font-bold text-neon-cyan tracking-tight shrink-0" href="#">
+<img alt="AgendaX Logo" class="h-8 w-auto" src="https://lh3.googleusercontent.com/aida/AP1WRLtPzyssHpFxpjnmyFyEOhSMzBw8fkGsQCWNwJNm-yeMRDopPhC0IYe4moQuQHcPP1PjX6uWcfsy43PSUQNS52adhOoUkXKi95YbGMHEP3vU50SRwbCVOnebWwifRddxVv6mYNDue-Dsg28pmJpw9qbMvyoSrP6V107kicTXXxYVskIsgZY_lBTCsI5RBR4YUz1pIzKx79fYyZRjXQRnyvlPR1y_Z4Hs0wWDBT9Sxx0_Z7QRMB1iNAsDteuJwSZFMtjXcgSNtuEChA"/>
+</a>
+<div class="hidden md:flex gap-6 items-center">
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-300 font-label-md text-label-md hover:bg-surface-container-high/50 px-3 py-1 rounded" href="#">Home</a>
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-300 font-label-md text-label-md hover:bg-surface-container-high/50 px-3 py-1 rounded" href="#">High-Tech</a>
+<a class="text-neon-cyan border-b-2 border-neon-cyan pb-1 font-label-md text-label-md" href="#">Capital Markets</a>
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-300 font-label-md text-label-md hover:bg-surface-container-high/50 px-3 py-1 rounded" href="#">Business Development</a>
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-300 font-label-md text-label-md hover:bg-surface-container-high/50 px-3 py-1 rounded" href="#">Jobs</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-neon-cyan hover:bg-surface-container-high/50 p-2 rounded transition-all duration-300 active:scale-95">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<button class="md:hidden text-neon-cyan p-2">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-28 px-margin-mobile md:px-margin-desktop pb-12 max-w-max-width mx-auto w-full">
+<!-- Header -->
+<header class="mb-12 border-b border-neon-cyan/20 pb-6 relative">
+<div class="absolute -bottom-px left-0 w-1/4 h-px bg-gradient-to-r from-neon-cyan to-transparent"></div>
+<h1 class="font-display-lg text-display-lg text-white mb-4">שוקי הון</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">ניתוח מעמיק, מגמות שוק בזמן אמת, ותובנות טכנולוגיות על עולם הפיננסים הגלובלי.</p>
+</header>
+<!-- Bento Grid Articles -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Featured Article (Span 8) -->
+<article class="md:col-span-8 glow-card rounded-xl overflow-hidden bg-surface-container-low group relative min-h-[400px] flex flex-col justify-end p-6">
+<div class="absolute inset-0 bg-black/40 z-10 group-hover:bg-black/20 transition-all duration-500"></div>
+<div class="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-700 group-hover:scale-105" data-alt="A highly detailed 50-100 word description of a futuristic stock market trading floor in an immersive deep navy and bright cyan light-mode setting. Large glowing digital data visualisations, sharp geometric screens, and dynamic data curves float against an infinite dark space. The mood is tense, technological, and authoritative, embodying a modern high-stakes financial command center." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCI2VwRJxk-B1oonxD73zT9I7h1CIyVJBJhPzrvfExcAUCEMIC-9sW8zS8GtJLB21H7xOldT_gW2i62hriRIvkzjnMJR61kgPyTPMn3-Mgp59eII7mwHKXFLXQAndOFG-PhJPBWWww3u4G6sKfjXWUrLi6jJuuuhtq1RaDBbghIn15858SRh4l0G1g7BP3-htpSol6nHHoKqsXpZ8rKCNBTTqT_wg7ZHd_o65_AAqvpChHcggozvvED')"></div>
+<div class="relative z-20">
+<div class="flex items-center gap-2 mb-4">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-cyan opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-neon-cyan"></span>
+</span>
+<span class="font-label-sm text-label-sm text-neon-cyan tracking-widest">LIVE DATA</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-white mb-3 leading-tight group-hover:text-neon-cyan transition-colors">הבינה המלאכותית משנה את מודלי תמחור הסיכונים בוול סטריט</h2>
+<p class="font-body-md text-body-md text-inverse-surface line-clamp-2">אלגוריתמים מתקדמים מבוססי רשתות נוירונים עמוקות מחליפים את המודלים הסטטיסטיים המסורתיים, ומאפשרים חיזוי מדויק יותר של תנודות שוק באלפיות השנייה.</p>
+</div>
+</article>
+<!-- Side Card (Span 4) -->
+<article class="md:col-span-4 glow-card rounded-xl overflow-hidden bg-surface-container group flex flex-col">
+<div class="h-48 relative overflow-hidden">
+<img alt="Tech Finance" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida/AP1WRLvVUe74zA9sXDx77pK48lOSiSS7o3u7Te4wxdBW6O85TBp4TWvrl87T0FcVeYRhtseoQOA9chCDkDhk3iaWcvqcsQSUUAk-16zLlI9BQSe1qGhIDN9hU1Pw7jB3iymeeSSpS-DBUbN3Im6uaSvAPf_Ucj7HchnJa3R0gXPJyw0i6Yk705iyVGti3KY26WwodDaJU_M8oltIW5fpIygFtuQbpZG2QmnoxnnfAe2bJxv6XzJJfen2uSLFbEOyDnXfLIPbTNiFdJ2e-Q"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container to-transparent"></div>
+</div>
+<div class="p-6 flex-grow flex flex-col">
+<span class="font-label-sm text-label-sm text-neon-cyan mb-2">רגולציה חכמה</span>
+<h3 class="font-headline-md text-headline-md text-white mb-3">האיחוד האירופי מקדם מסגרת חוקית חדשה למסחר אלגוריתמי</h3>
+<p class="font-body-md text-body-md text-on-surface-variant flex-grow text-sm">התקנות החדשות דורשות שקיפות מלאה במודלי AI המשמשים למסחר בתדירות גבוהה (HFT).</p>
+<div class="mt-4 pt-4 border-t border-outline-variant/30 flex justify-between items-center text-xs text-outline">
+<span>לפני שעתיים</span>
+<span>קריאה של 4 דק'</span>
+</div>
+</div>
+</article>
+<!-- Bottom Row Cards -->
+<article class="md:col-span-4 glow-card rounded-xl bg-surface-container-low p-6 flex flex-col group hover:bg-surface-container transition-colors duration-300">
+<span class="font-label-sm text-label-sm text-surface-tint mb-3">קריפטו ומטבעות דיגיטליים</span>
+<h3 class="font-headline-md text-headline-md text-white mb-3 line-clamp-3">אימוץ מוסדי של ביטקוין שובר שיאים ברבעון השלישי</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4 flex-grow text-sm">קרנות גידור מובילות מגדילות חשיפה בעקבות אישור תעודות הסל החדשות.</p>
+<a class="text-neon-cyan font-label-md text-label-md flex items-center gap-1 w-max" href="#">
+                     קרא עוד
+                     <span class="material-symbols-outlined text-sm">arrow_back</span>
+</a>
+</article>
+<article class="md:col-span-4 glow-card rounded-xl bg-surface-container-low p-6 flex flex-col group hover:bg-surface-container transition-colors duration-300">
+<span class="font-label-sm text-label-sm text-surface-tint mb-3">מיזוגים ורכישות</span>
+<h3 class="font-headline-md text-headline-md text-white mb-3 line-clamp-3">מגזר השבבים רותח: עסקת ענק נוספת נסגרת ב-40 מיליארד דולר</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4 flex-grow text-sm">המיזוג צפוי לשנות את מאזן הכוחות בתעשיית העיבוד המקבילי לשרתי AI.</p>
+<a class="text-neon-cyan font-label-md text-label-md flex items-center gap-1 w-max" href="#">
+                    קרא עוד
+                    <span class="material-symbols-outlined text-sm">arrow_back</span>
+</a>
+</article>
+<article class="md:col-span-4 glow-card rounded-xl bg-surface-container-low p-6 flex flex-col group hover:bg-surface-container transition-colors duration-300 relative overflow-hidden">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-neon-cyan/5 rounded-full blur-2xl"></div>
+<span class="font-label-sm text-label-sm text-surface-tint mb-3 relative z-10">טכנולוגיות פיננסיות (FinTech)</span>
+<h3 class="font-headline-md text-headline-md text-white mb-3 line-clamp-3 relative z-10">סטארט-אפ הפינטק הישראלי גייס 150 מיליון דולר לפי שווי של מיליארד</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4 flex-grow text-sm relative z-10">החברה מפתחת פלטפורמת תשלומים בינלאומית מבוססת בלוקצ'יין לארגונים.</p>
+<a class="text-neon-cyan font-label-md text-label-md flex items-center gap-1 w-max relative z-10" href="#">
+                    קרא עוד
+                    <span class="material-symbols-outlined text-sm">arrow_back</span>
+</a>
+</article>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-void-navy w-full mt-auto border-t border-neon-cyan/10">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter px-margin-mobile md:px-margin-desktop py-12 max-w-max-width mx-auto">
+<div>
+<span class="font-headline-md text-headline-md font-bold text-neon-cyan block mb-4">AgendaX</span>
+<p class="text-on-surface-variant font-body-md text-body-md text-sm">© 2024 AgendaX. Intelligence in the Machine.</p>
+</div>
+<div class="flex flex-wrap gap-4 md:justify-end items-center font-label-sm text-label-sm">
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-200 cursor-pointer" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-200 cursor-pointer" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-200 cursor-pointer" href="#">Contact</a>
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-200 cursor-pointer" href="#">Careers</a>
+<a class="text-on-surface-variant hover:text-neon-cyan transition-colors duration-200 cursor-pointer" href="#">Advertise</a>
+</div>
+</div>
+</footer>
+</body></html>
