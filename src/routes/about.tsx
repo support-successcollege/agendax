@@ -4,10 +4,10 @@ import About from "@/pages/About";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "אודות - YZ News" },
-      { name: "description", content: "אודות YZ News - פורטל החדשות המוביל לטכנולוגיה, כלכלה ושוק ההון" },
-      { property: "og:title", content: "אודות - YZ News" },
-      { property: "og:description", content: "אודות YZ News - פורטל החדשות המוביל לטכנולוגיה, כלכלה ושוק ההון" },
+      { title: "אודות - Agendax" },
+      { name: "description", content: "אודות Agendax - פורטל החדשות המוביל לטכנולוגיה, כלכלה ושוק ההון" },
+      { property: "og:title", content: "אודות - Agendax" },
+      { property: "og:description", content: "אודות Agendax - פורטל החדשות המוביל לטכנולוגיה, כלכלה ושוק ההון" },
     ],
   }),
   component: About,

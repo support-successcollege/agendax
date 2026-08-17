@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import CourseLanding from "@/pages/CourseLanding";
 import { courseQueryOptions } from "@/lib/queries";
 
-const SITE_URL = "https://yznews.store";
+const SITE_URL = "https://agendax.co.il";
 
 export const Route = createFileRoute("/courses/$slug")({
   loader: async ({ params, context }) => {
@@ -22,9 +22,9 @@ export const Route = createFileRoute("/courses/$slug")({
   },
   head: ({ loaderData, params }) => {
     const course = loaderData?.course;
-    const title = course ? `${course.title} | קורסים | YZ News` : "קורס - YZ News";
+    const title = course ? `${course.title} | קורסים | Agendax` : "קורס - Agendax";
     const description =
-      course?.description?.slice(0, 155) || "דף קורס מבית YZ News - פרטים, סילבוס והרשמה";
+      course?.description?.slice(0, 155) || "דף קורס מבית Agendax - פרטים, סילבוס והרשמה";
     const url = `${SITE_URL}/courses/${params.slug}`;
     const image = course?.image;
 

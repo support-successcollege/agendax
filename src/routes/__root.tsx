@@ -26,22 +26,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "UTF-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0" },
-      { title: "YZ NEWS | חדשות משוקי ההון , מניות, וול סטריט ודוחות כספיים" },
+      { title: "AGENDAX | חדשות משוקי ההון , מניות, וול סטריט ודוחות כספיים" },
       {
         name: "description",
         content:
           "העדכונים החמים ביותר משוקי הההון, ניתוח מניות מובילות, אירועי מאקרו-כלכלה בארה\"ב ודיווחים שוטפים מהבורסות האמריקאיות. כל הדיווחים שחשובים למשקיעים במקום אחד.",
       },
       { name: "google-site-verification", content: "dngVRAfNgIAWjQb7weDfwod_hMlikFCR0yA_ovFN0JM" },
-      { name: "author", content: "YZ News" },
+      { name: "author", content: "Agendax" },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "he_IL" },
-      { property: "og:site_name", content: "YZ News" },
+      { property: "og:site_name", content: "Agendax" },
       { name: "twitter:card", content: "summary_large_image" },
+      // Brand navy, so mobile browser chrome matches the header strip.
+      { name: "theme-color", content: "#02143F" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: SUPABASE_ORIGIN, crossOrigin: "anonymous" },
       { rel: "dns-prefetch", href: SUPABASE_ORIGIN },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },

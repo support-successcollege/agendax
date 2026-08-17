@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const siteUrl = "https://yznews.store";
+    const siteUrl = "https://agendax.co.il";
 
     // Get latest published articles
     const { data: articles, error } = await supabase
@@ -50,13 +50,13 @@ Deno.serve(async (req) => {
     const jsonLd = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "WebSite",
-      "name": "YZ News",
+      "name": "Agendax",
       "url": siteUrl,
-      "description": "YZ News - פורטל החדשות המוביל בישראל. חדשות חמות מעולם הטכנולוגיה, הכלכלה, שוק ההון והפוליטיקה.",
+      "description": "Agendax - פורטל החדשות המוביל בישראל. חדשות חמות מעולם הטכנולוגיה, הכלכלה, שוק ההון והפוליטיקה.",
       "inLanguage": "he-IL",
       "publisher": {
         "@type": "Organization",
-        "name": "YZ News",
+        "name": "Agendax",
         "logo": { "@type": "ImageObject", "url": `${siteUrl}/favicon.ico` }
       }
     });
@@ -66,22 +66,22 @@ Deno.serve(async (req) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YZ News - חדשות, טכנולוגיה וכלכלה</title>
-  <meta name="description" content="YZ News - פורטל החדשות המוביל בישראל. חדשות חמות מעולם הטכנולוגיה, הכלכלה, שוק ההון והפוליטיקה." />
+  <title>Agendax - חדשות, טכנולוגיה וכלכלה</title>
+  <meta name="description" content="Agendax - פורטל החדשות המוביל בישראל. חדשות חמות מעולם הטכנולוגיה, הכלכלה, שוק ההון והפוליטיקה." />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
   <meta name="googlebot" content="index, follow" />
   <link rel="canonical" href="${siteUrl}/" />
   <link rel="alternate" hreflang="he" href="${siteUrl}/" />
 
-  <meta property="og:title" content="YZ News - חדשות, טכנולוגיה וכלכלה" />
+  <meta property="og:title" content="Agendax - חדשות, טכנולוגיה וכלכלה" />
   <meta property="og:description" content="פורטל החדשות המוביל בישראל" />
   <meta property="og:url" content="${siteUrl}/" />
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="YZ News" />
+  <meta property="og:site_name" content="Agendax" />
   <meta property="og:locale" content="he_IL" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="YZ News - חדשות, טכנולוגיה וכלכלה" />
+  <meta name="twitter:title" content="Agendax - חדשות, טכנולוגיה וכלכלה" />
   <meta name="twitter:description" content="פורטל החדשות המוביל בישראל" />
 
   <script type="application/ld+json">${jsonLd}</script>
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
 </head>
 <body>
   <header>
-    <h1>YZ News - חדשות, טכנולוגיה וכלכלה</h1>
+    <h1>Agendax - חדשות, טכנולוגיה וכלכלה</h1>
     <nav aria-label="קטגוריות">${categoryLinksHtml}</nav>
   </header>
   <main>
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     ${articleListHtml}
   </main>
   <footer>
-    <p>&copy; YZ News</p>
+    <p>&copy; Agendax</p>
     <nav>
       <a href="${siteUrl}/about">אודות</a> |
       <a href="${siteUrl}/privacy">מדיניות פרטיות</a> |

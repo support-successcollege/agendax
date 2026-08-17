@@ -19,7 +19,7 @@ interface WhatsAppPostGeneratorProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const PUBLISHED_BASE_URL = "https://yznews.store";
+const PUBLISHED_BASE_URL = "https://agendax.co.il";
 
 const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGeneratorProps) => {
   const generateWhatsappPostFn = generateWhatsappPost;

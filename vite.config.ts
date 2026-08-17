@@ -13,7 +13,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 
 import { collectPrerenderPages } from "./scripts/collect-pages.ts";
 
-const SITE_HOST = process.env["SITE_URL"] ?? "https://yznews.store";
+const SITE_HOST = process.env["SITE_URL"] ?? "https://agendax.co.il";
 
 // GitHub Pages serves a project site under /<repo>/ unless a custom domain is
 // used. BASE_PATH lets CI switch between the two without touching the config.

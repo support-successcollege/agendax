@@ -87,7 +87,7 @@ export async function collectPrerenderPages(
         lastmod: publishedAt.toISOString(),
         ...(isFresh && {
           news: {
-            publication: { name: "YZ News", language: "he" },
+            publication: { name: "Agendax", language: "he" },
             publicationDate: publishedAt.toISOString(),
             title: article.title,
           },

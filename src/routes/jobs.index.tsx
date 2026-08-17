@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import Jobs from "@/pages/Jobs";
 import { jobsQueryOptions } from "@/lib/queries";
 
-const SITE_URL = "https://yznews.store";
-const TITLE = "אזור התעסוקה - YZ News";
+const SITE_URL = "https://agendax.co.il";
+const TITLE = "אזור התעסוקה - Agendax";
 const DESC =
-  "משרות חמות בעולם הטכנולוגיה, הפיננסים והתקשורת - אזור התעסוקה של YZ News";
+  "משרות חמות בעולם הטכנולוגיה, הפיננסים והתקשורת - אזור התעסוקה של Agendax";
 
 export const Route = createFileRoute("/jobs/")({
   loader: async ({ context }) => {

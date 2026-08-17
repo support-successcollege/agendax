@@ -177,7 +177,7 @@ const ArticleExportImport = ({ articles, onImport }: ArticleExportImportProps) =
           categorySlug:
             getCombinedField(row, ["slug קטגוריה", "categorySlug", "category_slug"]) || "news",
           date: getCombinedField(row, ["תאריך", "date"]) || new Date().toISOString().slice(0, 10),
-          author: getCombinedField(row, ["כתב", "author"]) || "מערכת YZ News",
+          author: getCombinedField(row, ["כתב", "author"]) || "מערכת Agendax",
           imageUrl:
             getCombinedField(row, ["תמונה", "imageUrl", "image_url"]) ||
             "https://images.unsplash.com/photo-1504711434969-e33886168d6c?w=800",

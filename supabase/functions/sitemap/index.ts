@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const siteUrl = "https://yznews.store";
+    const siteUrl = "https://agendax.co.il";
     const ssrBase = `${supabaseUrl}/functions/v1`;
 
     const { data: articles, error } = await supabase

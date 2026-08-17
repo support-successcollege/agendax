@@ -3,7 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.89.0';
 import { z } from 'npm:zod@3.23.8';
 
 const ADMIN_EMAIL = 'yzyns44@gmail.com';
-const SITE_URL = 'https://yznews.store';
+const SITE_URL = 'https://agendax.co.il';
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/google_mail/gmail/v1';
 
 const BodySchema = z.object({

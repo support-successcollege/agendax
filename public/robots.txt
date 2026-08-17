@@ -20,5 +20,5 @@ User-agent: *
 Disallow:
 Allow: /
 
-Sitemap: https://yznews.store/sitemap.xml
-Sitemap: https://yznews.store/news-sitemap.xml
+Sitemap: https://agendax.co.il/sitemap.xml
+Sitemap: https://agendax.co.il/news-sitemap.xml

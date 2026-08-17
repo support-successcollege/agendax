@@ -7,9 +7,9 @@ import {
   isUuid,
 } from "@/lib/queries";
 
-const SITE_URL = "https://yznews.store";
-const FALLBACK_TITLE = "כתבה - YZ News";
-const FALLBACK_DESC = "קריאת כתבה מלאה בפורטל החדשות YZ News";
+const SITE_URL = "https://agendax.co.il";
+const FALLBACK_TITLE = "כתבה - Agendax";
+const FALLBACK_DESC = "קריאת כתבה מלאה בפורטל החדשות Agendax";
 
 export const Route = createFileRoute("/article/$id")({
   // Fetch the full article on the server so both the crawler and the reader
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/article/$id")({
   },
   head: ({ loaderData, params }) => {
     const article = loaderData?.meta;
-    const title = article ? `${article.title} | YZ News` : FALLBACK_TITLE;
+    const title = article ? `${article.title} | Agendax` : FALLBACK_TITLE;
     const description = article?.excerpt?.slice(0, 155) || FALLBACK_DESC;
     const image = article?.image_url;
     const url = `${SITE_URL}/article/${encodeURIComponent(article?.id ?? decodeURIComponent(params.id))}`;
@@ -91,7 +91,7 @@ export const Route = createFileRoute("/article/$id")({
                 author: { "@type": "Person", name: article.author },
                 publisher: {
                   "@type": "Organization",
-                  name: "YZ News",
+                  name: "Agendax",
                   logo: {
                     "@type": "ImageObject",
                     url: `${SITE_URL}/favicon.png`,

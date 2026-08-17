@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccount);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const siteUrl = "sc-domain:yznews.store";
+    const siteUrl = "sc-domain:agendax.co.il";
     const encodedSiteUrl = encodeURIComponent(siteUrl);
 
     const results = [];
@@ -133,10 +133,10 @@ Deno.serve(async (req) => {
 
     // Step 2: Try to submit sitemaps using the site URL that the SA has access to
     // For domain properties, sitemaps must be on the same domain
-    // So we use yznews.store URLs that reference our edge functions via robots.txt
+    // So we use agendax.co.il URLs that reference our edge functions via robots.txt
     const sitemapUrls = [
-      `https://yznews.store/sitemap.xml`,
-      `https://yznews.store/news-sitemap.xml`,
+      `https://agendax.co.il/sitemap.xml`,
+      `https://agendax.co.il/news-sitemap.xml`,
     ];
 
     for (const sitemapUrl of sitemapUrls) {
@@ -189,21 +189,21 @@ Deno.serve(async (req) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                url: `https://yznews.store/article/${article.id}`,
+                url: `https://agendax.co.il/article/${article.id}`,
                 type: "URL_UPDATED",
               }),
             }
           );
           const indexBody = await indexRes.json();
           indexingResults.push({
-            url: `https://yznews.store/article/${article.id}`,
+            url: `https://agendax.co.il/article/${article.id}`,
             status: indexRes.status,
             success: indexRes.ok,
             response: indexBody,
           });
         } catch (e) {
           indexingResults.push({
-            url: `https://yznews.store/article/${article.id}`,
+            url: `https://agendax.co.il/article/${article.id}`,
             success: false,
             error: e instanceof Error ? e.message : "Unknown",
           });

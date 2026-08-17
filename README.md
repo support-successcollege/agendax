@@ -1,4 +1,4 @@
-# YZ News
+# Agendax
 
 פורטל חדשות בעברית (RTL) עם מחולל כתבות AI, אזור קורסים, לוח דרושים ומערכת חלוניות פרסום.
 
@@ -11,7 +11,7 @@ GitHub Pages (סטטי)                Supabase
 ├─ באנדל JS שמתלבש על ה-HTML       ├─ Auth
 ├─ 404.html = fallback ל-SPA       ├─ Storage (article-images)
 ├─ sitemap.xml + news-sitemap.xml   └─ Edge Functions (AI, PayPal, מיילים, ניהול)
-└─ CNAME → yznews.store
+└─ CNAME → agendax.co.il
 ```
 
 ## דרישות
@@ -64,7 +64,7 @@ bun run build && bun run preview
 | `VITE_SUPABASE_URL` | `https://<project>.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` |
 | `VITE_SUPABASE_PROJECT_ID` | מזהה הפרויקט |
-| `SITE_URL` | `https://yznews.store` |
+| `SITE_URL` | `https://agendax.co.il` |
 | `BASE_PATH` | `/` לדומיין מותאם, `/<repo>/` לאתר `github.io` |
 
 כל אלה ציבוריים — RLS הוא מה שמגן על הנתונים.

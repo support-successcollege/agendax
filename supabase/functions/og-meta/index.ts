@@ -34,7 +34,7 @@ serve(async (req) => {
       return new Response("Article not found", { status: 404 });
     }
 
-    const siteUrl = "https://yznews.store";
+    const siteUrl = "https://agendax.co.il";
     const articleUrl = `${siteUrl}/article/${article.id}`;
     const publishedDate = new Date(article.date).toISOString();
     const shareImage = socialImage(article.image_url);
@@ -43,7 +43,7 @@ serve(async (req) => {
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>${escapeHtml(article.title)} | YZ News</title>
+  <title>${escapeHtml(article.title)} | Agendax</title>
   <meta name="description" content="${escapeHtml(article.excerpt)}" />
   
   <meta property="og:title" content="${escapeHtml(article.title)}" />
@@ -55,7 +55,7 @@ serve(async (req) => {
   <meta property="og:image:alt" content="${escapeHtml(article.title)}" />
   <meta property="og:url" content="${articleUrl}" />
   <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="YZ News" />
+  <meta property="og:site_name" content="Agendax" />
   <meta property="og:locale" content="he_IL" />
   <meta property="article:published_time" content="${publishedDate}" />
   <meta property="article:author" content="${escapeHtml(article.author)}" />

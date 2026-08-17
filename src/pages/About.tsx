@@ -12,13 +12,13 @@ const About = () => {
         
         <main className="container py-12">
           <div className="max-w-3xl mx-auto">
-            <h1 className="text-4xl font-bold text-foreground mb-8">אודות YZ News</h1>
+            <h1 className="text-4xl font-bold text-foreground mb-8">אודות Agendax</h1>
             
             <div className="prose prose-lg max-w-none text-foreground/80 space-y-6">
               <section>
                 <h2 className="text-2xl font-semibold text-foreground mb-4">מי אנחנו</h2>
                 <p>
-                  YZ News הוא פורטל חדשות מוביל בישראל, המספק סיקור מקיף ועדכני של האירועים החשובים ביותר 
+                  Agendax הוא פורטל חדשות מוביל בישראל, המספק סיקור מקיף ועדכני של האירועים החשובים ביותר 
                   בתחומי הטכנולוגיה, הכלכלה, שוק ההון והפוליטיקה. אנחנו פועלים 24 שעות ביממה, 7 ימים בשבוע, 
                   כדי להביא לכם את החדשות החמות ביותר ברגע שהן מתרחשות.
                 </p>

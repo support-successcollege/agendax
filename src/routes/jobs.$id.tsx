@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import JobDetail from "@/pages/JobDetail";
 import { jobQueryOptions } from "@/lib/queries";
 
-const SITE_URL = "https://yznews.store";
+const SITE_URL = "https://agendax.co.il";
 
 export const Route = createFileRoute("/jobs/$id")({
   loader: async ({ params, context }) => {
@@ -24,12 +24,12 @@ export const Route = createFileRoute("/jobs/$id")({
   head: ({ loaderData, params }) => {
     const job = loaderData?.job;
     const title = job
-      ? `${job.title} ב${job.company} | אזור התעסוקה | YZ News`
-      : "משרה - YZ News";
+      ? `${job.title} ב${job.company} | אזור התעסוקה | Agendax`
+      : "משרה - Agendax";
 
     const description =
       job?.description?.replace(/<[^>]*>/g, " ").slice(0, 155) ||
-      "פרטי משרה באזור התעסוקה של YZ News";
+      "פרטי משרה באזור התעסוקה של Agendax";
     const url = `${SITE_URL}/jobs/${params.id}`;
     const image = job?.image;
 

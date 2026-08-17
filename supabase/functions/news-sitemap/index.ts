@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       throw error;
     }
 
-    const siteUrl = "https://yznews.store";
+    const siteUrl = "https://agendax.co.il";
 
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -43,7 +43,7 @@ ${(articles || [])
     <loc>${siteUrl}/article/${article.id}</loc>
     <news:news>
       <news:publication>
-        <news:name>YZ News</news:name>
+        <news:name>Agendax</news:name>
         <news:language>he</news:language>
       </news:publication>
       <news:publication_date>${new Date(article.date).toISOString()}</news:publication_date>

@@ -31,7 +31,7 @@ async function resolveAndFetch(url: string, timeoutMs = 12000): Promise<{ url: s
       redirect: "follow",
       signal: ctrl.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; YZNewsBot/1.0; +https://yznews.store)",
+        "User-Agent": "Mozilla/5.0 (compatible; AgendaxBot/1.0; +https://agendax.co.il)",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "he,en;q=0.8",
       },

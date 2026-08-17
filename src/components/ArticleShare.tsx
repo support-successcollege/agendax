@@ -9,7 +9,7 @@ interface ArticleShareProps {
   url?: string;
 }
 
-const PUBLISHED_BASE_URL = "https://yznews.store";
+const PUBLISHED_BASE_URL = "https://agendax.co.il";
 
 const ArticleShare = ({ title, url }: ArticleShareProps) => {
   const [copied, setCopied] = useState(false);

@@ -12,7 +12,7 @@ const Accessibility = () => {
           <h1 className="text-3xl font-black text-foreground">הצהרת נגישות</h1>
 
           <p className="text-foreground/80 leading-relaxed">
-            אתר YZ News פועל להנגשת תכניו ושירותיו לאנשים עם מוגבלויות, בהתאם 
+            אתר Agendax פועל להנגשת תכניו ושירותיו לאנשים עם מוגבלויות, בהתאם 
             <strong> לתקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות)</strong>, 
             התשע"ג-2013, ובהתאם <strong>לתקן הישראלי ת"י 5568</strong> ברמת AA של הנחיות WCAG 2.1.
           </p>

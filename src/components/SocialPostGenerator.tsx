@@ -19,7 +19,7 @@ interface SocialPostGeneratorProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const PUBLISHED_BASE_URL = "https://yznews.store";
+const PUBLISHED_BASE_URL = "https://agendax.co.il";
 
 const SocialPostGenerator = ({ article, open, onOpenChange }: SocialPostGeneratorProps) => {
   const generateSocialPostFn = generateSocialPost;

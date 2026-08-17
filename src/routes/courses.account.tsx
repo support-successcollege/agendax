@@ -4,10 +4,10 @@ import CoursesAccount from "@/pages/CoursesAccount";
 export const Route = createFileRoute("/courses/account")({
   head: () => ({
     meta: [
-      { title: "האזור האישי - קורסים - YZ News" },
-      { name: "description", content: "האזור האישי לתלמידי הקורסים של YZ News" },
-      { property: "og:title", content: "האזור האישי - קורסים - YZ News" },
-      { property: "og:description", content: "האזור האישי לתלמידי הקורסים של YZ News" },
+      { title: "האזור האישי - קורסים - Agendax" },
+      { name: "description", content: "האזור האישי לתלמידי הקורסים של Agendax" },
+      { property: "og:title", content: "האזור האישי - קורסים - Agendax" },
+      { property: "og:description", content: "האזור האישי לתלמידי הקורסים של Agendax" },
       { name: "robots", content: "noindex" },
     ],
   }),

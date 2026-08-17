@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       return new Response("Article not found", { status: 404, headers: corsHeaders });
     }
 
-    const siteUrl = "https://yznews.store";
+    const siteUrl = "https://agendax.co.il";
     const articleUrl = `${siteUrl}/article/${article.id}`;
     const publishedDate = new Date(article.date).toISOString();
     const modifiedDate = new Date(article.updated_at || article.date).toISOString();
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       "author": { "@type": "Person", "name": article.author },
       "publisher": {
         "@type": "Organization",
-        "name": "YZ News",
+        "name": "Agendax",
         "logo": { "@type": "ImageObject", "url": `${siteUrl}/favicon.ico` }
       },
       "mainEntityOfPage": { "@type": "WebPage", "@id": articleUrl },
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(article.title)} | YZ News</title>
+  <title>${escapeHtml(article.title)} | Agendax</title>
   <meta name="description" content="${escapeHtml(article.excerpt)}" />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
   <meta name="googlebot" content="index, follow" />
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
   <meta property="og:image:alt" content="${escapeHtml(article.title)}" />
   <meta property="og:url" content="${articleUrl}" />
   <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="YZ News" />
+  <meta property="og:site_name" content="Agendax" />
   <meta property="og:locale" content="he_IL" />
   <meta property="article:published_time" content="${publishedDate}" />
   <meta property="article:modified_time" content="${modifiedDate}" />
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
 </head>
 <body>
   <header>
-    <h1><a href="${siteUrl}">YZ News</a></h1>
+    <h1><a href="${siteUrl}">Agendax</a></h1>
     <nav aria-label="breadcrumb">
       <a href="${siteUrl}">ראשי</a> &gt;
       <a href="${siteUrl}/?category=${escapeHtml(article.category_slug)}">${escapeHtml(article.category)}</a> &gt;
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     </article>
   </main>
   <footer>
-    <p>&copy; YZ News</p>
+    <p>&copy; Agendax</p>
     <nav>
       <a href="${siteUrl}">דף הבית</a> |
       <a href="${siteUrl}/about">אודות</a> |

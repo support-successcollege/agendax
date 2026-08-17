@@ -4,10 +4,10 @@ import ResetPassword from "@/pages/ResetPassword";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "איפוס סיסמה - YZ News" },
-      { name: "description", content: "איפוס סיסמה לחשבון YZ News" },
-      { property: "og:title", content: "איפוס סיסמה - YZ News" },
-      { property: "og:description", content: "איפוס סיסמה לחשבון YZ News" },
+      { title: "איפוס סיסמה - Agendax" },
+      { name: "description", content: "איפוס סיסמה לחשבון Agendax" },
+      { property: "og:title", content: "איפוס סיסמה - Agendax" },
+      { property: "og:description", content: "איפוס סיסמה לחשבון Agendax" },
       { name: "robots", content: "noindex" },
     ],
   }),

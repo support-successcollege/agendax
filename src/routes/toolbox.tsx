@@ -4,10 +4,10 @@ import Toolbox from "@/pages/Toolbox";
 export const Route = createFileRoute("/toolbox")({
   head: () => ({
     meta: [
-      { title: "ארגז הכלים - YZ News" },
-      { name: "description", content: "כלים, שירותים והטבות מומלצים מבית YZ News" },
-      { property: "og:title", content: "ארגז הכלים - YZ News" },
-      { property: "og:description", content: "כלים, שירותים והטבות מומלצים מבית YZ News" },
+      { title: "ארגז הכלים - Agendax" },
+      { name: "description", content: "כלים, שירותים והטבות מומלצים מבית Agendax" },
+      { property: "og:title", content: "ארגז הכלים - Agendax" },
+      { property: "og:description", content: "כלים, שירותים והטבות מומלצים מבית Agendax" },
     ],
   }),
   component: Toolbox,

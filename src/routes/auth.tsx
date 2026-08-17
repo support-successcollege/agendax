@@ -4,10 +4,10 @@ import Auth from "@/pages/Auth";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "התחברות - YZ News" },
-      { name: "description", content: "התחברות למערכת הניהול של YZ News" },
-      { property: "og:title", content: "התחברות - YZ News" },
-      { property: "og:description", content: "התחברות למערכת הניהול של YZ News" },
+      { title: "התחברות - Agendax" },
+      { name: "description", content: "התחברות למערכת הניהול של Agendax" },
+      { property: "og:title", content: "התחברות - Agendax" },
+      { property: "og:description", content: "התחברות למערכת הניהול של Agendax" },
       { name: "robots", content: "noindex" },
     ],
   }),

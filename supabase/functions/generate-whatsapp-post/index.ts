@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
 
     const truncatedContent = content ? content.substring(0, 2000) : "לא סופק";
 
-    const prompt = `אתה כותב הודעות עבור ערוץ וואטסאפ של אתר חדשות בשם YZ News.
+    const prompt = `אתה כותב הודעות עבור ערוץ וואטסאפ של אתר חדשות בשם Agendax.
 צור הודעה קצרה, ממוקדת ומסקרנת לערוץ וואטסאפ על הכתבה הבאה.
 
 ההודעה צריכה להיות:

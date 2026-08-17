@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import Courses from "@/pages/Courses";
 import { coursesQueryOptions } from "@/lib/queries";
 
-const SITE_URL = "https://yznews.store";
-const TITLE = "קורסים והרצאות - YZ News";
-const DESC = "קורסים, הרצאות ואירועים קרובים מבית YZ News";
+const SITE_URL = "https://agendax.co.il";
+const TITLE = "קורסים והרצאות - Agendax";
+const DESC = "קורסים, הרצאות ואירועים קרובים מבית Agendax";
 
 export const Route = createFileRoute("/courses/")({
   loader: async ({ context }) => {

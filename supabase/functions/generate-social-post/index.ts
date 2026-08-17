@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     // Truncate content to avoid timeouts
     const truncatedContent = content ? content.substring(0, 2000) : "לא סופק";
 
-    const prompt = `אתה כותב תוכן מקצועי ומעמיק לרשתות חברתיות עבור אתר חדשות בשם YZ News.
+    const prompt = `אתה כותב תוכן מקצועי ומעמיק לרשתות חברתיות עבור אתר חדשות בשם Agendax.
 צור פוסט מרשים לרשת חברתית (פייסבוק/טוויטר/לינקדאין) על הכתבה הבאה.
 
 הפוסט צריך לכלול:

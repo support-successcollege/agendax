@@ -10,7 +10,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const OUT_DIR = process.env["PAGES_OUT_DIR"] ?? "dist/client";
-const SITE_URL = process.env["SITE_URL"] ?? "https://yznews.store";
+const SITE_URL = process.env["SITE_URL"] ?? "https://agendax.co.il";
 const NEWS_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 // ---------- 1. SPA fallback ----------
@@ -66,7 +66,7 @@ const entries = articles
     <loc>${escapeXml(loc)}</loc>
     <news:news>
       <news:publication>
-        <news:name>YZ News</news:name>
+        <news:name>Agendax</news:name>
         <news:language>he</news:language>
       </news:publication>
       <news:publication_date>${new Date(article.date).toISOString()}</news:publication_date>

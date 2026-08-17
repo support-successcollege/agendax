@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       content,
       category: "ללא קטגוריה",
       category_slug: "uncategorized",
-      image_url: imageUrl || "https://placehold.co/1200x800?text=YZ+News",
+      image_url: imageUrl || "https://placehold.co/1200x800?text=Agendax",
       author,
       is_draft: true,
       is_breaking: false,

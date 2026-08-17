@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import EventLanding from "@/pages/EventLanding";
 import { eventQueryOptions } from "@/lib/queries";
 
-const SITE_URL = "https://yznews.store";
+const SITE_URL = "https://agendax.co.il";
 
 export const Route = createFileRoute("/events/$slug")({
   loader: async ({ params, context }) => {
@@ -24,9 +24,9 @@ export const Route = createFileRoute("/events/$slug")({
   },
   head: ({ loaderData, params }) => {
     const event = loaderData?.event;
-    const title = event ? `${event.title} | אירועים | YZ News` : "אירוע - YZ News";
+    const title = event ? `${event.title} | אירועים | Agendax` : "אירוע - Agendax";
     const description =
-      event?.description?.slice(0, 155) || "דף אירוע מבית YZ News - פרטים והרשמה";
+      event?.description?.slice(0, 155) || "דף אירוע מבית Agendax - פרטים והרשמה";
     const url = `${SITE_URL}/events/${params.slug}`;
     const image = event?.image;
 
@@ -61,7 +61,7 @@ export const Route = createFileRoute("/events/$slug")({
                 location: event.location
                   ? { "@type": "Place", name: event.location }
                   : { "@type": "VirtualLocation", url },
-                organizer: { "@type": "Organization", name: "YZ News", url: SITE_URL },
+                organizer: { "@type": "Organization", name: "Agendax", url: SITE_URL },
               }),
             },
           ]
