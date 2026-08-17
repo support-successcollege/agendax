@@ -1,5 +1,7 @@
-import { corsHeaders } from 'npm:@supabase/supabase-js@2.89.0/cors';
-import { createClient } from 'npm:@supabase/supabase-js@2.89.0';
+// Both pinned to one version that provably ships the ./cors subpath export —
+// 2.89.0 predates it and boots with BOOT_ERROR on the edge runtime.
+import { corsHeaders } from 'npm:@supabase/supabase-js@2.111.0/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2.111.0';
 import { z } from 'npm:zod@3.23.8';
 
 // No generated Database types are available inside the Deno runtime, and an
