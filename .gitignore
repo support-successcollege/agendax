@@ -33,3 +33,6 @@ dist-ssr
 .output
 .nitro
 .tanstack
+
+# Artifact of running deno check on the edge functions locally
+deno.lock
