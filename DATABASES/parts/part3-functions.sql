@@ -1,5 +1,10 @@
 set search_path = public;
 
+-- SQL-language functions are body-checked at CREATE time, and the dump is
+-- alphabetical - has_course_access calls has_role, which sorts after it.
+-- Deferring body validation (exactly what pg_dump emits) makes order moot.
+set check_function_bodies = off;
+
 -- ======================================================================
 -- FUNCTIONS
 -- ======================================================================
@@ -419,21 +424,34 @@ $function$
 -- TRIGGERS
 -- ======================================================================
 
+drop trigger if exists update_articles_updated_at on public.articles;
 CREATE TRIGGER update_articles_updated_at BEFORE UPDATE ON public.articles FOR EACH ROW EXECUTE FUNCTION update_articles_updated_at();
 
+drop trigger if exists articles_set_slug_trg on public.articles;
 CREATE TRIGGER articles_set_slug_trg BEFORE INSERT OR UPDATE OF title, slug ON public.articles FOR EACH ROW EXECUTE FUNCTION articles_set_slug();
 
+drop trigger if exists update_categories_updated_at on public.categories;
 CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON public.categories FOR EACH ROW EXECUTE FUNCTION update_articles_updated_at();
 
+drop trigger if exists update_course_coupons_updated_at on public.course_coupons;
 CREATE TRIGGER update_course_coupons_updated_at BEFORE UPDATE ON public.course_coupons FOR EACH ROW EXECUTE FUNCTION update_courses_updated_at();
 
+drop trigger if exists trg_courses_updated on public.courses;
 CREATE TRIGGER trg_courses_updated BEFORE UPDATE ON public.courses FOR EACH ROW EXECUTE FUNCTION update_courses_updated_at();
 
+drop trigger if exists trg_events_updated on public.events;
 CREATE TRIGGER trg_events_updated BEFORE UPDATE ON public.events FOR EACH ROW EXECUTE FUNCTION update_courses_updated_at();
 
+drop trigger if exists update_jobs_updated_at on public.jobs;
 CREATE TRIGGER update_jobs_updated_at BEFORE UPDATE ON public.jobs FOR EACH ROW EXECUTE FUNCTION update_articles_updated_at();
 
+drop trigger if exists update_products_updated_at on public.products;
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION update_courses_updated_at();
 
 
 
+
+-- The dump was filtered to the public schema, so the trigger that actually
+-- fires handle_new_user — it lives on auth.users — was never captured.
+drop trigger if exists on_auth_user_created on auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
