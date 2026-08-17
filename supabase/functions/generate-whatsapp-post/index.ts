@@ -89,7 +89,7 @@ ${url}
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
         max_tokens: 500,
       }),

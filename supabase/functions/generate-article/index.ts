@@ -160,7 +160,7 @@ serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3.6-flash",
         messages: [
           { role: "system", content: "החזר מחרוזת חיפוש קצרה (3-7 מילים) בעברית עבור Google News, ללא מרכאות וללא הסבר. רק המילים." },
           { role: "user", content: topic },
@@ -183,7 +183,7 @@ serve(async (req) => {
         method: "POST",
         headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "gemini-2.5-flash-lite",
+          model: "gemini-3.6-flash",
           messages: [
             { role: "system", content: 'סווג את הנושא. החזר JSON תקין בלבד: {"isFinancial": boolean, "company": string|null, "reportType": "רבעוני"|"שנתי"|"חצי-שנתי"|"מיידי"|null}. isFinancial=true אם זה דוח כספי / תוצאות חברה / רווחים / הכנסות / דיווח מאיה.' },
             { role: "user", content: topic },
@@ -270,7 +270,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         messages: [
           { role: "system", content: researchSystem },
           {
@@ -333,7 +333,7 @@ serve(async (req) => {
     let imageUrl: string | null = null;
     try {
       const imgResp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash-image:generateContent",
         {
           method: "POST",
           headers: {

@@ -158,7 +158,7 @@ ${Object.entries(refToArticle).slice(0, 5).map(([ref, articles]) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         messages: [
           { role: "system", content: "אתה יועץ אסטרטגי מומחה לאתרי תוכן דיגיטליים בתחומי טכנולוגיה וכלכלה. אתה מנתח נתונים ונותן המלצות מעשיות, ספציפיות ומבוססות נתונים. כתוב תמיד בעברית." },
           { role: "user", content: dataPrompt },
