@@ -76,7 +76,7 @@ bun run build && bun run preview
 
 | קובץ בצד לקוח | Edge Function | סוד שנדרש |
 |---|---|---|
-| `ai.functions.ts` | `generate-article`, `verify-article`, `generate-social-post`, `generate-whatsapp-post`, `analyze-site` | מפתח ספק ה-AI |
+| `ai.functions.ts` | `generate-article`, `verify-article`, `generate-social-post`, `generate-whatsapp-post`, `analyze-site` | `GEMINI_API_KEY` (חינמי מ-aistudio.google.com) |
 | `admin.functions.ts` | `admin-create-student`, `submit-sitemap`, `send-admin-notification` | service role, Google service account, `RESEND_API_KEY` |
 | `paypal.functions.ts` | `paypal-config`, `paypal-create-order`, `paypal-capture-order` | `PAYPAL_CLIENT_SECRET` |
 
@@ -106,12 +106,9 @@ supabase secrets set PAYPAL_CLIENT_ID=... PAYPAL_CLIENT_SECRET=... RESEND_API_KE
 
 ## מה נשאר תלוי ב-Lovable
 
-- `ai.gateway.lovable.dev` ו-`LOVABLE_API_KEY` בפונקציות ה-AI.
-- `AIArticlePlusBridge` פותח חלון אל `news-creator-plus.lovable.app`.
+- `AIArticlePlusBridge` פותח חלון אל `news-creator-plus.lovable.app` — הקשר האחרון שנותר.
 
-*(שליחת המיילים כבר לא עוברת דרך Lovable — הוחלפה ב-Resend.)*
-
-הפורמט של ה-gateway תואם OpenAI, ולכן מעבר לספק אחר הוא החלפת URL ומפתח בלבד.
+*(מיילים עברו ל-Resend; פונקציות ה-AI עברו ל-Gemini API ישיר עם `GEMINI_API_KEY`.)*
 
 ## מגבלות של GitHub Pages שצריך להכיר
 

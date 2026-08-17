@@ -108,7 +108,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 async function requireAdmin(req: Request): Promise<Response | null> {
   const authHeader = req.headers.get("Authorization");
@@ -150,17 +150,17 @@ serve(async (req) => {
       return json({ error: "יש לספק נושא או ידיעה" }, 400);
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY חסר" }, 500);
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY חסר" }, 500);
 
     const today = new Date().toISOString().slice(0, 10);
 
     // === Step 1a: Extract Hebrew search query from topic ===
     const queryResp = await fetch(AI_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: "החזר מחרוזת חיפוש קצרה (3-7 מילים) בעברית עבור Google News, ללא מרכאות וללא הסבר. רק המילים." },
           { role: "user", content: topic },
@@ -181,9 +181,9 @@ serve(async (req) => {
     try {
       const clsResp = await fetch(AI_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash-lite",
+          model: "gemini-2.5-flash-lite",
           messages: [
             { role: "system", content: 'סווג את הנושא. החזר JSON תקין בלבד: {"isFinancial": boolean, "company": string|null, "reportType": "רבעוני"|"שנתי"|"חצי-שנתי"|"מיידי"|null}. isFinancial=true אם זה דוח כספי / תוצאות חברה / רווחים / הכנסות / דיווח מאיה.' },
             { role: "user", content: topic },
@@ -266,11 +266,11 @@ serve(async (req) => {
     const articleResp = await fetch(AI_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "gemini-2.5-pro",
         messages: [
           { role: "system", content: researchSystem },
           {
@@ -312,7 +312,7 @@ serve(async (req) => {
       const t = await articleResp.text();
       console.error("AI article error", articleResp.status, t);
       if (articleResp.status === 429) return json({ error: "חריגה ממכסת הבקשות, נסה שוב בעוד רגע" }, 429);
-      if (articleResp.status === 402) return json({ error: "אין מספיק קרדיטים בחשבון Lovable AI" }, 402);
+      if (articleResp.status === 402) return json({ error: "חריגה ממכסת ה-API של Gemini, נסו שוב מאוחר יותר" }, 402);
       return json({ error: "שגיאה בניסוח הכתבה" }, 500);
     }
 
@@ -325,28 +325,61 @@ serve(async (req) => {
     const article = JSON.parse(toolCall.function.arguments);
 
     // === Step 3: Generate image ===
+    // Google's OpenAI-compat layer covers chat only, so the image call goes to
+    // the native generateContent endpoint. The old gateway returned a base64
+    // data URL that got stored verbatim in articles.image_url; here the bytes
+    // are uploaded to the article-images bucket instead and only a public URL
+    // is stored.
     let imageUrl: string | null = null;
     try {
-      const imgResp = await fetch(AI_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
+      const imgResp = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "x-goog-api-key": GEMINI_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `${article.image_prompt}. Editorial photojournalism style, realistic, high quality, no text or watermarks, 16:9 composition.`,
+                  },
+                ],
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          messages: [
-            {
-              role: "user",
-              content: `${article.image_prompt}. Editorial photojournalism style, realistic, high quality, no text or watermarks, 16:9 composition.`,
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      });
+      );
       if (imgResp.ok) {
         const imgData = await imgResp.json();
-        imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? null;
+        const part = imgData.candidates?.[0]?.content?.parts?.find(
+          (p: { inlineData?: { data?: string } }) => p.inlineData?.data,
+        );
+        if (part) {
+          const b64: string = part.inlineData.data;
+          const mime: string = part.inlineData.mimeType || "image/png";
+          const bin = atob(b64);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+          const admin = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          );
+          const ext = mime.split("/")[1]?.split("+")[0] || "png";
+          const path = `generated/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+          const { error: upErr } = await admin.storage
+            .from("article-images")
+            .upload(path, bytes, { contentType: mime, upsert: false });
+          if (upErr) {
+            console.error("Image upload failed", upErr);
+          } else {
+            imageUrl = admin.storage.from("article-images").getPublicUrl(path).data.publicUrl;
+          }
+        }
       } else {
         console.error("Image gen failed", imgResp.status, await imgResp.text());
       }

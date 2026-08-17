@@ -67,22 +67,22 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not configured");
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     console.log("Verifying article:", title);
 
-    const verifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const verifyResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "gemini-2.5-pro",
         messages: [
           {
             role: "system",
@@ -142,7 +142,7 @@ ${content}`
       }
       if (verifyResponse.status === 402) {
         return new Response(
-          JSON.stringify({ error: "נדרש תשלום, הוסף קרדיטים לחשבון Lovable שלך" }),
+          JSON.stringify({ error: "חריגה ממכסת ה-API של Gemini, נסו שוב מאוחר יותר" }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
