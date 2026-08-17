@@ -3,9 +3,9 @@ import Index from "@/pages/Index";
 import { articlesQueryOptions, categoriesQueryOptions } from "@/lib/queries";
 
 const SITE_URL = "https://agendax.co.il";
-const TITLE = "AGENDAX | חדשות משוקי ההון , מניות, וול סטריט ודוחות כספיים";
+const TITLE = "Agendax | הייטק, AI, כספים וחברות";
 const DESC =
-  "העדכונים החמים ביותר משוקי הההון, ניתוח מניות מובילות, אירועי מאקרו-כלכלה בארה\"ב ודיווחים שוטפים מהבורסות האמריקאיות. כל הדיווחים שחשובים למשקיעים במקום אחד.";
+  "סדר היום של עולם החדשנות — הייטק, בינה מלאכותית, שוקי ההון והחברות שמזיזות אותם. סיקור שוטף בעברית, עם ההקשר שצריך כדי להבין למה זה משנה.";
 // Built at design time from the wordmark — public/og-image.png, 1200x630.
 const SOCIAL_IMAGE = `${SITE_URL}/og-image.png`;
 

@@ -9,7 +9,7 @@ import {
 
 const SITE_URL = "https://agendax.co.il";
 const FALLBACK_TITLE = "כתבה - Agendax";
-const FALLBACK_DESC = "קריאת כתבה מלאה בפורטל החדשות Agendax";
+const FALLBACK_DESC = "קריאת כתבה מלאה ב-Agendax — הייטק, AI, כספים וחברות";
 
 export const Route = createFileRoute("/article/$id")({
   // Fetch the full article on the server so both the crawler and the reader

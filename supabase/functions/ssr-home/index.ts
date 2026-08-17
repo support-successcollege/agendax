@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       "@type": "WebSite",
       "name": "Agendax",
       "url": siteUrl,
-      "description": "Agendax - פורטל החדשות המוביל בישראל. חדשות חמות מעולם הטכנולוגיה, הכלכלה, שוק ההון והפוליטיקה.",
+      "description": "Agendax - סדר היום של עולם החדשנות: הייטק, בינה מלאכותית, שוקי ההון והחברות שמזיזות אותם.",
       "inLanguage": "he-IL",
       "publisher": {
         "@type": "Organization",
@@ -66,23 +66,23 @@ Deno.serve(async (req) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agendax - חדשות, טכנולוגיה וכלכלה</title>
-  <meta name="description" content="Agendax - פורטל החדשות המוביל בישראל. חדשות חמות מעולם הטכנולוגיה, הכלכלה, שוק ההון והפוליטיקה." />
+  <title>Agendax | הייטק, AI, כספים וחברות</title>
+  <meta name="description" content="Agendax - סדר היום של עולם החדשנות: הייטק, בינה מלאכותית, שוקי ההון והחברות שמזיזות אותם." />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
   <meta name="googlebot" content="index, follow" />
   <link rel="canonical" href="${siteUrl}/" />
   <link rel="alternate" hreflang="he" href="${siteUrl}/" />
 
-  <meta property="og:title" content="Agendax - חדשות, טכנולוגיה וכלכלה" />
-  <meta property="og:description" content="פורטל החדשות המוביל בישראל" />
+  <meta property="og:title" content="Agendax | הייטק, AI, כספים וחברות" />
+  <meta property="og:description" content="הייטק, AI, כספים וחברות" />
   <meta property="og:url" content="${siteUrl}/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Agendax" />
   <meta property="og:locale" content="he_IL" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Agendax - חדשות, טכנולוגיה וכלכלה" />
-  <meta name="twitter:description" content="פורטל החדשות המוביל בישראל" />
+  <meta name="twitter:title" content="Agendax | הייטק, AI, כספים וחברות" />
+  <meta name="twitter:description" content="הייטק, AI, כספים וחברות" />
 
   <script type="application/ld+json">${jsonLd}</script>
 
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
 </head>
 <body>
   <header>
-    <h1>Agendax - חדשות, טכנולוגיה וכלכלה</h1>
+    <h1>Agendax | הייטק, AI, כספים וחברות</h1>
     <nav aria-label="קטגוריות">${categoryLinksHtml}</nav>
   </header>
   <main>

@@ -26,11 +26,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "UTF-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0" },
-      { title: "AGENDAX | חדשות משוקי ההון , מניות, וול סטריט ודוחות כספיים" },
+      { title: "Agendax | הייטק, AI, כספים וחברות" },
       {
         name: "description",
         content:
-          "העדכונים החמים ביותר משוקי הההון, ניתוח מניות מובילות, אירועי מאקרו-כלכלה בארה\"ב ודיווחים שוטפים מהבורסות האמריקאיות. כל הדיווחים שחשובים למשקיעים במקום אחד.",
+          "סדר היום של עולם החדשנות — הייטק, בינה מלאכותית, שוקי ההון והחברות שמזיזות אותם. סיקור שוטף בעברית, עם ההקשר שצריך כדי להבין למה זה משנה.",
       },
       { name: "google-site-verification", content: "dngVRAfNgIAWjQb7weDfwod_hMlikFCR0yA_ovFN0JM" },
       { name: "author", content: "Agendax" },

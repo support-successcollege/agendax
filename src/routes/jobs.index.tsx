@@ -5,7 +5,7 @@ import { jobsQueryOptions } from "@/lib/queries";
 const SITE_URL = "https://agendax.co.il";
 const TITLE = "אזור התעסוקה - Agendax";
 const DESC =
-  "משרות חמות בעולם הטכנולוגיה, הפיננסים והתקשורת - אזור התעסוקה של Agendax";
+  "משרות בהייטק, ב-AI ובפיננסים - אזור התעסוקה של Agendax";
 
 export const Route = createFileRoute("/jobs/")({
   loader: async ({ context }) => {

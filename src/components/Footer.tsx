@@ -26,8 +26,8 @@ const Footer = () => (
         <div className="md:col-span-2">
           <img src={wordmark} alt="Agendax" width={800} height={107} className="h-7 w-auto mb-5" />
           <p className="text-primary-foreground/70 text-sm leading-relaxed mb-6 max-w-md">
-            Agendax מסקר את שוקי ההון, הטכנולוגיה והכלכלה הישראלית והגלובלית — סיקור
-            שוטף, ניתוח מעמיק ודוחות כספיים, מסביב לשעון.
+            Agendax מסקר את עולם החדשנות — הייטק, בינה מלאכותית, שוקי ההון והחברות
+            שמובילות את השוק. סיקור שוטף, ניתוח מעמיק, וההקשר שמאחורי הכותרת.
           </p>
           <div className="flex items-center gap-3">
             {SOCIALS.map(({ href, label, Icon }) => (

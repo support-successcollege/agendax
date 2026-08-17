@@ -57,7 +57,7 @@ const Index = () => {
         <BreakingNews articles={publishedArticles} />
 
         <main className="container py-8" id="main-content">
-          <h1 className="sr-only">Agendax — פורטל החדשות המוביל בישראל</h1>
+          <h1 className="sr-only">Agendax — סדר היום של הטכנולוגיה, ה-AI והעסקים</h1>
           {/* Featured Article - only on home */}
           {activeCategory === "home" && filteredArticles.length > 0 && (
             <div className="mb-8">
