@@ -20,6 +20,9 @@
 --   course-content   private
 
 set search_path = public;
+-- Function bodies validate lazily: the dump is alphabetical, so callers can
+-- precede their callees (has_course_access calls has_role).
+set check_function_bodies = off;
 
 
 -- ======================================================================
@@ -927,6 +930,12 @@ CREATE TRIGGER update_jobs_updated_at BEFORE UPDATE ON public.jobs FOR EACH ROW 
 
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION update_courses_updated_at();
 
+
+
+-- The public-schema dump could not see this trigger - it lives on auth.users.
+-- Without it handle_new_user never fires and signups get no profile/role row.
+drop trigger if exists on_auth_user_created on auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 
 -- ======================================================================
