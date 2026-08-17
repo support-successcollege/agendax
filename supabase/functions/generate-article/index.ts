@@ -270,7 +270,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-pro",
+        model: "gemini-2.5-flash",
         messages: [
           { role: "system", content: researchSystem },
           {
@@ -313,7 +313,7 @@ serve(async (req) => {
       console.error("AI article error", articleResp.status, t);
       if (articleResp.status === 429) return json({ error: "חריגה ממכסת הבקשות, נסה שוב בעוד רגע" }, 429);
       if (articleResp.status === 402) return json({ error: "חריגה ממכסת ה-API של Gemini, נסו שוב מאוחר יותר" }, 402);
-      return json({ error: "שגיאה בניסוח הכתבה" }, 500);
+      return json({ error: `שגיאה בניסוח הכתבה (Gemini ${articleResp.status}): ${t.slice(0, 300)}` }, 500);
     }
 
     const articleData = await articleResp.json();

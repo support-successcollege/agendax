@@ -82,7 +82,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-pro",
+        model: "gemini-2.5-flash",
         messages: [
           {
             role: "system",
@@ -147,7 +147,7 @@ ${content}`
         );
       }
       
-      throw new Error(`AI gateway error: ${verifyResponse.status}`);
+      throw new Error(`Gemini ${verifyResponse.status}: ${errorText.slice(0, 300)}`);
     }
 
     const data = await verifyResponse.json();
