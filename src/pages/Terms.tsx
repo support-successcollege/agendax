@@ -107,7 +107,7 @@ const Terms = () => {
                   לשאלות או בקשות בנוגע לתנאי שימוש אלו, ניתן ליצור איתנו קשר:
                 </p>
                 <ul className="list-none space-y-2 mt-4">
-                  <li>📧 אימייל: yzyns44@gmail.com</li>
+                  <li>📧 אימייל: info@agendax.co.il</li>
                   <li>📱 טלפון: 055-9774484</li>
                 </ul>
               </section>
