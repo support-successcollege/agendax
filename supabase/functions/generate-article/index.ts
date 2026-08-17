@@ -333,7 +333,7 @@ serve(async (req) => {
     let imageUrl: string | null = null;
     try {
       const imgResp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash-image:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent",
         {
           method: "POST",
           headers: {
