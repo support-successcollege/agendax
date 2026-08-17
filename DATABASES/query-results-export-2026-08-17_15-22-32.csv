@@ -1,0 +1,5 @@
+allowed_mime_types;file_size_limit;id;name;public
+;;article-images;article-images;true
+;104857600;article-videos;article-videos;true
+;;job-cvs;job-cvs;false
+;;course-content;course-content;false
