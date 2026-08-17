@@ -1,22 +1,27 @@
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2.89.0/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2.89.0';
 import { z } from 'npm:zod@3.23.8';
 
-const ADMIN_EMAIL = 'info@agendax.co.il';
+// No generated Database types are available inside the Deno runtime, and an
+// untyped client makes supabase-js resolve every row to `never`. `any` keeps
+// the column reads below type-checkable.
+type Db = ReturnType<typeof createClient<any>>;
+
+// Where notifications land. Overridable so staging can divert them.
+const ADMIN_EMAIL = Deno.env.get('ADMIN_EMAIL') ?? 'info@agendax.co.il';
 const SITE_URL = 'https://agendax.co.il';
-const GATEWAY_URL = 'https://connector-gateway.lovable.dev/google_mail/gmail/v1';
+
+// Must be an address on a domain verified in Resend, or the API rejects the
+// send. Until agendax.co.il is verified there, set MAIL_FROM to a resend.dev
+// sender to test.
+const MAIL_FROM = Deno.env.get('MAIL_FROM') ?? 'Agendax <notifications@agendax.co.il>';
+
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
 const BodySchema = z.object({
   type: z.enum(['pending_comment', 'widget_form', 'newsletter']),
   recordId: z.string().uuid(),
 });
-
-function b64url(s: string) {
-  const bytes = new TextEncoder().encode(s);
-  let bin = '';
-  bytes.forEach((b) => (bin += String.fromCharCode(b)));
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
 
 function escapeHtml(s: string) {
   return String(s ?? '')
@@ -27,15 +32,20 @@ function escapeHtml(s: string) {
     .replace(/'/g, '&#39;');
 }
 
-function encodeSubject(subject: string) {
-  return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
-}
+// A valid address here lets the admin hit Reply and land on the person who
+// submitted, instead of on the no-reply sender.
+type AdminEmail = { subject: string; html: string; replyTo?: string };
+
+const asReplyTo = (value: unknown): string | undefined => {
+  const address = typeof value === 'string' ? value.trim() : '';
+  return address.includes('@') ? address : undefined;
+};
 
 async function buildEmailFromDb(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   type: string,
   recordId: string,
-): Promise<{ subject: string; html: string } | null> {
+): Promise<AdminEmail | null> {
   if (type === 'pending_comment') {
     const { data } = await supabase
       .from('article_comments')
@@ -51,6 +61,7 @@ async function buildEmailFromDb(
     }
     return {
       subject: 'תגובה חדשה ממתינה לאישור',
+      replyTo: asReplyTo(data.author_email),
       html: `<div style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
         <h2>תגובה חדשה ממתינה לאישור</h2>
         <p><b>שם:</b> ${escapeHtml(data.author_name)}</p>
@@ -81,6 +92,9 @@ async function buildEmailFromDb(
       .join('');
     return {
       subject: `רישום חדש בטופס${widgetTitle ? `: ${widgetTitle}` : ''}`,
+      // Widget forms are free-form, so the email field is whatever the widget
+      // happened to name it.
+      replyTo: asReplyTo(fields['email'] ?? fields['אימייל'] ?? fields['מייל']),
       html: `<div style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
         <h2>רישום חדש מטופס חלונית</h2>
         ${widgetTitle ? `<p><b>חלונית:</b> ${escapeHtml(widgetTitle)}</p>` : ''}
@@ -98,6 +112,7 @@ async function buildEmailFromDb(
   if (!data) return null;
   return {
     subject: 'נרשם/ת חדש/ה לניוזלטר',
+    replyTo: asReplyTo(data.email),
     html: `<div style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
       <h2>נרשם/ת חדש/ה לניוזלטר</h2>
       <p><b>שם מלא:</b> ${escapeHtml(data.full_name || '')}</p>
@@ -120,18 +135,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    const GOOGLE_MAIL_API_KEY = Deno.env.get('GOOGLE_MAIL_API_KEY');
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!LOVABLE_API_KEY || !GOOGLE_MAIL_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({ error: 'Server not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient<any>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { type, recordId } = parsed.data;
 
     const email = await buildEmailFromDb(supabase, type, recordId);
@@ -142,30 +156,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    const raw = [
-      `To: ${ADMIN_EMAIL}`,
-      `Subject: ${encodeSubject(email.subject)}`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset="UTF-8"',
-      '',
-      email.html,
-    ].join('\r\n');
-
-    const gmailRes = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
+    const resendRes = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        'X-Connection-Api-Key': GOOGLE_MAIL_API_KEY,
+        Authorization: `Bearer ${RESEND_API_KEY}`,
       },
-      body: JSON.stringify({ raw: b64url(raw) }),
+      body: JSON.stringify({
+        from: MAIL_FROM,
+        to: [ADMIN_EMAIL],
+        subject: email.subject,
+        html: email.html,
+        ...(email.replyTo ? { reply_to: email.replyTo } : {}),
+      }),
     });
 
-    if (!gmailRes.ok) {
-      const errText = await gmailRes.text();
-      console.error('Gmail send failed', gmailRes.status, errText);
+    if (!resendRes.ok) {
+      const errText = await resendRes.text();
+      console.error('Resend send failed', resendRes.status, errText);
       return new Response(
-        JSON.stringify({ error: 'Gmail send failed' }),
+        JSON.stringify({ error: 'Email send failed' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }

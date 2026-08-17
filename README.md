@@ -77,21 +77,39 @@ bun run build && bun run preview
 | קובץ בצד לקוח | Edge Function | סוד שנדרש |
 |---|---|---|
 | `ai.functions.ts` | `generate-article`, `verify-article`, `generate-social-post`, `generate-whatsapp-post`, `analyze-site` | מפתח ספק ה-AI |
-| `admin.functions.ts` | `admin-create-student`, `submit-sitemap`, `send-admin-notification` | service role, Google service account |
+| `admin.functions.ts` | `admin-create-student`, `submit-sitemap`, `send-admin-notification` | service role, Google service account, `RESEND_API_KEY` |
 | `paypal.functions.ts` | `paypal-config`, `paypal-create-order`, `paypal-capture-order` | `PAYPAL_CLIENT_SECRET` |
 
 פריסה והגדרת סודות:
 
 ```bash
 supabase functions deploy
-supabase secrets set PAYPAL_CLIENT_ID=... PAYPAL_CLIENT_SECRET=...
+supabase secrets set PAYPAL_CLIENT_ID=... PAYPAL_CLIENT_SECRET=... RESEND_API_KEY=...
 ```
+
+### מיילים
+
+`send-admin-notification` שולח דרך [Resend](https://resend.com). שלושה משתנים:
+
+| משתנה | ברירת מחדל | הערה |
+|---|---|---|
+| `RESEND_API_KEY` | — | חובה |
+| `MAIL_FROM` | `Agendax <notifications@agendax.co.il>` | **חייב** להיות על דומיין מאומת ב-Resend |
+| `ADMIN_EMAIL` | `info@agendax.co.il` | יעד ההתראות |
+
+כדי שהמיילים לא ייפלו לספאם צריך לאמת את `agendax.co.il` ב-Resend ולהוסיף את
+רשומות ה-SPF וה-DKIM שהוא נותן. עד שזה קורה אפשר לבדוק עם
+`MAIL_FROM="Agendax <onboarding@resend.dev>"`.
+
+`reply_to` נקבע אוטומטית לכתובת של מי שהגיש (מגיב, נרשם לניוזלטר, ממלא טופס),
+כך שלחיצה על "השב" פונה אליו ולא לכתובת השולח.
 
 ## מה נשאר תלוי ב-Lovable
 
 - `ai.gateway.lovable.dev` ו-`LOVABLE_API_KEY` בפונקציות ה-AI.
-- `connector-gateway.lovable.dev/google_mail` ב-`send-admin-notification`.
 - `AIArticlePlusBridge` פותח חלון אל `news-creator-plus.lovable.app`.
+
+*(שליחת המיילים כבר לא עוברת דרך Lovable — הוחלפה ב-Resend.)*
 
 הפורמט של ה-gateway תואם OpenAI, ולכן מעבר לספק אחר הוא החלפת URL ומפתח בלבד.
 
