@@ -5,14 +5,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type IngestBucket = "general" | "ai" | "business" | "dev";
-
-export const BUCKET_LABELS: Record<IngestBucket, string> = {
-  general: "טק כללי",
-  ai: "AI ומחקר",
-  business: "עסקים והון סיכון",
-  dev: "מפתחים וסטארטאפים",
-};
+// A source's bucket is a site category slug (news_sources.bucket references
+// categories.slug), so grouping labels come from the live categories table.
+export type IngestBucket = string;
 
 export interface NewsSource {
   id: string;

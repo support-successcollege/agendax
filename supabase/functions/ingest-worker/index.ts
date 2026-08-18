@@ -33,6 +33,7 @@ type Item = {
   source_summary: string | null;
   source_image_url: string | null;
   source_published_at: string | null;
+  bucket: string | null;
   angle: string | null;
   category_hint: string | null;
   attempts: number;
@@ -182,7 +183,28 @@ async function processItem(supabase: any, item: Item): Promise<{ ok: true; artic
     FALLBACK_IMAGE;
 
   // --- 6. Save as draft ----------------------------------------------------
-  const { category, category_slug } = await resolveCategory(supabase, article.category || item.category_hint);
+  // The source's category wins: the editor filed the feed under a category on
+  // purpose, and that intent beats the model's guess. Model/ranker suggestions
+  // only decide when the item somehow has no source category.
+  let category: string;
+  let category_slug: string;
+  const { data: sourceCategory } = item.bucket
+    ? await supabase
+        .from("categories")
+        .select("name, slug")
+        .eq("slug", item.bucket)
+        .eq("is_active", true)
+        .maybeSingle()
+    : { data: null };
+  if (sourceCategory) {
+    category = sourceCategory.name;
+    category_slug = sourceCategory.slug;
+  } else {
+    ({ category, category_slug } = await resolveCategory(
+      supabase,
+      article.category || item.category_hint,
+    ));
+  }
   const excerpt = (article.subtitle || (article.key_facts || []).slice(0, 2).join(" ")).slice(0, 400);
 
   const { data: inserted, error: insertErr } = await supabase

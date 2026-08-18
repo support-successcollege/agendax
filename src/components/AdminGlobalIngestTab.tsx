@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { scanGlobalTech, runIngestWorker, type IngestScanResult, type IngestWorkerResult } from "@/lib/ai.functions";
 import {
-  BUCKET_LABELS,
   useIngestItems,
   useIngestRuns,
   useIngestStats,
@@ -19,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useCategories } from "@/hooks/useCategories";
 import {
   Globe,
   Loader2,
@@ -56,6 +56,7 @@ const relativeTime = (iso: string | null) => {
 
 const AdminGlobalIngestTab = () => {
   const { toast } = useToast();
+  const { categories } = useCategories();
   const refresh = useRefreshIngest();
 
   const { data: sources = [], isLoading: loadingSources } = useNewsSources();
@@ -75,11 +76,21 @@ const AdminGlobalIngestTab = () => {
     feedUrl: string;
     bucket: IngestBucket;
     weight: number;
-  }>({ name: "", feedUrl: "", bucket: "general", weight: 5 });
+  }>({ name: "", feedUrl: "", bucket: "", weight: 5 });
 
   const queue = useMemo(() => items.filter((i) => i.status === "pending" || i.status === "processing"), [items]);
   const done = useMemo(() => items.filter((i) => i.status === "published"), [items]);
   const failed = useMemo(() => items.filter((i) => i.status === "failed"), [items]);
+
+  // Sources group under the site's own categories; labels and order come from
+  // the live categories table, and unknown buckets (renamed slugs, old rows)
+  // trail at the end under their raw slug instead of disappearing.
+  const liveCategories = useMemo(
+    () => categories.filter((c) => c.slug !== "home" && c.isActive),
+    [categories],
+  );
+  const categoryName = (slug: string) =>
+    liveCategories.find((c) => c.slug === slug)?.name ?? slug;
 
   const byBucket = useMemo(() => {
     const groups = new Map<IngestBucket, NewsSource[]>();
@@ -88,8 +99,13 @@ const AdminGlobalIngestTab = () => {
       list.push(s);
       groups.set(s.bucket, list);
     }
-    return [...groups.entries()];
-  }, [sources]);
+    const order = liveCategories.map((c) => c.slug);
+    return [...groups.entries()].sort(
+      (a, b) =>
+        (order.indexOf(a[0]) + 1 || order.length + 1) -
+        (order.indexOf(b[0]) + 1 || order.length + 1),
+    );
+  }, [sources, liveCategories]);
 
   const handleScan = async (dryRun: boolean) => {
     const setBusy = dryRun ? setIsTesting : setIsScanning;
@@ -185,6 +201,10 @@ const AdminGlobalIngestTab = () => {
   const addSource = async () => {
     const name = newSource.name.trim();
     const feedUrl = newSource.feedUrl.trim();
+    if (!newSource.bucket) {
+      toast({ title: "בחר קטגוריה למקור", variant: "destructive" });
+      return;
+    }
     if (!name || !feedUrl) {
       toast({ title: "חסר שם או כתובת פיד", variant: "destructive" });
       return;
@@ -210,7 +230,7 @@ const AdminGlobalIngestTab = () => {
       toast({ title: "ההוספה נכשלה", description, variant: "destructive" });
       return;
     }
-    setNewSource({ name: "", feedUrl: "", bucket: "general", weight: 5 });
+    setNewSource({ name: "", feedUrl: "", bucket: "", weight: 5 });
     toast({ title: "המקור נוסף", description: `${name} ייכלל בסריקה הבאה.` });
     refresh();
   };
@@ -439,7 +459,7 @@ const AdminGlobalIngestTab = () => {
             <div className="space-y-6">
               {byBucket.map(([bucket, list]) => (
                 <div key={bucket}>
-                  <h4 className="font-medium text-sm mb-2">{BUCKET_LABELS[bucket] ?? bucket}</h4>
+                  <h4 className="font-medium text-sm mb-2">{categoryName(bucket)}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {list.map((source) => (
                       <div key={source.id} className="flex items-center gap-3 p-3 border rounded-lg">
@@ -503,13 +523,14 @@ const AdminGlobalIngestTab = () => {
                     }
                     aria-label="קטגוריית מקור"
                   >
-                    {(Object.entries(BUCKET_LABELS) as [IngestBucket, string][]).map(
-                      ([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ),
-                    )}
+                    <option value="" disabled>
+                      קטגוריה...
+                    </option>
+                    {liveCategories.map((c) => (
+                      <option key={c.slug} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                   <select
                     className="h-9 rounded-md border border-input bg-background px-3 text-sm"
