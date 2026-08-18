@@ -349,6 +349,28 @@
   }
 }
 
+/* ---- Admin panel ----------------------------------------------------------
+   The panel borrows the site's material system instead of shipping its own:
+   every card is the same glass as the public chrome, and every control gives
+   pressed feedback on pointer-down. Scoped so the public pages are untouched. */
+.admin-scope .bg-card {
+  background-color: hsl(var(--surface-1) / 0.66);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border-color: hsl(0 0% 100% / 0.07);
+  box-shadow: var(--shadow-card);
+}
+
+/* :where() keeps specificity at zero, so any component's own transform
+   (a dragged card, a spring animation) still wins over the press. */
+.admin-scope :where(button:not(:disabled)) {
+  transition: transform var(--duration-press) ease-out;
+}
+
+.admin-scope :where(button:not(:disabled)):active {
+  transform: scale(0.97);
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));
@@ -411,7 +433,8 @@
 
 @media (prefers-reduced-transparency: reduce) {
   .glass,
-  .glass-panel {
+  .glass-panel,
+  .admin-scope .bg-card {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -420,7 +443,8 @@
     background-color: hsl(var(--background));
   }
 
-  .glass-panel {
+  .glass-panel,
+  .admin-scope .bg-card {
     background-color: hsl(var(--surface-1));
   }
 }
@@ -433,7 +457,8 @@
   }
 
   .glass,
-  .glass-panel {
+  .glass-panel,
+  .admin-scope .bg-card {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background-color: hsl(var(--background));

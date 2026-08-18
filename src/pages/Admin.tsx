@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useNavigate } from "@/lib/router-compat";
+import wordmark from "@/assets/agendax-wordmark-light.png";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -348,46 +350,45 @@ const Admin = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-muted/30" dir="rtl">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground shadow-lg">
-        <div className="container py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-              <span className="text-accent-foreground font-black text-lg">YZ</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">מערכת ניהול</h1>
-              <p className="text-sm text-primary-foreground/70">{user?.email}</p>
+    <div className="min-h-screen admin-scope" dir="rtl">
+      {/* Chrome the content scrolls under, not an opaque strip that eats a
+          band of the viewport. Same material as the public site's header. */}
+      <header className="sticky top-0 z-40 glass">
+        <div className="container py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src={wordmark} alt="Agendax" width={800} height={107} className="h-6 w-auto" />
+            <span className="h-5 w-px bg-border" aria-hidden="true" />
+            <div className="leading-tight">
+              <h1 className="text-sm font-bold vibrant">מערכת ניהול</h1>
+              <p className="text-xs text-muted-foreground" dir="ltr">{user?.email}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate("/")}
-              className="text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <Home className="w-4 h-4 ml-2" />
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="press gap-2">
+              <Home className="w-4 h-4" />
               לאתר
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleLogout}
-              className="text-primary-foreground hover:bg-primary-foreground/10"
+              className="press gap-2 text-muted-foreground hover:text-destructive"
             >
-              <LogOut className="w-4 h-4 ml-2" />
+              <LogOut className="w-4 h-4" />
               התנתק
             </Button>
           </div>
         </div>
+        {/* The logo's X, unrolled into a hairline — same as the public header. */}
+        <div className="h-0.5 bg-gradient-brand" aria-hidden="true" />
       </header>
 
       <div className="container py-8">
-        {/* Navigation Tabs */}
-        <div className="flex gap-2 mb-8 flex-wrap items-center justify-between">
-          <div className="flex gap-2 flex-wrap">
+        {/* Navigation Tabs — a segmented control: the active pill travels to
+            the tab you picked instead of teleporting, so the eye keeps track
+            of where it is in the panel. */}
+        <div className="flex gap-3 mb-8 flex-wrap items-center justify-between">
+          <nav className="glass-panel rounded-2xl p-1.5 flex gap-0.5 flex-wrap" aria-label="ניווט ניהול">
             {[
               { id: "dashboard", label: "סקירה כללית", icon: BarChart3 },
               { id: "articles", label: "כתבות", icon: Newspaper },
@@ -401,22 +402,36 @@ const Admin = () => {
               { id: "students", label: "תלמידים", icon: Users },
               { id: "ingest", label: "סוכן חדשות עולמי", icon: Globe },
               { id: "newsletter", label: "ניוזלטר", icon: Users },
-            ].map((tab) => (
-              <Button
-                key={tab.id}
-                variant={activeTab === tab.id ? "default" : "outline"}
-                onClick={() => setActiveTab(tab.id)}
-                className="gap-2"
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </Button>
-            ))}
-          </div>
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`press relative flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="admin-tab-pill"
+                      // Critically damped: the pill chases a click, not a
+                      // flick, so overshoot would read as noise.
+                      transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+                      className="absolute inset-0 rounded-xl bg-primary shadow-glow"
+                    />
+                  )}
+                  <tab.icon className="relative w-4 h-4" />
+                  <span className="relative">{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
           <div className="flex gap-2 flex-wrap">
             <Button
               onClick={() => setIsAIGeneratorOpen(true)}
-              className="gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              className="press gap-2 bg-gradient-brand text-primary-foreground shadow-glow hover:opacity-90"
             >
               <Sparkles className="w-4 h-4" />
               מחולל כתבות AI
@@ -425,21 +440,30 @@ const Admin = () => {
           </div>
         </div>
 
+        {/* Tab content rises in from where the pill landed; a remount per tab
+            keeps the entrance consistent. Reduced motion collapses this to a
+            fade via the global media rule. */}
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+        >
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
           <div className="space-y-8">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {stats.map((stat, index) => (
-                <Card key={index}>
+                <Card key={index} className="spring transition-[transform,box-shadow] hover:shadow-hover hover:-translate-y-0.5">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-lg ${stat.color}`}>
-                        <stat.icon className="w-6 h-6 text-white" />
+                      <div className="p-3 rounded-xl bg-gradient-brand shadow-glow">
+                        <stat.icon className="w-6 h-6 text-primary-foreground" />
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">{stat.title}</p>
-                        <p className="text-2xl font-bold">{stat.value}</p>
+                        <p className="text-2xl font-bold tabular-nums tracking-tight">{stat.value}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -883,6 +907,7 @@ const Admin = () => {
         {activeTab === "ingest" && <AdminGlobalIngestTab />}
 
         {activeTab === "newsletter" && <AdminNewsletterTab />}
+        </motion.div>
       </div>
 
       {/* Edit Article Dialog */}
