@@ -325,23 +325,9 @@ serve(async (req) => {
     const article = JSON.parse(toolCall.function.arguments);
 
     // === Step 3: Generate image ===
-    // Higgsfield Soul first (photoreal editorial quality, paid credits), then
-    // Gemini's native generateContent as fallback, then the stock image.
+    // Gemini generateContent, with the stock image as the safety net.
     let imageUrl: string | null = null;
     try {
-      const { generateImageHiggsfield } = await import("../_shared/ingest.ts");
-      const admin = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      );
-      imageUrl = await generateImageHiggsfield(
-        admin,
-        `${article.image_prompt}. Editorial photojournalism style, realistic, high quality, no text or watermarks, 16:9 composition.`,
-      );
-    } catch (e) {
-      console.error("higgsfield step failed", e);
-    }
-    if (!imageUrl) try {
       const imgResp = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-3.1-flash-image"}:generateContent`,
         {

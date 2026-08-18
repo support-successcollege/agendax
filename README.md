@@ -196,14 +196,12 @@ supabase secrets set INGEST_CRON_SECRET=<הערך מהשאילתה>
 | # | מקור | תנאי |
 |---|---|---|
 | 1 | תמונת המקור מהפיד (סוכן בלבד) | הפיד סיפק media:content |
-| 2 | Higgsfield Soul | `HIGGSFIELD_API_KEY_ID` + `HIGGSFIELD_API_KEY_SECRET` מוגדרים (cloud.higgsfield.ai, בתשלום) |
-| 3 | Gemini image | מכסה חינמית — כרגע חסומה |
-| 4 | תמונת מחסן | תמיד |
+| 2 | Gemini image | `GEMINI_API_KEY` (מנוי בתשלום; המודל נשלט ב-`GEMINI_IMAGE_MODEL`) |
+| 3 | תמונת מחסן | תמיד |
 
 כל תמונה — מכל מקור — מועתקת ל-bucket `article-images` ונשמר URL ציבורי משלנו,
-כי ה-CDN של Higgsfield מוחק פלט אחרי ~7 ימים וקישורי מו"לים מתרוטטים.
+כי קישורי מו"לים מתרוטטים ולא נשלטים על ידינו.
 
-`supabase secrets set HIGGSFIELD_API_KEY_ID=... HIGGSFIELD_API_KEY_SECRET=...`
 
 ### פידים מ-rss.app
 
