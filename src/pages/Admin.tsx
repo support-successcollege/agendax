@@ -241,13 +241,21 @@ const Admin = () => {
   };
 
 
+  // After a single article is created, immediately offer the designed share
+  // post (Canva template) for the fresh article. Bulk import stays silent.
+  const openPostImageFor = (created: Article | null) => {
+    if (!created) return;
+    setPostImageArticle(created);
+    setIsPostImageOpen(true);
+  };
+
   const handleAIArticleGenerated = async (newArticle: Omit<Article, "id"> & { id?: string }) => {
     const { id, ...articleWithoutId } = newArticle;
-    await addArticle(articleWithoutId);
+    openPostImageFor(await addArticle(articleWithoutId));
   };
 
   const handleCreateArticle = async (newArticle: Omit<Article, "id">) => {
-    await addArticle(newArticle);
+    openPostImageFor(await addArticle(newArticle));
   };
 
   const handleBulkImport = async (newArticles: Omit<Article, "id">[]) => {
