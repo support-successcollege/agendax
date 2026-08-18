@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { scanGlobalTech, runIngestWorker, type IngestScanResult, type IngestWorkerResult } from "@/lib/ai.functions";
 import {
+  useCategoryStats,
   useIngestItems,
   useIngestRuns,
   useIngestStats,
@@ -64,6 +65,7 @@ const AdminGlobalIngestTab = () => {
   const { data: items = [] } = useIngestItems();
   const { data: runs = [] } = useIngestRuns();
   const { data: stats } = useIngestStats();
+  const { data: categoryStats = [] } = useCategoryStats();
 
   const [isScanning, setIsScanning] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -83,6 +85,25 @@ const AdminGlobalIngestTab = () => {
   const queue = useMemo(() => items.filter((i) => i.status === "pending" || i.status === "processing"), [items]);
   const done = useMemo(() => items.filter((i) => i.status === "published"), [items]);
   const failed = useMemo(() => items.filter((i) => i.status === "failed"), [items]);
+
+  // The activity-list status filter: "in progress" covers both queued and
+  // currently-writing items, because to the editor they are one bucket of
+  // "not done yet".
+  const [itemFilter, setItemFilter] = useState<"all" | "inprogress" | "done" | "failed">("all");
+  const filteredItems = useMemo(() => {
+    switch (itemFilter) {
+      case "inprogress":
+        return queue;
+      case "done":
+        return done;
+      case "failed":
+        return failed;
+      default:
+        return items;
+    }
+  }, [itemFilter, items, queue, done, failed]);
+
+  const totalTarget = (stats?.dailyTarget ?? 10) * (stats?.categoryCount ?? 1);
 
   // Sources group under the site's own categories; labels and order come from
   // the live categories table, and unknown buckets (renamed slugs, old rows)
@@ -113,7 +134,9 @@ const AdminGlobalIngestTab = () => {
     const setBusy = dryRun ? setIsTesting : setIsScanning;
     setBusy(true);
     try {
-      const result = await scanGlobalTech({ data: { limit: 4, dryRun } });
+      // No explicit limit: the scanner tops up each category toward its own
+      // daily quota, so the pacing lives server-side.
+      const result = await scanGlobalTech({ data: { dryRun } });
       setLastScan(result);
       refresh();
       toast({
@@ -150,8 +173,8 @@ const AdminGlobalIngestTab = () => {
           title: result.skipped ? "היעד היומי הושלם" : "אין מה לכתוב",
           description:
             result.skipped
-              ? `נוצרו ${result.publishedToday} מתוך ${result.dailyTarget} כתבות היום. הסוכן ימשיך מחר.`
-              : (result.notes?.[0] ?? "התור ריק. הרץ סריקה כדי למלא אותו."),
+              ? `נוצרו ${result.publishedToday} כתבות היום — כל הקטגוריות הגיעו ליעד. הסוכן ימשיך מחר.`
+              : (result.notes?.[0] ?? "התור ריק (או שהקטגוריות שנותרו ריקות). הרץ סריקה כדי למלא אותו."),
         });
       }
     } catch (error) {
@@ -176,7 +199,7 @@ const AdminGlobalIngestTab = () => {
       await updateDailyTarget(value);
       setTargetDraft("");
       refresh();
-      toast({ title: "היעד עודכן", description: `הסוכן יפיק מעכשיו ${value} כתבות ביום.` });
+      toast({ title: "היעד עודכן", description: `הסוכן יפיק מעכשיו ${value} כתבות ביום לכל קטגוריה.` });
     } catch (error) {
       toast({
         title: "העדכון נכשל",
@@ -342,7 +365,7 @@ const AdminGlobalIngestTab = () => {
               <p className="text-sm text-muted-foreground">היום</p>
               <p className="text-2xl font-bold">
                 {stats?.publishedToday ?? 0}
-                <span className="text-base font-normal text-muted-foreground">/{stats?.dailyTarget ?? 10}</span>
+                <span className="text-base font-normal text-muted-foreground">/{totalTarget}</span>
               </p>
             </div>
             <div className="rounded-lg border p-4">
@@ -361,14 +384,38 @@ const AdminGlobalIngestTab = () => {
             </div>
           </div>
 
+          {/* Per-category progress */}
+          {categoryStats.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {categoryStats.map((c) => (
+                <Badge
+                  key={c.bucket}
+                  variant="outline"
+                  className={
+                    c.publishedToday >= (stats?.dailyTarget ?? 10)
+                      ? "border-emerald-500/30 text-emerald-600"
+                      : "text-muted-foreground"
+                  }
+                  title={c.queued > 0 ? `${c.queued} בתור` : undefined}
+                >
+                  {c.name}: {c.publishedToday}/{stats?.dailyTarget ?? 10}
+                  {c.queued > 0 && <span className="opacity-60"> · {c.queued} בתור</span>}
+                </Badge>
+              ))}
+            </div>
+          )}
+
           {/* Daily target */}
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 p-4">
             <Target className="w-4 h-4 text-primary shrink-0" />
             <div className="flex-1 min-w-[16rem]">
-              <p className="text-sm font-medium">יעד יומי: {stats?.dailyTarget ?? 10} כתבות</p>
+              <p className="text-sm font-medium">
+                יעד יומי: {stats?.dailyTarget ?? 10} כתבות לכל קטגוריה
+                {stats?.categoryCount ? ` (${totalTarget} סה"כ)` : ""}
+              </p>
               <p className="text-xs text-muted-foreground">
-                כל סריקה משלימה את התור למה שחסר מהיעד, ועוד {stats?.queueBuffer ?? 3} רזרבות. אם ידיעה
-                נכשלת, הרזרבה הבאה נכנסת במקומה במקום שהיום ייצא קצר.
+                כל קטגוריה מקבלת מכסה משלה. כל סריקה משלימה את התור למה שחסר מהיעד בכל קטגוריה, ועוד{" "}
+                {stats?.queueBuffer ?? 3} רזרבות. אם ידיעה נכשלת, הרזרבה הבאה נכנסת במקומה במקום שהיום ייצא קצר.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -429,13 +476,36 @@ const AdminGlobalIngestTab = () => {
           </Button>
         </CardHeader>
         <CardContent>
+          {items.length > 0 && (
+            <div className="flex gap-2 flex-wrap mb-4">
+              {(
+                [
+                  { key: "all", label: `הכל (${items.length})` },
+                  { key: "inprogress", label: `בתהליך (${queue.length})` },
+                  { key: "done", label: `בוצע (${done.length})` },
+                  { key: "failed", label: `נכשל (${failed.length})` },
+                ] as const
+              ).map((f) => (
+                <Button
+                  key={f.key}
+                  variant={itemFilter === f.key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setItemFilter(f.key)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
+          )}
           {items.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
               עדיין לא נסרקו ידיעות. לחצו "סרוק עכשיו" כדי להתחיל.
             </p>
+          ) : filteredItems.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">אין ידיעות בסטטוס הזה.</p>
           ) : (
             <div className="space-y-2">
-              {items.slice(0, 25).map((item) => {
+              {filteredItems.slice(0, 25).map((item) => {
                 const meta = STATUS_META[item.status] ?? STATUS_META.seen;
                 return (
                   <div key={item.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors">

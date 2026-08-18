@@ -19,6 +19,7 @@ import {
   generateImage,
   mirrorImageToBucket,
   json,
+  loadCategoryStats,
   loadStats,
   mdToArticleHtml,
   resolveCategory,
@@ -249,13 +250,20 @@ serve(async (req) => {
   // The daily cap lives here rather than in the scanner because only the worker
   // knows what actually got written. The scanner queues spares on purpose; this
   // is what stops those spares from turning into extra articles on a day when
-  // nothing failed.
+  // nothing failed. The target is PER CATEGORY: the claim only takes stories
+  // from categories that still have budget today.
   const stats = await loadStats(supabase);
-  if (stats.publishedToday >= stats.dailyTarget) {
+  const categoryStats = await loadCategoryStats(supabase);
+  const budgetByBucket = new Map<string, number>();
+  for (const cat of categoryStats) {
+    const left = stats.dailyTarget - cat.publishedToday;
+    if (left > 0) budgetByBucket.set(cat.bucket, left);
+  }
+  if (budgetByBucket.size === 0) {
     return json({
       ok: true,
       created: [],
-      skipped: "היעד היומי הושלם",
+      skipped: "היעד היומי הושלם בכל הקטגוריות",
       publishedToday: stats.publishedToday,
       dailyTarget: stats.dailyTarget,
       remaining: stats.queued,
@@ -263,15 +271,17 @@ serve(async (req) => {
       durationMs: Date.now() - startedAt,
     });
   }
-  const budgetLeft = stats.dailyTarget - stats.publishedToday;
 
-  for (let n = 0; n < Math.min(max, budgetLeft); n++) {
+  for (let n = 0; n < max; n++) {
     if (Date.now() - startedAt > TIME_BUDGET_MS) {
       notes.push("נעצר בגלל מגבלת זמן ריצה");
       break;
     }
+    if (budgetByBucket.size === 0) break;
 
-    const { data: item, error: claimErr } = await supabase.rpc("claim_ingest_item");
+    const { data: item, error: claimErr } = await supabase.rpc("claim_ingest_item", {
+      _buckets: [...budgetByBucket.keys()],
+    });
     if (claimErr) {
       notes.push(`claim: ${claimErr.message}`);
       break;
@@ -294,6 +304,13 @@ serve(async (req) => {
           })
           .eq("id", typed.id);
         created.push({ id: result.articleId, title: result.title });
+        // Spend the category's budget locally so a multi-story invocation
+        // cannot overshoot one category before the next stats load sees it.
+        if (typed.bucket && budgetByBucket.has(typed.bucket)) {
+          const left = budgetByBucket.get(typed.bucket)! - 1;
+          if (left <= 0) budgetByBucket.delete(typed.bucket);
+          else budgetByBucket.set(typed.bucket, left);
+        }
       } else {
         // attempts was already incremented by claim_ingest_item.
         // claim_ingest_item already incremented attempts, so this is the count so far.

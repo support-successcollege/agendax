@@ -364,9 +364,18 @@ export async function resolveCategory(
 export type IngestStats = {
   publishedToday: number;
   queued: number;
+  /** Per active category, not per site. */
   dailyTarget: number;
   queueBuffer: number;
   lookbackHours: number;
+  categoryCount: number;
+};
+
+export type CategoryStat = {
+  bucket: string;
+  name: string;
+  publishedToday: number;
+  queued: number;
 };
 
 const STATS_FALLBACK: IngestStats = {
@@ -375,6 +384,7 @@ const STATS_FALLBACK: IngestStats = {
   dailyTarget: 10,
   queueBuffer: 3,
   lookbackHours: 24,
+  categoryCount: 1,
 };
 
 /**
@@ -402,23 +412,45 @@ export async function loadStats(supabase: SupabaseClient): Promise<IngestStats> 
     dailyTarget: num(row.daily_target, STATS_FALLBACK.dailyTarget),
     queueBuffer: num(row.queue_buffer, STATS_FALLBACK.queueBuffer),
     lookbackHours: num(row.lookback_hours, STATS_FALLBACK.lookbackHours),
+    categoryCount: num(row.category_count, STATS_FALLBACK.categoryCount),
   };
 }
 
+/** Today's progress per active category, ordered by the site's display order. */
+export async function loadCategoryStats(supabase: SupabaseClient): Promise<CategoryStat[]> {
+  const { data, error } = await supabase.rpc("ingest_category_stats");
+  if (error || !Array.isArray(data)) {
+    console.error("ingest_category_stats failed", error);
+    return [];
+  }
+  return data.map((row: Record<string, unknown>) => ({
+    bucket: String(row.bucket),
+    name: String(row.name),
+    publishedToday: Number(row.published_today) || 0,
+    queued: Number(row.queued) || 0,
+  }));
+}
+
 /**
- * How many new stories this scan should queue.
+ * How many new stories this scan should queue for one category.
  *
- * The queue is topped up toward whatever is still missing from today's target,
- * plus a buffer of spares. The buffer is the whole point: when a story fails on
- * a paywall the worker moves straight to the next queued item instead of the
- * day coming up short. Anything already pending counts against the top-up, so
- * scanning six times a day does not produce six times the articles.
+ * The queue is topped up toward whatever is still missing from the category's
+ * daily target, plus a buffer of spares. The buffer is the whole point: when a
+ * story fails on a paywall the worker moves straight to the next queued item
+ * instead of the day coming up short. Anything already pending counts against
+ * the top-up, so scanning six times a day does not produce six times the
+ * articles.
  */
-export function topUpCount(stats: IngestStats, hardCap = 12): number {
-  const remaining = Math.max(0, stats.dailyTarget - stats.publishedToday);
+export function topUpCount(
+  cat: { publishedToday: number; queued: number },
+  dailyTarget: number,
+  queueBuffer: number,
+  hardCap = 12,
+): number {
+  const remaining = Math.max(0, dailyTarget - cat.publishedToday);
   if (remaining === 0) return 0;
-  const wanted = remaining + stats.queueBuffer - stats.queued;
-  return Math.max(0, Math.min(wanted, remaining + stats.queueBuffer, hardCap));
+  const wanted = remaining + queueBuffer - cat.queued;
+  return Math.max(0, Math.min(wanted, remaining + queueBuffer, hardCap));
 }
 
 // ---------------------------------------------------------------------------

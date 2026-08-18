@@ -1287,10 +1287,20 @@ export type Database = {
       ingest_daily_stats: {
         Args: never
         Returns: {
+          category_count: number
           daily_target: number
           lookback_hours: number
           published_today: number
           queue_buffer: number
+          queued: number
+        }[]
+      }
+      ingest_category_stats: {
+        Args: never
+        Returns: {
+          bucket: string
+          name: string
+          published_today: number
           queued: number
         }[]
       }

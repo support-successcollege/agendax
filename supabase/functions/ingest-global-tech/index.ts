@@ -13,6 +13,7 @@ import {
   corsHeaders,
   fetchFeed,
   json,
+  loadCategoryStats,
   loadStats,
   toolArgs,
   topUpCount,
@@ -59,25 +60,34 @@ serve(async (req) => {
     const dryRun = body?.dryRun === true;
     const buckets: string[] | null = Array.isArray(body?.buckets) && body.buckets.length ? body.buckets : null;
 
-    // --- 0. How much is still missing from today's target ------------------
+    // --- 0. How much is still missing from each category's target ----------
     // The daily target lives in ingest_config, not in this file, so it can be
-    // changed from the admin panel without a redeploy.
+    // changed from the admin panel without a redeploy. It is a PER-CATEGORY
+    // number: every active category is topped up toward its own quota, so one
+    // busy category can never starve the others.
     const stats = await loadStats(supabase);
+    const categoryStats = await loadCategoryStats(supabase);
     const lookbackHours = Math.min(
       Math.max(Number(body?.lookbackHours) || stats.lookbackHours || DEFAULT_LOOKBACK_HOURS, 2),
       96,
     );
-    // An explicit limit (the admin pressing "scan now") overrides the pacing.
+    const wantedByBucket = new Map<string, number>();
+    for (const cat of categoryStats) {
+      const want = topUpCount(cat, stats.dailyTarget, stats.queueBuffer);
+      if (want > 0) wantedByBucket.set(cat.bucket, want);
+    }
+    // An explicit limit (an old caller passing one) still caps the grand total.
+    const totalWanted = [...wantedByBucket.values()].reduce((a, b) => a + b, 0);
     const limit = body?.limit
-      ? Math.min(Math.max(Number(body.limit), 1), 12)
-      : topUpCount(stats);
+      ? Math.min(Math.max(Number(body.limit), 1), totalWanted || Number(body.limit))
+      : totalWanted;
 
-    // Nothing to do: today's target is met and the queue already holds spares.
-    // Returning before touching the feeds is what makes six scans a day cheap.
+    // Nothing to do: every category met its target and holds spares. Returning
+    // before touching the feeds is what makes six scans a day cheap.
     if (!dryRun && limit === 0) {
       return json({
         ok: true,
-        skipped: "היעד היומי הושלם",
+        skipped: "היעד היומי הושלם בכל הקטגוריות",
         publishedToday: stats.publishedToday,
         dailyTarget: stats.dailyTarget,
         queued: stats.queued,
@@ -85,11 +95,14 @@ serve(async (req) => {
     }
 
     // --- 1. Active sources -------------------------------------------------
+    // A real scan only reads feeds of categories that still have budget today;
+    // a dry run (the "test sources" button) always reads everything.
     let sourceQuery = supabase
       .from("news_sources")
       .select("id, name, feed_url, bucket, weight")
       .eq("is_active", true);
-    if (buckets) sourceQuery = sourceQuery.in("bucket", buckets);
+    const bucketFilter = buckets ?? (dryRun ? null : [...wantedByBucket.keys()]);
+    if (bucketFilter) sourceQuery = sourceQuery.in("bucket", bucketFilter);
     const { data: sources, error: srcErr } = await sourceQuery;
     if (srcErr) throw new Error(`טעינת מקורות נכשלה: ${srcErr.message}`);
     if (!sources?.length) return json({ error: "אין מקורות פעילים" }, 400);
@@ -205,7 +218,17 @@ serve(async (req) => {
       )
       .join("\n\n");
 
-    const rankerSystem = `אתה עורך חדשות ראשי של אתר הייטק ישראלי בעברית. קיבלת רשימת כתבות שפורסמו היום באתרי הטכנולוגיה הגדולים בעולם. בחר את ${limit} הידיעות **הכי חשובות ורלוונטיות לקהל הישראלי** לפרסום.
+    // The ranker sees each category's remaining budget. Every candidate line
+    // already carries its category (the bucket after the source name).
+    const budgetLines = categoryStats
+      .filter((c) => wantedByBucket.has(c.bucket))
+      .map((c) => `- ${c.bucket}: עד ${wantedByBucket.get(c.bucket)} ידיעות`)
+      .join("\n");
+
+    const rankerSystem = `אתה עורך חדשות ראשי של אתר הייטק ישראלי בעברית. קיבלת רשימת כתבות שפורסמו היום באתרי הטכנולוגיה הגדולים בעולם. בחר את הידיעות **הכי חשובות ורלוונטיות לקהל הישראלי** לפרסום.
+
+מכסה לכל קטגוריה (הקטגוריה של ידיעה מופיעה בסוגריים אחרי שם המקור):
+${budgetLines}
 
 קריטריונים לבחירה:
 - השפעה אמיתית: מוצר חדש משמעותי, מודל AI חדש, מיזוג/רכישה, גיוס ענק, רגולציה, פריצת דרך טכנולוגית, קריסה או משבר בחברה גדולה.
@@ -225,7 +248,7 @@ serve(async (req) => {
 - angle: משפט אחד בעברית — הזווית שבה כדאי לכתוב את הכתבה לקורא הישראלי.
 - category: אחת מ: טכנולוגיה, כלכלה, חדשות, שוק ההון, אקטואליה.
 
-אם פחות מ-${limit} ידיעות ראויות לפרסום — החזר פחות. עדיף לא לפרסם מאשר לפרסם זבל.`;
+אם בקטגוריה מסוימת אין מספיק ידיעות ראויות — החזר פחות ממכסתה. עדיף לא לפרסם מאשר לפרסם זבל.`;
 
     const ranked = await callModel({
       messages: [
@@ -273,15 +296,25 @@ serve(async (req) => {
     const picks: { index: number; priority: number; angle: string; category: string }[] =
       (toolArgs(ranked).picks as any[]) || [];
 
+    // Enforce the per-category budgets in code: the strongest picks win their
+    // category's slots, and whatever the ranker over-picked is dropped.
     const chosen = new Map<number, { priority: number; angle: string; category: string }>();
-    for (const p of picks.slice(0, limit)) {
-      if (Number.isInteger(p.index) && p.index >= 0 && p.index < shortlist.length) {
-        chosen.set(p.index, {
-          priority: Math.min(Math.max(Number(p.priority) || 5, 1), 10),
-          angle: String(p.angle || "").slice(0, 500),
-          category: String(p.category || "טכנולוגיה").slice(0, 40),
-        });
-      }
+    const usedByBucket = new Map<string, number>();
+    const validPicks = picks
+      .filter((p) => Number.isInteger(p.index) && p.index >= 0 && p.index < shortlist.length)
+      .sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0));
+    for (const p of validPicks) {
+      if (chosen.size >= limit) break;
+      const bucket = shortlist[p.index].bucket;
+      const allowed = wantedByBucket.get(bucket) ?? 0;
+      const used = usedByBucket.get(bucket) ?? 0;
+      if (used >= allowed) continue;
+      usedByBucket.set(bucket, used + 1);
+      chosen.set(p.index, {
+        priority: Math.min(Math.max(Number(p.priority) || 5, 1), 10),
+        angle: String(p.angle || "").slice(0, 500),
+        category: String(p.category || "טכנולוגיה").slice(0, 40),
+      });
     }
 
     // --- 5. Write the ledger ------------------------------------------------

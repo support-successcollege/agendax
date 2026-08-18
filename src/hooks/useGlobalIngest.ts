@@ -59,9 +59,18 @@ export interface IngestRun {
 export interface IngestStats {
   publishedToday: number;
   queued: number;
+  /** Per active category, not per site. */
   dailyTarget: number;
   queueBuffer: number;
   lookbackHours: number;
+  categoryCount: number;
+}
+
+export interface CategoryStat {
+  bucket: string;
+  name: string;
+  publishedToday: number;
+  queued: number;
 }
 
 export const INGEST_KEYS = {
@@ -69,6 +78,7 @@ export const INGEST_KEYS = {
   items: ["ingest", "items"] as const,
   runs: ["ingest", "runs"] as const,
   stats: ["ingest", "stats"] as const,
+  categoryStats: ["ingest", "categoryStats"] as const,
 };
 
 /**
@@ -89,7 +99,25 @@ export const useIngestStats = () =>
         dailyTarget: row?.daily_target ?? 10,
         queueBuffer: row?.queue_buffer ?? 3,
         lookbackHours: row?.lookback_hours ?? 24,
+        categoryCount: row?.category_count ?? 1,
       };
+    },
+    refetchInterval: 30_000,
+  });
+
+/** Today's progress per active category, in the site's display order. */
+export const useCategoryStats = () =>
+  useQuery({
+    queryKey: INGEST_KEYS.categoryStats,
+    queryFn: async (): Promise<CategoryStat[]> => {
+      const { data, error } = await supabase.rpc("ingest_category_stats");
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []).map((row: Record<string, unknown>) => ({
+        bucket: String(row.bucket),
+        name: String(row.name),
+        publishedToday: Number(row.published_today) || 0,
+        queued: Number(row.queued) || 0,
+      }));
     },
     refetchInterval: 30_000,
   });
