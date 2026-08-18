@@ -343,7 +343,7 @@ serve(async (req) => {
     }
     if (!imageUrl) try {
       const imgResp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent",
+        `https://generativelanguage.googleapis.com/v1beta/models/${Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-3.1-flash-image"}:generateContent`,
         {
           method: "POST",
           headers: {

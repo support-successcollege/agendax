@@ -8,7 +8,10 @@ import { marked } from "https://esm.sh/marked@12.0.2";
 
 export const AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 export const TEXT_MODEL = "gemini-3.6-flash";
-export const IMAGE_MODEL = "gemini-3.1-flash-image";
+// Overridable without a redeploy: the image-model id churned three times in
+// one evening, so it lives in a secret rather than in code.
+//   supabase secrets set GEMINI_IMAGE_MODEL=gemini-3-pro-image
+export const IMAGE_MODEL = Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-3.1-flash-image";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
