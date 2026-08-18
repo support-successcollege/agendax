@@ -94,6 +94,38 @@ serve(async (req) => {
       });
     }
 
+    // --- 0b. Quota-completion escalation ------------------------------------
+    // A category falling behind its daily quota gets more aggressive treatment
+    // as the (Israel-local) day runs out, so the day ends full on its own:
+    //   level 1 — afternoon, under half quota:  look 48h back, ranker less picky
+    //   level 2 — evening, quota still unmet:   look 72h back, ranker fills the
+    //             quota, and stories earlier scans passed on return to the table.
+    // The quality floor stays: the ranker still rejects junk, and the worker
+    // still refuses to write when the source material is too thin.
+    const israelHour = Number(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Jerusalem",
+        hour: "numeric",
+        hour12: false,
+      }).format(new Date()),
+    );
+    const escalation = new Map<string, 1 | 2>();
+    for (const cat of categoryStats) {
+      if (!wantedByBucket.has(cat.bucket)) continue;
+      const onHand = cat.publishedToday + cat.queued;
+      if (israelHour >= 17 && onHand < stats.dailyTarget) escalation.set(cat.bucket, 2);
+      else if (israelHour >= 13 && onHand < Math.ceil(stats.dailyTarget / 2)) escalation.set(cat.bucket, 1);
+    }
+    const lookbackFor = (bucket: string) => {
+      const level = escalation.get(bucket);
+      if (level === 2) return Math.max(lookbackHours, 72);
+      if (level === 1) return Math.max(lookbackHours, 48);
+      return lookbackHours;
+    };
+    for (const [bucket, level] of escalation) {
+      notes.push(`השלמת מכסה: ${bucket} בפיגור — רמה ${level}, ${lookbackFor(bucket)} שעות אחורה`);
+    }
+
     // --- 1. Active sources -------------------------------------------------
     // A real scan only reads feeds of categories that still have budget today;
     // a dry run (the "test sources" button) always reads everything.
@@ -131,7 +163,10 @@ serve(async (req) => {
       sourcesOk++;
       // A feed with no dates at all still gets in — its items are simply
       // treated as "now" and the URL ledger keeps them from repeating.
-      const fresh = result.items.filter((it) => !it.publishedAt || hoursAgo(it.publishedAt) <= lookbackHours);
+      // The window widens per category when it is behind quota (see 0b).
+      const fresh = result.items.filter(
+        (it) => !it.publishedAt || hoursAgo(it.publishedAt) <= lookbackFor(source.bucket),
+      );
       perSource.push({ name: source.name, ok: true, items: fresh.length });
       await supabase
         .from("news_sources")
@@ -158,16 +193,27 @@ serve(async (req) => {
     }
     const unique = [...byKey.values()];
 
-    const known = new Set<string>();
+    // Two kinds of "already know this URL": rows that went somewhere (pending,
+    // published, failed, skipped) are blocked forever; rows the ranker merely
+    // passed on (`seen`) are blocked normally, but return to the table for a
+    // category in quota-completion mode — yesterday's second-tier story is
+    // better than an unmet quota.
+    const blocked = new Set<string>();
+    const seenOnly = new Set<string>();
     const keys = unique.map((c) => c.key);
     for (let i = 0; i < keys.length; i += 150) {
       const { data } = await supabase
         .from("ingest_items")
-        .select("url_key")
+        .select("url_key, status")
         .in("url_key", keys.slice(i, i + 150));
-      for (const row of data || []) known.add((row as { url_key: string }).url_key);
+      for (const row of (data || []) as { url_key: string; status: string }[]) {
+        if (row.status === "seen") seenOnly.add(row.url_key);
+        else blocked.add(row.url_key);
+      }
     }
-    const fresh = unique.filter((c) => !known.has(c.key));
+    const fresh = unique.filter(
+      (c) => !blocked.has(c.key) && (!seenOnly.has(c.key) || escalation.has(c.bucket)),
+    );
 
     if (dryRun) {
       return json({
@@ -222,7 +268,12 @@ serve(async (req) => {
     // already carries its category (the bucket after the source name).
     const budgetLines = categoryStats
       .filter((c) => wantedByBucket.has(c.bucket))
-      .map((c) => `- ${c.bucket}: עד ${wantedByBucket.get(c.bucket)} ידיעות`)
+      .map((c) => {
+        const base = `- ${c.bucket}: עד ${wantedByBucket.get(c.bucket)} ידיעות`;
+        return escalation.has(c.bucket)
+          ? `${base} — מצב השלמת מכסה: היום מתקרב לסופו והקטגוריה בפיגור. מלא את המכסה גם בידיעות בסדר גודל בינוני; פסול רק תוכן שיווקי או זבל של ממש.`
+          : base;
+      })
       .join("\n");
 
     const rankerSystem = `אתה עורך חדשות ראשי של אתר הייטק ישראלי בעברית. קיבלת רשימת כתבות שפורסמו היום באתרי הטכנולוגיה הגדולים בעולם. בחר את הידיעות **הכי חשובות ורלוונטיות לקהל הישראלי** לפרסום.
@@ -345,14 +396,41 @@ ${budgetLines}
     // upsert once produced a run that reported "4 queued" while the queue
     // stayed empty — the insert had failed on a missing column and the error
     // sat unread in the notes.
-    for (let i = 0; i < rows.length; i += 100) {
+    const newRows = rows.filter((r) => !seenOnly.has(r.url_key));
+    for (let i = 0; i < newRows.length; i += 100) {
       const { error } = await supabase
         .from("ingest_items")
-        .upsert(rows.slice(i, i + 100), { onConflict: "url_key", ignoreDuplicates: true });
+        .upsert(newRows.slice(i, i + 100), { onConflict: "url_key", ignoreDuplicates: true });
       if (error) {
         notes.push(`upsert: ${error.message}`);
         throw new Error(`שמירת התור נכשלה: ${error.message}`);
       }
+    }
+
+    // Resurrections: a picked story whose row already exists as `seen` flips
+    // to pending. Guarded by status='seen' so a story that was published,
+    // dismissed or failed in the meantime can never be re-queued.
+    const resurrected = rows.filter((r) => seenOnly.has(r.url_key) && r.status === "pending");
+    for (const r of resurrected) {
+      const { error } = await supabase
+        .from("ingest_items")
+        .update({
+          status: "pending",
+          priority: r.priority,
+          angle: r.angle,
+          category_hint: r.category_hint,
+          bucket: r.bucket,
+          source_image_url: r.source_image_url,
+        })
+        .eq("url_key", r.url_key)
+        .eq("status", "seen");
+      if (error) {
+        notes.push(`resurrect: ${error.message}`);
+        throw new Error(`שמירת התור נכשלה: ${error.message}`);
+      }
+    }
+    if (resurrected.length > 0) {
+      notes.push(`הוחזרו לתור ${resurrected.length} ידיעות שנפסלו בסבבים קודמים (השלמת מכסה)`);
     }
 
     await supabase.from("ingest_runs").insert({
