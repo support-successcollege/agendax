@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import wordmark from "@/assets/agendax-wordmark.png";
+import wordmarkLight from "@/assets/agendax-wordmark-light.png";
 import {
   Loader2,
   Download,
@@ -38,7 +38,7 @@ interface PostImageGeneratorProps {
 //   1. full-bleed article photo (page background)
 //   2. dark gradient overlay (readability)
 //   3. decorative waves along the top edge (blue + cream, translucent)
-//   4. white logo card with the AGENDAX wordmark
+//   4. transparent AGENDAX wordmark over the waves (background removed)
 //   5. category label with a blue highlight box behind its right half
 //   6. bold white headline
 const CANVA_TEMPLATE_EDIT_URL = "https://www.canva.com/d/wYa3qczymoZgFUo";
@@ -52,8 +52,10 @@ const DARK_R = 7;
 const DARK_G = 14;
 const DARK_B = 35;
 
-// Logo card (template element LBpFRQ6ZB0NMX4PS).
-const LOGO_CARD = { x: 253, y: 0, w: 569, h: 150 };
+// Wordmark over the top band (template element LBpFRQ6ZB0NMX4PS, after the
+// user applied Canva's background remover — no white card, transparent logo).
+const LOGO_WIDTH = 600;
+const LOGO_CENTER_Y = 82;
 
 // Category label (template elements LB3RjDB7FJzKBthF + LBVqd1cWZscrNCj6).
 const CATEGORY_FONT_SIZE = 68;
@@ -161,7 +163,7 @@ const renderPost = async (
   let logo: HTMLImageElement | null = null;
   if (opts.showLogo) {
     try {
-      logo = await loadImage(wordmark);
+      logo = await loadImage(wordmarkLight);
     } catch {
       logo = null;
     }
@@ -207,21 +209,12 @@ const renderPost = async (
     ctx.restore();
   }
 
-  // 4. White logo card at the top center, over the waves.
-  if (opts.showLogo) {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(LOGO_CARD.x, LOGO_CARD.y, LOGO_CARD.w, LOGO_CARD.h);
-    if (logo) {
-      const lw = LOGO_CARD.w * 0.8;
-      const lh = lw * (logo.naturalHeight / logo.naturalWidth);
-      ctx.drawImage(
-        logo,
-        LOGO_CARD.x + (LOGO_CARD.w - lw) / 2,
-        LOGO_CARD.y + (LOGO_CARD.h - lh) / 2,
-        lw,
-        lh,
-      );
-    }
+  // 4. Transparent wordmark at the top center, straight over the waves —
+  //    matching the template, where the logo's background was removed.
+  if (opts.showLogo && logo) {
+    const lw = LOGO_WIDTH;
+    const lh = lw * (logo.naturalHeight / logo.naturalWidth);
+    ctx.drawImage(logo, (W - lw) / 2, LOGO_CENTER_Y - lh / 2, lw, lh);
   }
 
   // 5. Category label with a highlight box behind its right half (in the
