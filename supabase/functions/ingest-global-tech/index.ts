@@ -308,11 +308,18 @@ serve(async (req) => {
       };
     });
 
+    // A failed write must fail the whole scan. Counting the picks before the
+    // upsert once produced a run that reported "4 queued" while the queue
+    // stayed empty — the insert had failed on a missing column and the error
+    // sat unread in the notes.
     for (let i = 0; i < rows.length; i += 100) {
       const { error } = await supabase
         .from("ingest_items")
         .upsert(rows.slice(i, i + 100), { onConflict: "url_key", ignoreDuplicates: true });
-      if (error) notes.push(`upsert: ${error.message}`);
+      if (error) {
+        notes.push(`upsert: ${error.message}`);
+        throw new Error(`שמירת התור נכשלה: ${error.message}`);
+      }
     }
 
     await supabase.from("ingest_runs").insert({
