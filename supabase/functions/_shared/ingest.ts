@@ -425,10 +425,33 @@ export function topUpCount(stats: IngestStats, hardCap = 12): number {
 // Gemini
 // ---------------------------------------------------------------------------
 
+// Gemini returns 503 ("model overloaded") and the occasional 500/502/504 as
+// transient conditions — a retry after a short pause almost always succeeds.
+// 429 also qualifies: the per-minute window resets within seconds.
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+
+export async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  attempts = 3,
+): Promise<Response> {
+  let resp: Response | null = null;
+  for (let i = 0; i < attempts; i++) {
+    resp = await fetch(url, init);
+    if (resp.ok || !RETRYABLE.has(resp.status)) return resp;
+    if (i < attempts - 1) {
+      // Drain the failed body so the connection can be reused, then back off.
+      await resp.body?.cancel();
+      await new Promise((r) => setTimeout(r, 2500 * (i + 1)));
+    }
+  }
+  return resp!;
+}
+
 export async function callModel(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY חסר");
-  const resp = await fetch(AI_URL, {
+  const resp = await fetchWithRetry(AI_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: TEXT_MODEL, ...body }),
@@ -436,6 +459,7 @@ export async function callModel(body: Record<string, unknown>): Promise<Record<s
   if (!resp.ok) {
     const text = await resp.text();
     if (resp.status === 429) throw new Error("חריגה ממכסת הבקשות של Gemini, נסו שוב בעוד רגע");
+    if (resp.status === 503) throw new Error("השרתים של Gemini עמוסים כרגע (503), נסו שוב בעוד דקה-שתיים");
     throw new Error(`Gemini ${resp.status}: ${text.slice(0, 300)}`);
   }
   return await resp.json();
@@ -457,7 +481,7 @@ export async function generateImage(
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) return null;
   try {
-    const resp = await fetch(
+    const resp = await fetchWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`,
       {
         method: "POST",

@@ -110,6 +110,25 @@ const corsHeaders = {
 
 const AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
+// Gemini returns 503 ("model overloaded") and the occasional 500/502/504 as
+// transient conditions — a retry after a short pause almost always succeeds.
+// 429 also qualifies: the per-minute window resets within seconds.
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let resp: Response | null = null;
+  for (let i = 0; i < attempts; i++) {
+    resp = await fetch(url, init);
+    if (resp.ok || !RETRYABLE.has(resp.status)) return resp;
+    if (i < attempts - 1) {
+      // Drain the failed body so the connection can be reused, then back off.
+      await resp.body?.cancel();
+      await new Promise((r) => setTimeout(r, 2500 * (i + 1)));
+    }
+  }
+  return resp!;
+}
+
 async function requireAdmin(req: Request): Promise<Response | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -156,7 +175,7 @@ serve(async (req) => {
     const today = new Date().toISOString().slice(0, 10);
 
     // === Step 1a: Extract Hebrew search query from topic ===
-    const queryResp = await fetch(AI_URL, {
+    const queryResp = await fetchWithRetry(AI_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -179,7 +198,7 @@ serve(async (req) => {
       isFinancial: false, company: null, reportType: null,
     };
     try {
-      const clsResp = await fetch(AI_URL, {
+      const clsResp = await fetchWithRetry(AI_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -263,7 +282,7 @@ serve(async (req) => {
 
 החזר רק דרך הכלי write_article.`;
 
-    const articleResp = await fetch(AI_URL, {
+    const articleResp = await fetchWithRetry(AI_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${GEMINI_API_KEY}`,
@@ -313,6 +332,9 @@ serve(async (req) => {
       console.error("AI article error", articleResp.status, t);
       if (articleResp.status === 429) return json({ error: "חריגה ממכסת הבקשות, נסה שוב בעוד רגע" }, 429);
       if (articleResp.status === 402) return json({ error: "חריגה ממכסת ה-API של Gemini, נסו שוב מאוחר יותר" }, 402);
+      if (articleResp.status === 503) {
+        return json({ error: "השרתים של Gemini עמוסים כרגע (503). ניסינו שלוש פעמים — נסו שוב בעוד דקה-שתיים." }, 503);
+      }
       return json({ error: `שגיאה בניסוח הכתבה (Gemini ${articleResp.status}): ${t.slice(0, 300)}` }, 500);
     }
 
@@ -328,7 +350,7 @@ serve(async (req) => {
     // Gemini generateContent, with the stock image as the safety net.
     let imageUrl: string | null = null;
     try {
-      const imgResp = await fetch(
+      const imgResp = await fetchWithRetry(
         `https://generativelanguage.googleapis.com/v1beta/models/${Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-3.1-flash-image"}:generateContent`,
         {
           method: "POST",
