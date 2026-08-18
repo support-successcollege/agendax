@@ -33,6 +33,7 @@ import {
   Target,
   Trash2,
   Plus,
+  RotateCcw,
 } from "lucide-react";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
@@ -67,6 +68,7 @@ const AdminGlobalIngestTab = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [lastScan, setLastScan] = useState<IngestScanResult | null>(null);
   const [targetDraft, setTargetDraft] = useState<string>("");
   const [savingTarget, setSavingTarget] = useState(false);
@@ -250,6 +252,35 @@ const AdminGlobalIngestTab = () => {
     refresh();
   };
 
+  const resetQueue = async () => {
+    // Deletes only what is waiting to be written. Published rows stay (they
+    // anchor the daily quota and link to their articles), `seen` rows stay so
+    // the next scan doesn't rediscover old stories, and `skipped` rows stay so
+    // dismissed stories don't come back.
+    if (
+      !window.confirm(
+        "לאפס את התור? כל הידיעות שממתינות לכתיבה (כולל כשלונות) יימחקו. כתבות שכבר נוצרו לא ייפגעו.",
+      )
+    ) {
+      return;
+    }
+    setIsResetting(true);
+    const { error, count } = await supabase
+      .from("ingest_items")
+      .delete({ count: "exact" })
+      .in("status", ["pending", "processing", "failed"]);
+    setIsResetting(false);
+    if (error) {
+      toast({ title: "האיפוס נכשל", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: "התור אופס",
+      description: `${count ?? 0} ידיעות הוסרו. הסריקה הבאה תמלא אותו מחדש.`,
+    });
+    refresh();
+  };
+
   const dismissItem = async (item: IngestItem) => {
     const { error } = await supabase.from("ingest_items").update({ status: "skipped" }).eq("id", item.id);
     if (error) {
@@ -379,11 +410,23 @@ const AdminGlobalIngestTab = () => {
 
       {/* Queue */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">התור והפעילות האחרונה</CardTitle>
-          <CardDescription>
-            כתבה שנכתבה נשמרת כטיוטה. עברו לטאב "כתבות", ערכו אם צריך, ופרסמו.
-          </CardDescription>
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">התור והפעילות האחרונה</CardTitle>
+            <CardDescription>
+              כתבה שנכתבה נשמרת כטיוטה. עברו לטאב "כתבות", ערכו אם צריך, ופרסמו.
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetQueue}
+            disabled={isResetting || (queue.length === 0 && failed.length === 0)}
+            className="gap-2 shrink-0 text-muted-foreground hover:text-destructive"
+          >
+            {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            אפס תור
+          </Button>
         </CardHeader>
         <CardContent>
           {items.length === 0 ? (
