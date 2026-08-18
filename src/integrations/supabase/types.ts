@@ -103,6 +103,9 @@ export type Database = {
           is_featured: boolean | null
           published_at: string | null
           scheduled_at: string | null
+          source_name: string | null
+          source_published_at: string | null
+          source_url: string | null
           slug: string | null
           title: string
           updated_at: string
@@ -122,6 +125,9 @@ export type Database = {
           is_featured?: boolean | null
           published_at?: string | null
           scheduled_at?: string | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
           slug?: string | null
           title: string
           updated_at?: string
@@ -141,6 +147,9 @@ export type Database = {
           is_featured?: boolean | null
           published_at?: string | null
           scheduled_at?: string | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
           slug?: string | null
           title?: string
           updated_at?: string
@@ -551,6 +560,119 @@ export type Database = {
         }
         Relationships: []
       }
+      ingest_items: {
+        Row: {
+          angle: string | null
+          article_id: string | null
+          attempts: number
+          bucket: string | null
+          category_hint: string | null
+          created_at: string
+          error: string | null
+          id: string
+          priority: number
+          source_name: string
+          source_published_at: string | null
+          source_summary: string | null
+          source_title: string
+          status: string
+          updated_at: string
+          url: string
+          url_key: string
+        }
+        Insert: {
+          angle?: string | null
+          article_id?: string | null
+          attempts?: number
+          bucket?: string | null
+          category_hint?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          priority?: number
+          source_name: string
+          source_published_at?: string | null
+          source_summary?: string | null
+          source_title: string
+          status?: string
+          updated_at?: string
+          url: string
+          url_key: string
+        }
+        Update: {
+          angle?: string | null
+          article_id?: string | null
+          attempts?: number
+          bucket?: string | null
+          category_hint?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          priority?: number
+          source_name?: string
+          source_published_at?: string | null
+          source_summary?: string | null
+          source_title?: string
+          status?: string
+          updated_at?: string
+          url?: string
+          url_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingest_items_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ingest_runs: {
+        Row: {
+          articles_created: number
+          created_at: string
+          duration_ms: number | null
+          id: string
+          items_new: number
+          items_queued: number
+          items_seen: number
+          kind: string
+          notes: Json
+          sources_failed: number
+          sources_ok: number
+          trigger: string
+        }
+        Insert: {
+          articles_created?: number
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          items_new?: number
+          items_queued?: number
+          items_seen?: number
+          kind: string
+          notes?: Json
+          sources_failed?: number
+          sources_ok?: number
+          trigger?: string
+        }
+        Update: {
+          articles_created?: number
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          items_new?: number
+          items_queued?: number
+          items_seen?: number
+          kind?: string
+          notes?: Json
+          sources_failed?: number
+          sources_ok?: number
+          trigger?: string
+        }
+        Relationships: []
+      }
       job_applications: {
         Row: {
           cover_letter: string | null
@@ -712,6 +834,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      news_sources: {
+        Row: {
+          bucket: string
+          created_at: string
+          feed_url: string
+          homepage: string | null
+          id: string
+          is_active: boolean
+          last_fetched_at: string | null
+          last_item_count: number
+          last_status: string | null
+          name: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          bucket?: string
+          created_at?: string
+          feed_url: string
+          homepage?: string | null
+          id?: string
+          is_active?: boolean
+          last_fetched_at?: string | null
+          last_item_count?: number
+          last_status?: string | null
+          name: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          feed_url?: string
+          homepage?: string | null
+          id?: string
+          is_active?: boolean
+          last_fetched_at?: string | null
+          last_item_count?: number
+          last_status?: string | null
+          name?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
       }
       newsletter_subscribers: {
         Row: {
@@ -1067,6 +1234,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_ingest_item: {
+        Args: never
+        Returns: {
+          angle: string | null
+          article_id: string | null
+          attempts: number
+          bucket: string | null
+          category_hint: string | null
+          created_at: string
+          error: string | null
+          id: string
+          priority: number
+          source_name: string
+          source_published_at: string | null
+          source_summary: string | null
+          source_title: string
+          status: string
+          updated_at: string
+          url: string
+          url_key: string
+        }
+      }
       get_approved_comments: {
         Args: { p_article_id: string }
         Returns: {

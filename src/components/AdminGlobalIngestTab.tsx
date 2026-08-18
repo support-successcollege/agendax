@@ -1,0 +1,396 @@
+import { useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { scanGlobalTech, runIngestWorker, type IngestScanResult, type IngestWorkerResult } from "@/lib/ai.functions";
+import {
+  BUCKET_LABELS,
+  useIngestItems,
+  useIngestRuns,
+  useNewsSources,
+  useRefreshIngest,
+  type IngestBucket,
+  type IngestItem,
+  type NewsSource,
+} from "@/hooks/useGlobalIngest";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Globe,
+  Loader2,
+  Play,
+  RefreshCw,
+  Rss,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  ExternalLink,
+  Trash2,
+} from "lucide-react";
+
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  pending: { label: "בתור", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
+  processing: { label: "בכתיבה", className: "bg-blue-500/10 text-blue-600 border-blue-500/30" },
+  published: { label: "טיוטה נוצרה", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
+  failed: { label: "נכשל", className: "bg-destructive/10 text-destructive border-destructive/30" },
+  skipped: { label: "בוטל", className: "bg-muted text-muted-foreground border-border" },
+  seen: { label: "נסרק", className: "bg-muted text-muted-foreground border-border" },
+};
+
+const relativeTime = (iso: string | null) => {
+  if (!iso) return "—";
+  const minutes = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (minutes < 1) return "עכשיו";
+  if (minutes < 60) return `לפני ${minutes} דק'`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `לפני ${hours} שע'`;
+  return `לפני ${Math.round(hours / 24)} ימים`;
+};
+
+const AdminGlobalIngestTab = () => {
+  const { toast } = useToast();
+  const refresh = useRefreshIngest();
+
+  const { data: sources = [], isLoading: loadingSources } = useNewsSources();
+  const { data: items = [] } = useIngestItems();
+  const { data: runs = [] } = useIngestRuns();
+
+  const [isScanning, setIsScanning] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
+  const [lastScan, setLastScan] = useState<IngestScanResult | null>(null);
+
+  const queue = useMemo(() => items.filter((i) => i.status === "pending" || i.status === "processing"), [items]);
+  const done = useMemo(() => items.filter((i) => i.status === "published"), [items]);
+  const failed = useMemo(() => items.filter((i) => i.status === "failed"), [items]);
+
+  const byBucket = useMemo(() => {
+    const groups = new Map<IngestBucket, NewsSource[]>();
+    for (const s of sources) {
+      const list = groups.get(s.bucket) ?? [];
+      list.push(s);
+      groups.set(s.bucket, list);
+    }
+    return [...groups.entries()];
+  }, [sources]);
+
+  const handleScan = async (dryRun: boolean) => {
+    const setBusy = dryRun ? setIsTesting : setIsScanning;
+    setBusy(true);
+    try {
+      const result = await scanGlobalTech({ data: { limit: 4, dryRun } });
+      setLastScan(result);
+      refresh();
+      toast({
+        title: dryRun ? "בדיקת מקורות הושלמה" : "הסריקה הושלמה",
+        description: dryRun
+          ? `${result.sources?.filter((s) => s.ok).length ?? 0} מקורות תקינים, ${result.itemsNew ?? 0} ידיעות חדשות`
+          : `${result.itemsNew ?? 0} ידיעות חדשות, ${result.queued ?? 0} נבחרו לכתיבה`,
+      });
+    } catch (error) {
+      toast({
+        title: dryRun ? "בדיקת המקורות נכשלה" : "הסריקה נכשלה",
+        description: error instanceof Error ? error.message : "שגיאה בלתי צפויה",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleWork = async () => {
+    setIsWorking(true);
+    try {
+      const result: IngestWorkerResult = await runIngestWorker({ data: { max: 1 } });
+      refresh();
+      if (result.created.length > 0) {
+        toast({
+          title: "נוצרה טיוטה חדשה",
+          description: `${result.created[0].title} — נמצאת בטאב "כתבות" לאישור`,
+        });
+      } else {
+        toast({
+          title: "אין מה לכתוב",
+          description: result.notes?.[0] ?? "התור ריק. הרץ סריקה כדי למלא אותו.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "כתיבת הכתבה נכשלה",
+        description: error instanceof Error ? error.message : "שגיאה בלתי צפויה",
+        variant: "destructive",
+      });
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const toggleSource = async (source: NewsSource) => {
+    const { error } = await supabase
+      .from("news_sources")
+      .update({ is_active: !source.is_active })
+      .eq("id", source.id);
+    if (error) {
+      toast({ title: "העדכון נכשל", description: error.message, variant: "destructive" });
+      return;
+    }
+    refresh();
+  };
+
+  const dismissItem = async (item: IngestItem) => {
+    const { error } = await supabase.from("ingest_items").update({ status: "skipped" }).eq("id", item.id);
+    if (error) {
+      toast({ title: "העדכון נכשל", description: error.message, variant: "destructive" });
+      return;
+    }
+    refresh();
+  };
+
+  const retryItem = async (item: IngestItem) => {
+    const { error } = await supabase
+      .from("ingest_items")
+      .update({ status: "pending", attempts: 0, error: null })
+      .eq("id", item.id);
+    if (error) {
+      toast({ title: "העדכון נכשל", description: error.message, variant: "destructive" });
+      return;
+    }
+    refresh();
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <Card>
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-primary" />
+              סוכן חדשות הייטק עולמי
+            </CardTitle>
+            <CardDescription>
+              סורק את אתרי הטכנולוגיה הגדולים בעולם, בוחר את הידיעות החשובות, כותב אותן מחדש בעברית ושומר כטיוטה לאישורך.
+              רץ אוטומטית שלוש פעמים ביום.
+            </CardDescription>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => handleScan(true)} disabled={isTesting} className="gap-2">
+              {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rss className="w-4 h-4" />}
+              בדוק מקורות
+            </Button>
+            <Button onClick={() => handleScan(false)} disabled={isScanning} className="gap-2">
+              {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              סרוק עכשיו
+            </Button>
+            <Button
+              onClick={handleWork}
+              disabled={isWorking}
+              className="gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              {isWorking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              כתוב את הבאה בתור
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">בתור לכתיבה</p>
+              <p className="text-2xl font-bold">{queue.length}</p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">טיוטות שנוצרו</p>
+              <p className="text-2xl font-bold">{done.length}</p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">מקורות פעילים</p>
+              <p className="text-2xl font-bold">
+                {sources.filter((s) => s.is_active).length}/{sources.length}
+              </p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">כשלונות</p>
+              <p className="text-2xl font-bold">{failed.length}</p>
+            </div>
+          </div>
+
+          {lastScan?.sources && (
+            <div className="mt-4 rounded-lg border bg-muted/30 p-4">
+              <p className="text-sm font-medium mb-2">תוצאת הריצה האחרונה</p>
+              <div className="flex flex-wrap gap-2">
+                {lastScan.sources.map((s) => (
+                  <Badge
+                    key={s.name}
+                    variant="outline"
+                    className={s.ok ? "border-emerald-500/30 text-emerald-600" : "border-destructive/30 text-destructive"}
+                    title={s.error}
+                  >
+                    {s.name}: {s.ok ? `${s.items} ידיעות` : s.error}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Queue */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">התור והפעילות האחרונה</CardTitle>
+          <CardDescription>
+            כתבה שנכתבה נשמרת כטיוטה. עברו לטאב "כתבות", ערכו אם צריך, ופרסמו.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {items.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              עדיין לא נסרקו ידיעות. לחצו "סרוק עכשיו" כדי להתחיל.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {items.slice(0, 25).map((item) => {
+                const meta = STATUS_META[item.status] ?? STATUS_META.seen;
+                return (
+                  <div key={item.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                    <Badge variant="outline" className={`shrink-0 ${meta.className}`}>
+                      {meta.label}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm line-clamp-2">{item.source_title}</p>
+                      {item.angle && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">זווית: {item.angle}</p>}
+                      {item.error && (
+                        <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 shrink-0" />
+                          {item.error}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                        <span>{item.source_name}</span>
+                        {item.priority > 0 && <span>עדיפות {item.priority}/10</span>}
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {relativeTime(item.updated_at)}
+                        </span>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          המקור
+                        </a>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {item.status === "failed" && (
+                        <Button variant="outline" size="sm" onClick={() => retryItem(item)} title="נסה שוב">
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {(item.status === "pending" || item.status === "failed") && (
+                        <Button variant="ghost" size="sm" onClick={() => dismissItem(item)} title="הסר מהתור">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sources */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">מקורות</CardTitle>
+          <CardDescription>כבו מקור כדי להוציא אותו מהסריקה. "בדוק מקורות" מריץ סריקה יבשה בלי לכתוב כלום.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingSources ? (
+            <p className="text-muted-foreground text-sm">טוען...</p>
+          ) : (
+            <div className="space-y-6">
+              {byBucket.map(([bucket, list]) => (
+                <div key={bucket}>
+                  <h4 className="font-medium text-sm mb-2">{BUCKET_LABELS[bucket] ?? bucket}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {list.map((source) => (
+                      <div key={source.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                        <Switch checked={source.is_active} onCheckedChange={() => toggleSource(source)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{source.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {source.last_status === "ok" ? (
+                              <span className="text-emerald-600 inline-flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                {source.last_item_count} ידיעות · {relativeTime(source.last_fetched_at)}
+                              </span>
+                            ) : source.last_status ? (
+                              <span className="text-destructive inline-flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                {source.last_status}
+                              </span>
+                            ) : (
+                              "טרם נסרק"
+                            )}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 text-xs">
+                          {source.weight}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Run log */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">יומן ריצות</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {runs.length === 0 ? (
+            <p className="text-muted-foreground text-sm">אין ריצות עדיין.</p>
+          ) : (
+            <div className="space-y-2">
+              {runs.map((run) => (
+                <div key={run.id} className="flex items-start gap-3 p-3 border rounded-lg text-sm">
+                  <Badge variant="outline" className="shrink-0">
+                    {run.kind === "scan" ? "סריקה" : "כתיבה"}
+                  </Badge>
+                  <div className="flex-1 min-w-0">
+                    <p>
+                      {run.kind === "scan"
+                        ? `${run.items_new} חדשות · ${run.items_queued} נבחרו · ${run.sources_ok} מקורות תקינים${run.sources_failed ? `, ${run.sources_failed} נכשלו` : ""}`
+                        : `${run.articles_created} טיוטות נוצרו`}
+                    </p>
+                    {(run.notes?.length ?? 0) > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{run.notes.join(" · ")}</p>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {relativeTime(run.created_at)}
+                    {run.duration_ms ? ` · ${(run.duration_ms / 1000).toFixed(1)}s` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default AdminGlobalIngestTab;

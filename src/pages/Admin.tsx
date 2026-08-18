@@ -25,6 +25,7 @@ import AdminHighlightsTab from "@/components/AdminHighlightsTab";
 import AdminWidgetsTab from "@/components/AdminWidgetsTab";
 import AdminNewsletterTab from "@/components/AdminNewsletterTab";
 import AdminStudentsTab from "@/components/AdminStudentsTab";
+import AdminGlobalIngestTab from "@/components/AdminGlobalIngestTab";
 import ArticleStatsDialog from "@/components/ArticleStatsDialog";
 import ArticleExportImport from "@/components/ArticleExportImport";
 import AdminArticleCalendar from "@/components/AdminArticleCalendar";
@@ -387,6 +388,7 @@ const Admin = () => {
               { id: "applications", label: "מועמדויות", icon: FileText },
               { id: "courses", label: "קורסים והרצאות", icon: GraduationCap },
               { id: "students", label: "תלמידים", icon: Users },
+              { id: "ingest", label: "סוכן חדשות עולמי", icon: Globe },
               { id: "newsletter", label: "ניוזלטר", icon: Users },
             ].map((tab) => (
               <Button
@@ -862,6 +864,9 @@ const Admin = () => {
         {activeTab === "students" && <AdminStudentsTab />}
 
         {/* Newsletter Tab */}
+        {/* Global hi-tech ingest agent */}
+        {activeTab === "ingest" && <AdminGlobalIngestTab />}
+
         {activeTab === "newsletter" && <AdminNewsletterTab />}
       </div>
 

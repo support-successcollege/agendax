@@ -79,6 +79,7 @@ bun run build && bun run preview
 | `ai.functions.ts` | `generate-article`, `verify-article`, `generate-social-post`, `generate-whatsapp-post`, `analyze-site` | `GEMINI_API_KEY` (חינמי מ-aistudio.google.com) |
 | `admin.functions.ts` | `admin-create-student`, `submit-sitemap`, `send-admin-notification` | service role, Google service account, `RESEND_API_KEY` |
 | `paypal.functions.ts` | `paypal-config`, `paypal-create-order`, `paypal-capture-order` | `PAYPAL_CLIENT_SECRET` |
+| `ai.functions.ts` (טאב הסוכן) | `ingest-global-tech`, `ingest-worker` | `GEMINI_API_KEY`, `INGEST_CRON_SECRET`, service role |
 
 פריסה והגדרת סודות:
 
@@ -103,6 +104,85 @@ supabase secrets set PAYPAL_CLIENT_ID=... PAYPAL_CLIENT_SECRET=... RESEND_API_KE
 
 `reply_to` נקבע אוטומטית לכתובת של מי שהגיש (מגיב, נרשם לניוזלטר, ממלא טופס),
 כך שלחיצה על "השב" פונה אליו ולא לכתובת השולח.
+
+## סוכן חדשות ההייטק העולמי
+
+סורק את אתרי הטכנולוגיה הגדולים בעולם, בוחר את הידיעות החשובות, כותב אותן **מחדש
+בעברית** ושומר אותן כטיוטה. שום דבר לא מתפרסם בלי אישור אנושי.
+
+הסוכן מפוצל לשתי Edge Functions בכוונה. ל-Edge Function יש מגבלת זמן ריצה, וכתיבת
+כתבה אחת (משיכת המקור + שתי קריאות מודל + הפקת תמונה) לוקחת עשרות שניות. לכן:
+
+| פונקציה | תפקיד | תזמון |
+|---|---|---|
+| `ingest-global-tech` | מושכת את כל הפידים, מנקה כפילויות, מדרגת ובוחרת 4 ידיעות, ומכניסה אותן לתור | `0 3,10,17 * * *` (UTC) |
+| `ingest-worker` | לוקחת ידיעה אחת מהתור, כותבת כתבה בעברית, מפיקה תמונה ושומרת טיוטה | `*/5 * * * *` |
+
+שעות ה-UTC הן 06:00 / 13:00 / 20:00 שעון ישראל בקיץ, ושעה אחת מוקדם יותר בחורף.
+
+### הצינור
+
+```
+news_sources (17 פידים)
+   ↓  RSS/Atom, במקביל, עם timeout לכל מקור
+ingest_items — כל URL שנראה אי פעם, עם url_key מנורמל
+   ↓  dedupe: url_key קיים = דילוג, לתמיד
+דירוג ע"י Gemini — 4 ידיעות, לפי חשיבות ורלוונטיות לקורא הישראלי
+   ↓  status = 'pending'
+ingest-worker: קריאת המקור במלואו → כתיבה מחדש בעברית → תמונה
+   ↓
+articles (is_draft = true) + source_url / source_name / source_published_at
+```
+
+`url_key` הוא הכתובת בלי סכימה, בלי `www.` ובלי פרמטרי מעקב. שתי כתובות שמצביעות
+על אותה כתבה מתמזגות לשורה אחת, ולכן ידיעה לא נשקלת ולא נכתבת פעמיים — לא משנה כמה
+פידים נושאים אותה או כמה פעמים ה-cron רץ.
+
+### מה הסוכן לא עושה
+
+- **לא מתרגם.** הפרומפט דורש כתבה מקורית בעברית, ניסוח ומבנה עצמאיים, עם ייחוס
+  לדיווח המקורי בגוף הטקסט וקישור חוזר בסוף. זה גם מה שמונע בעיית זכויות יוצרים
+  וגם מה ש-Google News מצפה לראות.
+- **לא ממציא.** אם המקור לא נקרא (paywall, חסימה) או שהמודל מדווח `confidence <= 3`,
+  הפריט נכשל ולא נכתבת כתבה חלקית.
+- **לא מפרסם.** כל כתבה נשמרת `is_draft = true` וממתינה לאישור בטאב "כתבות".
+
+### הפעלה
+
+מהאדמין: טאב **"סוכן חדשות עולמי"** — "בדוק מקורות" (סריקה יבשה, לא כותבת כלום),
+"סרוק עכשיו", "כתוב את הבאה בתור". שם גם התור, יומן הריצות והמתג להפעלה/כיבוי של
+כל מקור.
+
+### התקנה
+
+```bash
+supabase db push
+supabase functions deploy ingest-global-tech ingest-worker
+```
+
+המיגרציה `00000000000005` מייצרת סוד אקראי ב-Supabase Vault. יש להעביר אותו גם
+ל-Edge Functions, אחרת ה-cron יקבל 401:
+
+```sql
+select decrypted_secret from vault.decrypted_secrets where name = 'ingest_cron_secret';
+```
+
+```bash
+supabase secrets set INGEST_CRON_SECRET=<הערך מהשאילתה>
+```
+
+`GEMINI_API_KEY` כבר מוגדר עבור `generate-article` ומשמש גם כאן.
+
+### כוונון
+
+| מה | איפה |
+|---|---|
+| כמה כתבות בסריקה | `body.limit` ב-cron job `agendax-ingest-scan` (ברירת מחדל 4) |
+| אילו מקורות פעילים | מתג בטאב האדמין, או `news_sources.is_active` |
+| כמה מקור נחשב אמין | `news_sources.weight` (1-10) — משפיע על הדירוג ועל מי מנצח בכפילות |
+| חלון הזמן לאחור | `body.lookbackHours` (ברירת מחדל 24) |
+| אורך ומבנה הכתבה | `WRITER_SYSTEM` ב-`supabase/functions/ingest-worker/index.ts` |
+| קריטריוני הבחירה | `rankerSystem` ב-`supabase/functions/ingest-global-tech/index.ts` |
 
 ## מה נשאר תלוי ב-Lovable
 

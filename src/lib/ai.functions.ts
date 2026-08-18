@@ -60,3 +60,43 @@ export const generateWhatsappPost = ({ data }: { data: WhatsappPostInput }) =>
 // ignored so the call site does not have to change.
 export const analyzeSite = (_?: { data?: undefined }) =>
   invokeEdge<{ advice: string }>("analyze-site");
+
+// --- Global hi-tech ingest ---------------------------------------------------
+// Two Edge Functions, called on a schedule by pg_cron and on demand from the
+// admin panel. The split (scan vs write) is what keeps each invocation inside
+// its wall-clock budget — see supabase/functions/ingest-global-tech.
+
+export type IngestScanInput = {
+  /** How many stories the ranker may queue. Default 4. */
+  limit?: number;
+  lookbackHours?: number;
+  /** Fetch and report on the feeds without ranking or queueing anything. */
+  dryRun?: boolean;
+  buckets?: string[];
+};
+
+export type IngestScanResult = {
+  ok?: boolean;
+  dryRun?: boolean;
+  sources?: { name: string; ok: boolean; items: number; error?: string }[];
+  itemsSeen?: number;
+  itemsNew?: number;
+  queued?: number;
+  picks?: { source: string; title: string; priority: number; angle: string }[];
+  sample?: { source: string; title: string; url: string }[];
+  durationMs?: number;
+};
+
+export const scanGlobalTech = ({ data }: { data?: IngestScanInput } = {}) =>
+  invokeEdge<IngestScanResult>("ingest-global-tech", data ?? {});
+
+export type IngestWorkerResult = {
+  ok: boolean;
+  created: { id: string; title: string }[];
+  remaining: number;
+  notes: string[];
+  durationMs: number;
+};
+
+export const runIngestWorker = ({ data }: { data?: { max?: number } } = {}) =>
+  invokeEdge<IngestWorkerResult>("ingest-worker", data ?? {});

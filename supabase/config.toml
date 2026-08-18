@@ -39,3 +39,12 @@ verify_jwt = false
 
 [functions.ssr-home]
 verify_jwt = false
+
+# The global hi-tech ingest pair. Invoked by pg_cron (no user JWT) and by an
+# admin from the panel; both functions check INGEST_CRON_SECRET or an admin role
+# themselves before doing any work.
+[functions.ingest-global-tech]
+verify_jwt = false
+
+[functions.ingest-worker]
+verify_jwt = false
