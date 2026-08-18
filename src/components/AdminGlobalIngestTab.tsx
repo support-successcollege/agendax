@@ -32,6 +32,7 @@ import {
   ExternalLink,
   Target,
   Trash2,
+  Plus,
 } from "lucide-react";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
@@ -68,6 +69,13 @@ const AdminGlobalIngestTab = () => {
   const [lastScan, setLastScan] = useState<IngestScanResult | null>(null);
   const [targetDraft, setTargetDraft] = useState<string>("");
   const [savingTarget, setSavingTarget] = useState(false);
+  const [addingSource, setAddingSource] = useState(false);
+  const [newSource, setNewSource] = useState<{
+    name: string;
+    feedUrl: string;
+    bucket: IngestBucket;
+    weight: number;
+  }>({ name: "", feedUrl: "", bucket: "general", weight: 5 });
 
   const queue = useMemo(() => items.filter((i) => i.status === "pending" || i.status === "processing"), [items]);
   const done = useMemo(() => items.filter((i) => i.status === "published"), [items]);
@@ -171,6 +179,54 @@ const AdminGlobalIngestTab = () => {
       toast({ title: "העדכון נכשל", description: error.message, variant: "destructive" });
       return;
     }
+    refresh();
+  };
+
+  const addSource = async () => {
+    const name = newSource.name.trim();
+    const feedUrl = newSource.feedUrl.trim();
+    if (!name || !feedUrl) {
+      toast({ title: "חסר שם או כתובת פיד", variant: "destructive" });
+      return;
+    }
+    try {
+      new URL(feedUrl);
+    } catch {
+      toast({ title: "כתובת הפיד אינה URL תקין", variant: "destructive" });
+      return;
+    }
+    setAddingSource(true);
+    const { error } = await supabase.from("news_sources").insert({
+      name,
+      feed_url: feedUrl,
+      bucket: newSource.bucket,
+      weight: newSource.weight,
+    });
+    setAddingSource(false);
+    if (error) {
+      // 23505 = the unique constraint on feed_url — say so in plain words.
+      const description =
+        error.code === "23505" ? "פיד עם הכתובת הזו כבר קיים" : error.message;
+      toast({ title: "ההוספה נכשלה", description, variant: "destructive" });
+      return;
+    }
+    setNewSource({ name: "", feedUrl: "", bucket: "general", weight: 5 });
+    toast({ title: "המקור נוסף", description: `${name} ייכלל בסריקה הבאה.` });
+    refresh();
+  };
+
+  const deleteSource = async (source: NewsSource) => {
+    // Items already ingested from this source keep their rows (and their
+    // articles); deleting a source only stops future scans from reading it.
+    if (!window.confirm(`למחוק את "${source.name}" לצמיתות? כתבות שכבר נוצרו ממנו יישארו.`)) {
+      return;
+    }
+    const { error } = await supabase.from("news_sources").delete().eq("id", source.id);
+    if (error) {
+      toast({ title: "המחיקה נכשלה", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "המקור נמחק", description: source.name });
     refresh();
   };
 
@@ -409,11 +465,80 @@ const AdminGlobalIngestTab = () => {
                         <Badge variant="secondary" className="shrink-0 text-xs">
                           {source.weight}
                         </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteSource(source)}
+                          title="מחק מקור"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
+
+              {/* Add a source */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-sm mb-3">הוספת מקור חדש</h4>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto_auto] gap-2 items-center">
+                  <Input
+                    placeholder="שם המקור (למשל TechCrunch)"
+                    value={newSource.name}
+                    onChange={(e) => setNewSource((s) => ({ ...s, name: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="כתובת פיד RSS/Atom"
+                    dir="ltr"
+                    value={newSource.feedUrl}
+                    onChange={(e) => setNewSource((s) => ({ ...s, feedUrl: e.target.value }))}
+                  />
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    value={newSource.bucket}
+                    onChange={(e) =>
+                      setNewSource((s) => ({ ...s, bucket: e.target.value as IngestBucket }))
+                    }
+                    aria-label="קטגוריית מקור"
+                  >
+                    {(Object.entries(BUCKET_LABELS) as [IngestBucket, string][]).map(
+                      ([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    value={newSource.weight}
+                    onChange={(e) =>
+                      setNewSource((s) => ({ ...s, weight: Number(e.target.value) }))
+                    }
+                    aria-label="משקל אמינות"
+                    title="משקל אמינות 1-10 — משפיע על הדירוג"
+                  >
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((w) => (
+                      <option key={w} value={w}>
+                        משקל {w}
+                      </option>
+                    ))}
+                  </select>
+                  <Button onClick={addSource} disabled={addingSource} className="gap-1.5">
+                    {addingSource ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                    הוסף
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  המקור ייסרק אוטומטית בסריקה הבאה. המשקל (1–10) קובע כמה הדירוג סומך עליו.
+                </p>
+              </div>
             </div>
           )}
         </CardContent>
