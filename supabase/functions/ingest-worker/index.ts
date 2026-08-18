@@ -71,7 +71,7 @@ const WRITER_SYSTEM = (today: string, categoryNames: string) => `היום ${toda
 
 החזר רק דרך הכלי write_hebrew_article.`;
 
-async function processItem(supabase: any, item: Item): Promise<{ ok: true; articleId: string; title: string } | { ok: false; error: string }> {
+async function processItem(supabase: any, item: Item, slotStepMinutes: number): Promise<{ ok: true; articleId: string; title: string } | { ok: false; error: string }> {
   // --- 1. The original, in full ------------------------------------------
   const original = await fetchArticleText(item.url);
   const originalText = original?.text || "";
@@ -208,6 +208,16 @@ async function processItem(supabase: any, item: Item): Promise<{ ok: true; artic
   }
   const excerpt = (article.subtitle || (article.key_facts || []).slice(0, 2).join(" ")).slice(0, 400);
 
+  // Auto-scheduling: the draft takes the next free slot in the publishing
+  // window (06:00–24:00 Israel time) and the publish cron flips it live when
+  // the slot arrives. Until then the editor can still edit or delete it. If
+  // the slot RPC fails the article stays an unscheduled draft — manual
+  // publishing is the fallback, never a lost article.
+  const { data: slot, error: slotErr } = await supabase.rpc("next_publish_slot", {
+    _step_minutes: slotStepMinutes,
+  });
+  if (slotErr) console.error("next_publish_slot failed", slotErr);
+
   const { data: inserted, error: insertErr } = await supabase
     .from("articles")
     .insert({
@@ -219,6 +229,7 @@ async function processItem(supabase: any, item: Item): Promise<{ ok: true; artic
       image_url: imageUrl,
       author: "מערכת Agendax",
       is_draft: true,
+      scheduled_at: slot ?? null,
       is_breaking: false,
       is_featured: false,
       source_url: resolvedUrl,
@@ -259,6 +270,14 @@ serve(async (req) => {
     const left = stats.dailyTarget - cat.publishedToday;
     if (left > 0) budgetByBucket.set(cat.bucket, left);
   }
+  // The publishing window is 18 hours (06:00–24:00 Israel); spreading the
+  // whole day's output across it evenly gives the slot spacing. 40 articles a
+  // day → a new one goes live every 27 minutes.
+  const slotStepMinutes = Math.max(
+    5,
+    Math.floor((18 * 60) / Math.max(1, stats.dailyTarget * stats.categoryCount)),
+  );
+
   if (budgetByBucket.size === 0) {
     return json({
       ok: true,
@@ -293,7 +312,7 @@ serve(async (req) => {
 
     const typed = item as Item;
     try {
-      const result = await processItem(supabase, typed);
+      const result = await processItem(supabase, typed, slotStepMinutes);
       if (result.ok) {
         await supabase
           .from("ingest_items")

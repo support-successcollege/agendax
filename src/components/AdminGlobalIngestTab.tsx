@@ -165,8 +165,8 @@ const AdminGlobalIngestTab = () => {
       refresh();
       if (result.created.length > 0) {
         toast({
-          title: "נוצרה טיוטה חדשה",
-          description: `${result.created[0].title} — נמצאת בטאב "כתבות" לאישור`,
+          title: "נוצרה כתבה חדשה",
+          description: `${result.created[0].title} — תוזמנה לפרסום אוטומטי; ניתן לערוך או לבטל בטאב "כתבות" עד שעת הפרסום`,
         });
       } else {
         toast({
@@ -461,7 +461,8 @@ const AdminGlobalIngestTab = () => {
           <div>
             <CardTitle className="text-base">התור והפעילות האחרונה</CardTitle>
             <CardDescription>
-              כתבה שנכתבה נשמרת כטיוטה. עברו לטאב "כתבות", ערכו אם צריך, ופרסמו.
+              כתבה שנכתבה מתוזמנת אוטומטית לפרסום בין 6:00 לחצות, במרווחים שווים. עד שעת
+              הפרסום היא בטאב "כתבות" תחת "מתוזמנות" — אפשר לערוך, להקדים או למחוק.
             </CardDescription>
           </div>
           <Button
