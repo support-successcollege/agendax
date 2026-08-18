@@ -272,6 +272,8 @@ serve(async (req) => {
     });
   }
 
+  let processedAny = false;
+
   for (let n = 0; n < max; n++) {
     if (Date.now() - startedAt > TIME_BUDGET_MS) {
       notes.push("נעצר בגלל מגבלת זמן ריצה");
@@ -287,6 +289,7 @@ serve(async (req) => {
       break;
     }
     if (!item?.id) break; // queue empty
+    processedAny = true;
 
     const typed = item as Item;
     try {
@@ -347,6 +350,30 @@ serve(async (req) => {
     .from("ingest_items")
     .select("id", { count: "exact", head: true })
     .eq("status", "pending");
+
+  // --- Self-chain -----------------------------------------------------------
+  // The cron is only the ignition. As long as the queue holds stories and some
+  // category still has budget, each invocation kicks off the next one before
+  // returning, so the queue drains back-to-back instead of one story per cron
+  // tick. The chain is bounded: every claim increments attempts (3 → failed),
+  // the queue is finite, and the budget check runs fresh in each invocation —
+  // so it always terminates. `processedAny` guards the case where the queue is
+  // non-empty but nothing in it is claimable, which would otherwise loop.
+  const secret = Deno.env.get("INGEST_CRON_SECRET");
+  if (secret && processedAny && (count ?? 0) > 0 && budgetByBucket.size > 0) {
+    const chain = fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ingest-worker`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-ingest-secret": secret },
+      body: JSON.stringify({ max }),
+    }).then((r) => r.body?.cancel()).catch((e) => console.error("chain failed", e));
+    // waitUntil keeps this instance alive until the next one has been started;
+    // the next invocation then runs on its own fresh wall clock.
+    const runtime = (globalThis as {
+      EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void };
+    }).EdgeRuntime;
+    if (runtime) runtime.waitUntil(chain);
+    notes.push("ממשיך מיד לידיעה הבאה בתור");
+  }
 
   return json({
     ok: true,
