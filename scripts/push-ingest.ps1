@@ -62,6 +62,7 @@ Write-Step 2 "מוסיף את קבצי הסוכן"
 $files = @(
     "supabase\migrations\00000000000004_global_tech_ingest.sql",
     "supabase\migrations\00000000000005_global_tech_ingest_cron.sql",
+    "supabase\migrations\00000000000006_ingest_daily_quota.sql",
     "supabase\functions\_shared\ingest.ts",
     "supabase\functions\ingest-global-tech\index.ts",
     "supabase\functions\ingest-worker\index.ts",

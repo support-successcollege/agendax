@@ -13,7 +13,9 @@ import {
   corsHeaders,
   fetchFeed,
   json,
+  loadStats,
   toolArgs,
+  topUpCount,
   urlKey,
   type FeedItem,
 } from "../_shared/ingest.ts";
@@ -33,7 +35,6 @@ type Candidate = FeedItem & {
   weight: number;
 };
 
-const DEFAULT_LIMIT = 4;
 const DEFAULT_LOOKBACK_HOURS = 24;
 /** How many stories the ranker is shown. Keeps the prompt inside a sane budget. */
 const MAX_RANKED = 60;
@@ -55,10 +56,33 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const limit = Math.min(Math.max(Number(body?.limit) || DEFAULT_LIMIT, 1), 10);
-    const lookbackHours = Math.min(Math.max(Number(body?.lookbackHours) || DEFAULT_LOOKBACK_HOURS, 2), 96);
     const dryRun = body?.dryRun === true;
     const buckets: string[] | null = Array.isArray(body?.buckets) && body.buckets.length ? body.buckets : null;
+
+    // --- 0. How much is still missing from today's target ------------------
+    // The daily target lives in ingest_config, not in this file, so it can be
+    // changed from the admin panel without a redeploy.
+    const stats = await loadStats(supabase);
+    const lookbackHours = Math.min(
+      Math.max(Number(body?.lookbackHours) || stats.lookbackHours || DEFAULT_LOOKBACK_HOURS, 2),
+      96,
+    );
+    // An explicit limit (the admin pressing "scan now") overrides the pacing.
+    const limit = body?.limit
+      ? Math.min(Math.max(Number(body.limit), 1), 12)
+      : topUpCount(stats);
+
+    // Nothing to do: today's target is met and the queue already holds spares.
+    // Returning before touching the feeds is what makes six scans a day cheap.
+    if (!dryRun && limit === 0) {
+      return json({
+        ok: true,
+        skipped: "היעד היומי הושלם",
+        publishedToday: stats.publishedToday,
+        dailyTarget: stats.dailyTarget,
+        queued: stats.queued,
+      });
+    }
 
     // --- 1. Active sources -------------------------------------------------
     let sourceQuery = supabase
@@ -308,6 +332,8 @@ serve(async (req) => {
       itemsSeen: unique.length,
       itemsNew: fresh.length,
       queued: pickByKey.size,
+      publishedToday: stats.publishedToday,
+      dailyTarget: stats.dailyTarget,
       picks: [...chosen.entries()].map(([i, p]) => ({
         source: shortlist[i].sourceName,
         title: shortlist[i].title,

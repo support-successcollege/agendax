@@ -78,6 +78,10 @@ export type IngestScanInput = {
 export type IngestScanResult = {
   ok?: boolean;
   dryRun?: boolean;
+  /** Set when the scan returned early because today's target is already met. */
+  skipped?: string;
+  publishedToday?: number;
+  dailyTarget?: number;
   sources?: { name: string; ok: boolean; items: number; error?: string }[];
   itemsSeen?: number;
   itemsNew?: number;
@@ -94,6 +98,10 @@ export type IngestWorkerResult = {
   ok: boolean;
   created: { id: string; title: string }[];
   remaining: number;
+  /** Set when the worker declined to write because the daily target is met. */
+  skipped?: string;
+  publishedToday?: number;
+  dailyTarget?: number;
   notes: string[];
   durationMs: number;
 };

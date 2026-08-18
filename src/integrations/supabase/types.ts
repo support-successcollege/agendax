@@ -560,6 +560,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ingest_config: {
+        Row: {
+          daily_target: number
+          id: boolean
+          lookback_hours: number
+          queue_buffer: number
+          updated_at: string
+        }
+        Insert: {
+          daily_target?: number
+          id?: boolean
+          lookback_hours?: number
+          queue_buffer?: number
+          updated_at?: string
+        }
+        Update: {
+          daily_target?: number
+          id?: boolean
+          lookback_hours?: number
+          queue_buffer?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ingest_items: {
         Row: {
           angle: string | null
@@ -571,6 +595,7 @@ export type Database = {
           error: string | null
           id: string
           priority: number
+          published_at: string | null
           source_name: string
           source_published_at: string | null
           source_summary: string | null
@@ -590,6 +615,7 @@ export type Database = {
           error?: string | null
           id?: string
           priority?: number
+          published_at?: string | null
           source_name: string
           source_published_at?: string | null
           source_summary?: string | null
@@ -609,6 +635,7 @@ export type Database = {
           error?: string | null
           id?: string
           priority?: number
+          published_at?: string | null
           source_name?: string
           source_published_at?: string | null
           source_summary?: string | null
@@ -1246,6 +1273,7 @@ export type Database = {
           error: string | null
           id: string
           priority: number
+          published_at: string | null
           source_name: string
           source_published_at: string | null
           source_summary: string | null
@@ -1255,6 +1283,16 @@ export type Database = {
           url: string
           url_key: string
         }
+      }
+      ingest_daily_stats: {
+        Args: never
+        Returns: {
+          daily_target: number
+          lookback_hours: number
+          published_today: number
+          queue_buffer: number
+          queued: number
+        }[]
       }
       get_approved_comments: {
         Args: { p_article_id: string }

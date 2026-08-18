@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Link } from "@/lib/router-compat";
 import Header from "@/components/Header";
 import BreakingNews from "@/components/BreakingNews";
@@ -11,13 +11,12 @@ import Footer from "@/components/Footer";
 import WidgetBanner from "@/components/WidgetBanner";
 import WidgetPopup from "@/components/WidgetPopup";
 import { useCategories } from "@/hooks/useCategories";
-import { useArticles, getArticlesByCategory } from "@/hooks/useArticles";
+import { useArticles } from "@/hooks/useArticles";
 import { useAllArticleViews } from "@/hooks/usePageViews";
 import { useSidebarWidgets } from "@/hooks/useSidebarWidgets";
 import { Loader2, TrendingUp } from "lucide-react";
 
 const Index = () => {
-  const [activeCategory, setActiveCategory] = useState("home");
   const { articles, isLoading: isArticlesLoading } = useArticles();
   const { categories, isLoading: isCategoriesLoading } = useCategories();
   const { articleViews } = useAllArticleViews();
@@ -36,8 +35,7 @@ const Index = () => {
     };
   }, [widgets]);
   
-  const filteredArticles = getArticlesByCategory(publishedArticles, activeCategory);
-  const categoryName = categories.find((c) => c.slug === activeCategory)?.name || "ראשי";
+  const filteredArticles = publishedArticles;
 
   if (isArticlesLoading || isCategoriesLoading) {
     return (
@@ -51,13 +49,13 @@ const Index = () => {
     <>
 
       <div className="min-h-screen bg-background">
-        <Header activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+        <Header />
         <BreakingNews articles={publishedArticles} />
 
         <main className="container py-8" id="main-content">
           <h1 className="sr-only">Agendax — סדר היום של הטכנולוגיה, ה-AI והעסקים</h1>
           {/* Featured Article - only on home */}
-          {activeCategory === "home" && filteredArticles.length > 0 && (
+          {filteredArticles.length > 0 && (
             <div className="mb-8">
               <FeaturedArticle articles={filteredArticles} />
             </div>
@@ -75,8 +73,8 @@ const Index = () => {
           {/* Main Content - Article Grid */}
           <div className="lg:col-span-2">
             <ArticleGrid
-              articles={activeCategory === "home" ? filteredArticles : filteredArticles}
-              title={activeCategory === "home" ? "כתבות אחרונות" : categoryName}
+              articles={filteredArticles}
+              title="כתבות אחרונות"
             />
 
             {/* Most Read - Podium Style */}

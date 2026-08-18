@@ -3,15 +3,15 @@ import { Menu, X, Search } from "lucide-react";
 import { useCategories } from "@/hooks/useCategories";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useNavigate } from "@/lib/router-compat";
+import { Link, useLocation } from "@/lib/router-compat";
 import { Briefcase, Wrench, GraduationCap } from "lucide-react";
 import wordmark from "@/assets/agendax-wordmark-light.png";
 import SearchDialog from "./SearchDialog";
 
-interface HeaderProps {
-  activeCategory?: string;
-  onCategoryChange?: (slug: string) => void;
-}
+// Every category is its own page. The link target for "home" is the homepage;
+// everything else lives under /category/<slug>.
+const categoryPath = (slug: string) =>
+  slug === "home" ? "/" : `/category/${encodeURIComponent(slug)}`;
 
 // Nav items share one shape so the desktop row and the mobile sheet cannot
 // drift apart when a link is added.
@@ -20,20 +20,19 @@ const navItemBase =
 const navItemIdle = "text-foreground/70 hover:text-foreground hover:bg-surface-2";
 const navItemActive = "text-primary";
 
-const Header = ({ activeCategory = "home", onCategoryChange }: HeaderProps) => {
+const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const navigate = useNavigate();
+  const location = useLocation();
   const { categories } = useCategories();
   const { settings } = useSiteSettings();
 
-  const handleCategoryClick = (slug: string) => {
-    if (onCategoryChange) {
-      onCategoryChange(slug);
-    } else {
-      navigate(`/?category=${slug}`);
-    }
-  };
+  // Active state comes from the URL, so the header needs no props and every
+  // page that renders it gets correct highlighting for free.
+  const activeCategory =
+    location.pathname === "/"
+      ? "home"
+      : decodeURIComponent(location.pathname.match(/^\/category\/([^/]+)/)?.[1] ?? "");
 
   const secondaryLinks = [
     settings.show_jobs && { to: "/jobs", label: "איזור התעסוקה", Icon: Briefcase },
@@ -87,9 +86,9 @@ const Header = ({ activeCategory = "home", onCategoryChange }: HeaderProps) => {
             {categories.map((category) => {
               const isActive = activeCategory === category.slug;
               return (
-                <button
+                <Link
                   key={category.slug}
-                  onClick={() => handleCategoryClick(category.slug)}
+                  to={categoryPath(category.slug)}
                   className={`${navItemBase} ${isActive ? navItemActive : navItemIdle}`}
                 >
                   {category.name}
@@ -102,7 +101,7 @@ const Header = ({ activeCategory = "home", onCategoryChange }: HeaderProps) => {
                       className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-gradient-brand shadow-glow"
                     />
                   )}
-                </button>
+                </Link>
               );
             })}
 
@@ -148,20 +147,18 @@ const Header = ({ activeCategory = "home", onCategoryChange }: HeaderProps) => {
           >
             <div className="container py-3 flex flex-col gap-1">
               {categories.map((category) => (
-                <button
+                <Link
                   key={category.slug}
-                  onClick={() => {
-                    handleCategoryClick(category.slug);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`px-3 py-2.5 rounded-lg text-right font-medium transition-colors ${
+                  to={categoryPath(category.slug)}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`press px-3 py-2.5 rounded-lg text-right font-medium transition-colors ${
                     activeCategory === category.slug
                       ? "bg-surface-2 text-primary"
                       : "text-foreground/70 hover:bg-surface-2"
                   }`}
                 >
                   {category.name}
-                </button>
+                </Link>
               ))}
 
               <span className="my-1 h-px bg-border" aria-hidden="true" />

@@ -57,7 +57,7 @@ async function selectRows<T>(
 export async function collectPrerenderPages(
   env: Record<string, string>,
 ): Promise<PageEntry[]> {
-  const [articles, courses, events, jobs] = await Promise.all([
+  const [articles, courses, events, jobs, categories] = await Promise.all([
     selectRows<{ slug: string | null; id: string; date: string; title: string }>(
       env,
       "articles",
@@ -70,6 +70,11 @@ export async function collectPrerenderPages(
     ),
     selectRows<{ slug: string }>(env, "events", "select=slug&limit=500"),
     selectRows<{ id: string }>(env, "jobs", "select=id&is_active=eq.true&limit=1000"),
+    selectRows<{ slug: string }>(
+      env,
+      "categories",
+      "select=slug&is_active=eq.true&limit=100",
+    ),
   ]);
 
   const now = Date.now();
@@ -98,6 +103,13 @@ export async function collectPrerenderPages(
 
   const pages: PageEntry[] = [
     ...STATIC_PAGES,
+    // Every navbar category is its own page. "home" is the homepage itself.
+    ...categories
+      .filter((category) => category.slug !== "home")
+      .map((category) => ({
+        path: `/category/${category.slug}`,
+        sitemap: { priority: 0.8, changefreq: "daily" as const },
+      })),
     ...articlePages,
     ...courses.map((course) => ({
       path: `/courses/${course.slug}`,
@@ -115,7 +127,8 @@ export async function collectPrerenderPages(
 
   console.log(
     `[collect-pages] ${pages.length} routes (${articlePages.length} articles, ` +
-      `${courses.length} courses, ${events.length} events, ${jobs.length} jobs)`,
+      `${categories.length - 1} categories, ${courses.length} courses, ` +
+      `${events.length} events, ${jobs.length} jobs)`,
   );
   return pages;
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { generateArticle, verifyArticle } from "@/lib/ai.functions";
+import { useCategories } from "@/hooks/useCategories";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ interface VerificationResult {
 }
 
 const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticleGeneratorProps) => {
+  const { categories } = useCategories();
   const generateArticleFn = generateArticle;
   const verifyArticleFn = verifyArticle;
   const [topic, setTopic] = useState("");
@@ -124,17 +126,16 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
   const handleApprove = () => {
     if (!generatedArticle) return;
 
-    const categorySlugMap: Record<string, string> = {
-      "חדשות": "news",
-      "טכנולוגיה": "technology",
-      "כלכלה": "economy",
-      "פוליטיקה": "politics",
-      "אקטואליה": "current",
-      "שוק ההון": "stocks",
-    };
-
-    const category = generatedArticle.category || "חדשות";
-    const categorySlug = categorySlugMap[category] || "news";
+    // Resolve against the live categories table — a hardcoded map here survived
+    // the rebrand once and produced articles whose slug matched no category
+    // page. If the model's suggestion isn't a real category, fall back to the
+    // first non-home category rather than inventing a slug.
+    const live = categories.filter((c) => c.slug !== "home" && c.isActive);
+    const match =
+      live.find((c) => c.name.trim() === (generatedArticle.category || "").trim()) ??
+      live[0];
+    const category = match?.name ?? "הייטק";
+    const categorySlug = match?.slug ?? "hightech";
 
     const newArticle: Article = {
       id: Date.now().toString(),

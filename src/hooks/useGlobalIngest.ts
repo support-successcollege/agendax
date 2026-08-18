@@ -61,10 +61,50 @@ export interface IngestRun {
   created_at: string;
 }
 
+export interface IngestStats {
+  publishedToday: number;
+  queued: number;
+  dailyTarget: number;
+  queueBuffer: number;
+  lookbackHours: number;
+}
+
 export const INGEST_KEYS = {
   sources: ["ingest", "sources"] as const,
   items: ["ingest", "items"] as const,
   runs: ["ingest", "runs"] as const,
+  stats: ["ingest", "stats"] as const,
+};
+
+/**
+ * Today's progress against the daily target. The day boundary is Israel local
+ * midnight and is computed inside the RPC, so the browser's clock and timezone
+ * never enter into it.
+ */
+export const useIngestStats = () =>
+  useQuery({
+    queryKey: INGEST_KEYS.stats,
+    queryFn: async (): Promise<IngestStats> => {
+      const { data, error } = await supabase.rpc("ingest_daily_stats");
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        publishedToday: row?.published_today ?? 0,
+        queued: row?.queued ?? 0,
+        dailyTarget: row?.daily_target ?? 10,
+        queueBuffer: row?.queue_buffer ?? 3,
+        lookbackHours: row?.lookback_hours ?? 24,
+      };
+    },
+    refetchInterval: 30_000,
+  });
+
+export const updateDailyTarget = async (dailyTarget: number) => {
+  const { error } = await supabase
+    .from("ingest_config")
+    .update({ daily_target: dailyTarget })
+    .eq("id", true);
+  if (error) throw error;
 };
 
 export const useNewsSources = () =>

@@ -5,8 +5,10 @@ import {
   BUCKET_LABELS,
   useIngestItems,
   useIngestRuns,
+  useIngestStats,
   useNewsSources,
   useRefreshIngest,
+  updateDailyTarget,
   type IngestBucket,
   type IngestItem,
   type NewsSource,
@@ -15,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe,
@@ -27,6 +30,7 @@ import {
   AlertTriangle,
   Clock,
   ExternalLink,
+  Target,
   Trash2,
 } from "lucide-react";
 
@@ -56,11 +60,14 @@ const AdminGlobalIngestTab = () => {
   const { data: sources = [], isLoading: loadingSources } = useNewsSources();
   const { data: items = [] } = useIngestItems();
   const { data: runs = [] } = useIngestRuns();
+  const { data: stats } = useIngestStats();
 
   const [isScanning, setIsScanning] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [lastScan, setLastScan] = useState<IngestScanResult | null>(null);
+  const [targetDraft, setTargetDraft] = useState<string>("");
+  const [savingTarget, setSavingTarget] = useState(false);
 
   const queue = useMemo(() => items.filter((i) => i.status === "pending" || i.status === "processing"), [items]);
   const done = useMemo(() => items.filter((i) => i.status === "published"), [items]);
@@ -87,7 +94,9 @@ const AdminGlobalIngestTab = () => {
         title: dryRun ? "בדיקת מקורות הושלמה" : "הסריקה הושלמה",
         description: dryRun
           ? `${result.sources?.filter((s) => s.ok).length ?? 0} מקורות תקינים, ${result.itemsNew ?? 0} ידיעות חדשות`
-          : `${result.itemsNew ?? 0} ידיעות חדשות, ${result.queued ?? 0} נבחרו לכתיבה`,
+          : result.skipped
+            ? `${result.skipped} (${result.publishedToday}/${result.dailyTarget})`
+            : `${result.itemsNew ?? 0} ידיעות חדשות, ${result.queued ?? 0} נבחרו לכתיבה`,
       });
     } catch (error) {
       toast({
@@ -112,8 +121,11 @@ const AdminGlobalIngestTab = () => {
         });
       } else {
         toast({
-          title: "אין מה לכתוב",
-          description: result.notes?.[0] ?? "התור ריק. הרץ סריקה כדי למלא אותו.",
+          title: result.skipped ? "היעד היומי הושלם" : "אין מה לכתוב",
+          description:
+            result.skipped
+              ? `נוצרו ${result.publishedToday} מתוך ${result.dailyTarget} כתבות היום. הסוכן ימשיך מחר.`
+              : (result.notes?.[0] ?? "התור ריק. הרץ סריקה כדי למלא אותו."),
         });
       }
     } catch (error) {
@@ -124,6 +136,29 @@ const AdminGlobalIngestTab = () => {
       });
     } finally {
       setIsWorking(false);
+    }
+  };
+
+  const saveTarget = async () => {
+    const value = Number(targetDraft);
+    if (!Number.isInteger(value) || value < 1 || value > 50) {
+      toast({ title: "ערך לא תקין", description: "יעד יומי חייב להיות מספר שלם בין 1 ל-50.", variant: "destructive" });
+      return;
+    }
+    setSavingTarget(true);
+    try {
+      await updateDailyTarget(value);
+      setTargetDraft("");
+      refresh();
+      toast({ title: "היעד עודכן", description: `הסוכן יפיק מעכשיו ${value} כתבות ביום.` });
+    } catch (error) {
+      toast({
+        title: "העדכון נכשל",
+        description: error instanceof Error ? error.message : "שגיאה בלתי צפויה",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingTarget(false);
     }
   };
 
@@ -172,7 +207,7 @@ const AdminGlobalIngestTab = () => {
             </CardTitle>
             <CardDescription>
               סורק את אתרי הטכנולוגיה הגדולים בעולם, בוחר את הידיעות החשובות, כותב אותן מחדש בעברית ושומר כטיוטה לאישורך.
-              רץ אוטומטית שלוש פעמים ביום.
+              רץ אוטומטית שש פעמים ביום ומשלים את היעד היומי.
             </CardDescription>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -197,12 +232,15 @@ const AdminGlobalIngestTab = () => {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-lg border p-4">
-              <p className="text-sm text-muted-foreground">בתור לכתיבה</p>
-              <p className="text-2xl font-bold">{queue.length}</p>
+              <p className="text-sm text-muted-foreground">היום</p>
+              <p className="text-2xl font-bold">
+                {stats?.publishedToday ?? 0}
+                <span className="text-base font-normal text-muted-foreground">/{stats?.dailyTarget ?? 10}</span>
+              </p>
             </div>
             <div className="rounded-lg border p-4">
-              <p className="text-sm text-muted-foreground">טיוטות שנוצרו</p>
-              <p className="text-2xl font-bold">{done.length}</p>
+              <p className="text-sm text-muted-foreground">בתור לכתיבה</p>
+              <p className="text-2xl font-bold">{queue.length}</p>
             </div>
             <div className="rounded-lg border p-4">
               <p className="text-sm text-muted-foreground">מקורות פעילים</p>
@@ -213,6 +251,33 @@ const AdminGlobalIngestTab = () => {
             <div className="rounded-lg border p-4">
               <p className="text-sm text-muted-foreground">כשלונות</p>
               <p className="text-2xl font-bold">{failed.length}</p>
+            </div>
+          </div>
+
+          {/* Daily target */}
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 p-4">
+            <Target className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex-1 min-w-[16rem]">
+              <p className="text-sm font-medium">יעד יומי: {stats?.dailyTarget ?? 10} כתבות</p>
+              <p className="text-xs text-muted-foreground">
+                כל סריקה משלימה את התור למה שחסר מהיעד, ועוד {stats?.queueBuffer ?? 3} רזרבות. אם ידיעה
+                נכשלת, הרזרבה הבאה נכנסת במקומה במקום שהיום ייצא קצר.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                inputMode="numeric"
+                placeholder={String(stats?.dailyTarget ?? 10)}
+                value={targetDraft}
+                onChange={(e) => setTargetDraft(e.target.value)}
+                className="w-24 text-center"
+              />
+              <Button variant="outline" size="sm" onClick={saveTarget} disabled={savingTarget || !targetDraft}>
+                {savingTarget ? <Loader2 className="w-4 h-4 animate-spin" /> : "שמור"}
+              </Button>
             </div>
           </div>
 

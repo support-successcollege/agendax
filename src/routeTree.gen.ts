@@ -19,6 +19,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ToolboxRouteImport } from './routes/toolbox'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ArticleIdRouteImport } from './routes/article.$id'
+import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as CoursesIndexRouteImport } from './routes/courses.index'
 import { Route as CoursesSlugRouteImport } from './routes/courses.$slug'
 import { Route as CoursesAccountRouteImport } from './routes/courses.account'
@@ -77,6 +78,11 @@ const ArticleIdRoute = ArticleIdRouteImport.update({
   path: '/article/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CategorySlugRoute = CategorySlugRouteImport.update({
+  id: '/category/$slug',
+  path: '/category/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CoursesIndexRoute = CoursesIndexRouteImport.update({
   id: '/courses/',
   path: '/courses/',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/article/$id': typeof ArticleIdRoute
+  '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
   '/courses/account': typeof CoursesAccountRoute
   '/events/$slug': typeof EventsSlugRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/article/$id': typeof ArticleIdRoute
+  '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
   '/courses/account': typeof CoursesAccountRoute
   '/events/$slug': typeof EventsSlugRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/article/$id': typeof ArticleIdRoute
+  '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
   '/courses/account': typeof CoursesAccountRoute
   '/events/$slug': typeof EventsSlugRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/toolbox'
     | '/article/$id'
+    | '/category/$slug'
     | '/courses/$slug'
     | '/courses/account'
     | '/events/$slug'
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/toolbox'
     | '/article/$id'
+    | '/category/$slug'
     | '/courses/$slug'
     | '/courses/account'
     | '/events/$slug'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/toolbox'
     | '/article/$id'
+    | '/category/$slug'
     | '/courses/$slug'
     | '/courses/account'
     | '/events/$slug'
@@ -241,6 +253,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ToolboxRoute: typeof ToolboxRoute
   ArticleIdRoute: typeof ArticleIdRoute
+  CategorySlugRoute: typeof CategorySlugRoute
   CoursesSlugRoute: typeof CoursesSlugRoute
   CoursesAccountRoute: typeof CoursesAccountRoute
   EventsSlugRoute: typeof EventsSlugRoute
@@ -323,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ArticleIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/category/$slug': {
+      id: '/category/$slug'
+      path: '/category/$slug'
+      fullPath: '/category/$slug'
+      preLoaderRoute: typeof CategorySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/courses/': {
       id: '/courses/'
       path: '/courses'
@@ -385,6 +405,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ToolboxRoute: ToolboxRoute,
   ArticleIdRoute: ArticleIdRoute,
+  CategorySlugRoute: CategorySlugRoute,
   CoursesSlugRoute: CoursesSlugRoute,
   CoursesAccountRoute: CoursesAccountRoute,
   EventsSlugRoute: EventsSlugRoute,

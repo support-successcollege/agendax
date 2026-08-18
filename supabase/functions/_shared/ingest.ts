@@ -286,29 +286,106 @@ export function mdToArticleHtml(md: string): string {
 // Categories
 // ---------------------------------------------------------------------------
 
-export const CATEGORY_SLUGS: Record<string, string> = {
-  "חדשות": "news",
-  "טכנולוגיה": "technology",
-  "כלכלה": "economy",
-  "פוליטיקה": "politics",
-  "אקטואליה": "current",
-  "שוק ההון": "stocks",
+// Aliases the model tends to produce, mapped onto the real Agendax category
+// names. Kept as name→name (not name→slug) so the slug always comes from the
+// categories table and can never drift from it.
+const CATEGORY_ALIASES: Record<string, string> = {
+  "טכנולוגיה": "הייטק",
+  "AI": "בינה מלאכותית",
+  "שוק ההון": "שווקים",
+  "כלכלה": "שווקים",
+  "סטארטאפים": "חברות",
 };
 
-/** Prefers the categories actually configured in the DB, falls back to the map. */
+/**
+ * Resolves a category name against the live categories table. The slug is
+ * always the table's — a hardcoded name→slug map here once outlived a rebrand
+ * and produced articles whose slug matched no category page.
+ */
 export async function resolveCategory(
   supabase: SupabaseClient,
   name: string | null | undefined,
 ): Promise<{ category: string; category_slug: string }> {
-  const wanted = (name || "טכנולוגיה").trim();
+  const wanted = (name || "").trim();
   const { data } = await supabase
     .from("categories")
     .select("name, slug")
-    .eq("is_active", true);
-  const match = (data || []).find((c: { name: string }) => c.name === wanted);
+    .eq("is_active", true)
+    .neq("slug", "home");
+  const live = (data || []) as { name: string; slug: string }[];
+
+  const target = CATEGORY_ALIASES[wanted] ?? wanted;
+  const match =
+    live.find((c) => c.name === target) ??
+    live.find((c) => c.name === "הייטק") ??
+    live[0];
   if (match) return { category: match.name, category_slug: match.slug };
-  if (CATEGORY_SLUGS[wanted]) return { category: wanted, category_slug: CATEGORY_SLUGS[wanted] };
-  return { category: "טכנולוגיה", category_slug: "technology" };
+  // Only reachable when the categories table is empty.
+  return { category: "הייטק", category_slug: "hightech" };
+}
+
+// ---------------------------------------------------------------------------
+// Daily quota
+// ---------------------------------------------------------------------------
+
+export type IngestStats = {
+  publishedToday: number;
+  queued: number;
+  dailyTarget: number;
+  queueBuffer: number;
+  lookbackHours: number;
+};
+
+const STATS_FALLBACK: IngestStats = {
+  publishedToday: 0,
+  queued: 0,
+  dailyTarget: 10,
+  queueBuffer: 3,
+  lookbackHours: 24,
+};
+
+/**
+ * Single source of truth for "how many did we publish today and how many are
+ * still queued". The day boundary is Israel local midnight, computed in SQL —
+ * doing it here would mean guessing the offset and getting DST wrong twice a
+ * year.
+ */
+export async function loadStats(supabase: SupabaseClient): Promise<IngestStats> {
+  const { data, error } = await supabase.rpc("ingest_daily_stats");
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row) {
+    console.error("ingest_daily_stats failed, falling back to defaults", error);
+    return STATS_FALLBACK;
+  }
+  // `??` would not help here: Number() returns NaN, not null, and queue_buffer
+  // is legitimately allowed to be 0, so `||` would silently replace it.
+  const num = (v: unknown, fallback: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  return {
+    publishedToday: num(row.published_today, 0),
+    queued: num(row.queued, 0),
+    dailyTarget: num(row.daily_target, STATS_FALLBACK.dailyTarget),
+    queueBuffer: num(row.queue_buffer, STATS_FALLBACK.queueBuffer),
+    lookbackHours: num(row.lookback_hours, STATS_FALLBACK.lookbackHours),
+  };
+}
+
+/**
+ * How many new stories this scan should queue.
+ *
+ * The queue is topped up toward whatever is still missing from today's target,
+ * plus a buffer of spares. The buffer is the whole point: when a story fails on
+ * a paywall the worker moves straight to the next queued item instead of the
+ * day coming up short. Anything already pending counts against the top-up, so
+ * scanning six times a day does not produce six times the articles.
+ */
+export function topUpCount(stats: IngestStats, hardCap = 12): number {
+  const remaining = Math.max(0, stats.dailyTarget - stats.publishedToday);
+  if (remaining === 0) return 0;
+  const wanted = remaining + stats.queueBuffer - stats.queued;
+  return Math.max(0, Math.min(wanted, remaining + stats.queueBuffer, hardCap));
 }
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@ import {
   fetchFeed,
   generateImage,
   json,
+  loadStats,
   mdToArticleHtml,
   resolveCategory,
   toolArgs,
@@ -203,7 +204,26 @@ serve(async (req) => {
   const created: { id: string; title: string }[] = [];
   const notes: string[] = [];
 
-  for (let n = 0; n < max; n++) {
+  // The daily cap lives here rather than in the scanner because only the worker
+  // knows what actually got written. The scanner queues spares on purpose; this
+  // is what stops those spares from turning into extra articles on a day when
+  // nothing failed.
+  const stats = await loadStats(supabase);
+  if (stats.publishedToday >= stats.dailyTarget) {
+    return json({
+      ok: true,
+      created: [],
+      skipped: "היעד היומי הושלם",
+      publishedToday: stats.publishedToday,
+      dailyTarget: stats.dailyTarget,
+      remaining: stats.queued,
+      notes: [],
+      durationMs: Date.now() - startedAt,
+    });
+  }
+  const budgetLeft = stats.dailyTarget - stats.publishedToday;
+
+  for (let n = 0; n < Math.min(max, budgetLeft); n++) {
     if (Date.now() - startedAt > TIME_BUDGET_MS) {
       notes.push("נעצר בגלל מגבלת זמן ריצה");
       break;
@@ -222,7 +242,14 @@ serve(async (req) => {
       if (result.ok) {
         await supabase
           .from("ingest_items")
-          .update({ status: "published", article_id: result.articleId, error: null })
+          // published_at, not updated_at: the updated_at trigger rewrites itself on
+          // every later write, and the daily counter must not drift.
+          .update({
+            status: "published",
+            article_id: result.articleId,
+            error: null,
+            published_at: new Date().toISOString(),
+          })
           .eq("id", typed.id);
         created.push({ id: result.articleId, title: result.title });
       } else {
@@ -262,5 +289,13 @@ serve(async (req) => {
     .select("id", { count: "exact", head: true })
     .eq("status", "pending");
 
-  return json({ ok: true, created, remaining: count ?? 0, notes, durationMs: Date.now() - startedAt });
+  return json({
+    ok: true,
+    created,
+    remaining: count ?? 0,
+    publishedToday: stats.publishedToday + created.length,
+    dailyTarget: stats.dailyTarget,
+    notes,
+    durationMs: Date.now() - startedAt,
+  });
 });
