@@ -16,6 +16,7 @@ import AIArticleGenerator from "@/components/AIArticleGenerator";
 import AIArticlePlusBridge from "@/components/AIArticlePlusBridge";
 import SocialPostGenerator from "@/components/SocialPostGenerator";
 import WhatsAppPostGenerator from "@/components/WhatsAppPostGenerator";
+import PostImageGenerator from "@/components/PostImageGenerator";
 import ArticleQualityBadge from "@/components/ArticleQualityBadge";
 import AdminCommentsTab from "@/components/AdminCommentsTab";
 import AdminJobsTab from "@/components/AdminJobsTab";
@@ -61,7 +62,7 @@ import {
   ArrowUp
 } from "lucide-react";
 
-import { MessageCircle, LayoutGrid, GraduationCap } from "lucide-react";
+import { MessageCircle, LayoutGrid, GraduationCap, ImageIcon } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import {
   Dialog,
@@ -135,6 +136,8 @@ const Admin = () => {
   const [isSocialPostOpen, setIsSocialPostOpen] = useState(false);
   const [whatsappArticle, setWhatsappArticle] = useState<Article | null>(null);
   const [isWhatsappOpen, setIsWhatsappOpen] = useState(false);
+  const [postImageArticle, setPostImageArticle] = useState<Article | null>(null);
+  const [isPostImageOpen, setIsPostImageOpen] = useState(false);
   const [statsArticle, setStatsArticle] = useState<Article | null>(null);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [articleSearchQuery, setArticleSearchQuery] = useState("");
@@ -764,6 +767,10 @@ const Admin = () => {
                         <MessageCircle className="w-4 h-4 text-[#25D366]" />
                         וואטסאפ
                       </Button>
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => { setPostImageArticle(article); setIsPostImageOpen(true); }} title="יצירת תמונת פוסט לפי תבנית ה-Canva">
+                        <ImageIcon className="w-4 h-4" />
+                        תמונה
+                      </Button>
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => handleBumpArticle(article.id)} title="הקפץ את הכתבה לראש האתר">
                         <ArrowUp className="w-4 h-4" />
                         הקפץ לראש
@@ -904,6 +911,13 @@ const Admin = () => {
         article={whatsappArticle}
         open={isWhatsappOpen}
         onOpenChange={setIsWhatsappOpen}
+      />
+
+      {/* Post Image Generator (Canva template) */}
+      <PostImageGenerator
+        article={postImageArticle}
+        open={isPostImageOpen}
+        onOpenChange={setIsPostImageOpen}
       />
 
       {/* Category Dialog */}
