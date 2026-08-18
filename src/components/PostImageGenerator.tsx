@@ -112,6 +112,11 @@ const drawCover = (
   ctx.restore();
 };
 
+// A colon ending a clause ("מנכ\"ל אומר: ...") starts a new line, so the quote
+// gets its own line like in the template. Colons inside times ("13:00") have
+// no trailing space and are left alone.
+const breakAfterColon = (text: string) => text.replace(/:[ \t]+/g, ":\n");
+
 const wrapLines = (
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -244,7 +249,7 @@ const renderPost = async (
   let lines: string[] = [];
   for (; fontSize >= 40; fontSize -= 3) {
     ctx.font = `700 ${fontSize}px Arimo, sans-serif`;
-    lines = wrapLines(ctx, opts.title, TITLE_MAX_WIDTH);
+    lines = wrapLines(ctx, breakAfterColon(opts.title), TITLE_MAX_WIDTH);
     if (lines.length * fontSize * TITLE_LINE_HEIGHT <= TITLE_MAX_HEIGHT) break;
   }
   lines.forEach((line, i2) => {
@@ -277,7 +282,7 @@ const PostImageGenerator = ({
 
   useEffect(() => {
     if (open && article) {
-      setTitle(article.title);
+      setTitle(breakAfterColon(article.title));
       setCategory(article.category);
       setImageUrl(article.imageUrl);
       setOverlay(60);
