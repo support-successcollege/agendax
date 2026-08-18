@@ -325,13 +325,23 @@ serve(async (req) => {
     const article = JSON.parse(toolCall.function.arguments);
 
     // === Step 3: Generate image ===
-    // Google's OpenAI-compat layer covers chat only, so the image call goes to
-    // the native generateContent endpoint. The old gateway returned a base64
-    // data URL that got stored verbatim in articles.image_url; here the bytes
-    // are uploaded to the article-images bucket instead and only a public URL
-    // is stored.
+    // Higgsfield Soul first (photoreal editorial quality, paid credits), then
+    // Gemini's native generateContent as fallback, then the stock image.
     let imageUrl: string | null = null;
     try {
+      const { generateImageHiggsfield } = await import("../_shared/ingest.ts");
+      const admin = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      imageUrl = await generateImageHiggsfield(
+        admin,
+        `${article.image_prompt}. Editorial photojournalism style, realistic, high quality, no text or watermarks, 16:9 composition.`,
+      );
+    } catch (e) {
+      console.error("higgsfield step failed", e);
+    }
+    if (!imageUrl) try {
       const imgResp = await fetch(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent",
         {

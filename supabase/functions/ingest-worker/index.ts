@@ -17,6 +17,7 @@ import {
   fetchArticleText,
   fetchFeed,
   generateImage,
+  generateImageHiggsfield,
   mirrorImageToBucket,
   json,
   loadStats,
@@ -178,6 +179,7 @@ async function processItem(supabase: any, item: Item): Promise<{ ok: true; artic
     (item.source_image_url
       ? await mirrorImageToBucket(supabase, item.source_image_url)
       : null) ||
+    (await generateImageHiggsfield(supabase, article.image_prompt)) ||
     (await generateImage(supabase, article.image_prompt)) ||
     FALLBACK_IMAGE;
 

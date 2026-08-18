@@ -506,6 +506,83 @@ export async function generateImage(
 export const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=675&fit=crop";
 
+// ---------------------------------------------------------------------------
+// Higgsfield image generation
+// ---------------------------------------------------------------------------
+
+/**
+ * Generates an editorial image with Higgsfield Soul and mirrors it into our
+ * bucket. Queue-style API: submit → poll status_url until completed.
+ *
+ * Needs HIGGSFIELD_API_KEY_ID + HIGGSFIELD_API_KEY_SECRET (cloud.higgsfield.ai).
+ * Returns null when unconfigured or on any failure, so callers can fall
+ * through to the next image source.
+ */
+export async function generateImageHiggsfield(
+  supabase: SupabaseClient,
+  prompt: string,
+  maxWaitMs = 30_000,
+): Promise<string | null> {
+  const keyId = Deno.env.get("HIGGSFIELD_API_KEY_ID");
+  const keySecret = Deno.env.get("HIGGSFIELD_API_KEY_SECRET");
+  if (!keyId || !keySecret) return null;
+
+  const auth = `Key ${keyId}:${keySecret}`;
+  try {
+    const submit = await fetch("https://platform.higgsfield.ai/higgsfield-ai/soul/standard", {
+      method: "POST",
+      headers: { Authorization: auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt:
+          `${prompt}. Editorial photojournalism style, realistic, high quality, ` +
+          `no text or watermarks, no logos.`,
+        aspect_ratio: "16:9",
+        resolution: "720p",
+      }),
+    });
+    if (!submit.ok) {
+      console.error("higgsfield submit failed", submit.status, (await submit.text()).slice(0, 200));
+      return null;
+    }
+    const job = await submit.json();
+    const statusUrl: string | undefined = job.status_url;
+    if (!statusUrl) {
+      console.error("higgsfield: no status_url in response", JSON.stringify(job).slice(0, 200));
+      return null;
+    }
+
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 2_500));
+      const poll = await fetch(statusUrl, { headers: { Authorization: auth } });
+      if (!poll.ok) continue;
+      const state = await poll.json();
+      const status = String(state.status || "").toLowerCase();
+      if (status === "completed" || status === "succeeded") {
+        // Field name per docs is images[].url; tolerate close variants.
+        const url: string | undefined =
+          state.images?.[0]?.url ?? state.output?.images?.[0]?.url ?? state.result?.url;
+        if (!url) {
+          console.error("higgsfield: completed without image url", JSON.stringify(state).slice(0, 300));
+          return null;
+        }
+        // Their CDN retains outputs for ~7 days — a copy in our bucket is the
+        // only thing that keeps the article's image alive past that.
+        return await mirrorImageToBucket(supabase, url);
+      }
+      if (status === "failed" || status === "canceled" || status === "cancelled") {
+        console.error("higgsfield job failed", JSON.stringify(state).slice(0, 200));
+        return null;
+      }
+    }
+    console.error("higgsfield: timed out waiting for image");
+    return null;
+  } catch (e) {
+    console.error("higgsfield exception", (e as Error).message);
+    return null;
+  }
+}
+
 /**
  * Mirrors a source image into our bucket and returns its public URL.
  *

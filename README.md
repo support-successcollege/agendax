@@ -189,6 +189,22 @@ supabase secrets set INGEST_CRON_SECRET=<הערך מהשאילתה>
 
 `GEMINI_API_KEY` כבר מוגדר עבור `generate-article` ומשמש גם כאן.
 
+### תמונות לכתבות
+
+שרשרת עדיפויות, כל חוליה נופלת לבאה בשקט:
+
+| # | מקור | תנאי |
+|---|---|---|
+| 1 | תמונת המקור מהפיד (סוכן בלבד) | הפיד סיפק media:content |
+| 2 | Higgsfield Soul | `HIGGSFIELD_API_KEY_ID` + `HIGGSFIELD_API_KEY_SECRET` מוגדרים (cloud.higgsfield.ai, בתשלום) |
+| 3 | Gemini image | מכסה חינמית — כרגע חסומה |
+| 4 | תמונת מחסן | תמיד |
+
+כל תמונה — מכל מקור — מועתקת ל-bucket `article-images` ונשמר URL ציבורי משלנו,
+כי ה-CDN של Higgsfield מוחק פלט אחרי ~7 ימים וקישורי מו"לים מתרוטטים.
+
+`supabase secrets set HIGGSFIELD_API_KEY_ID=... HIGGSFIELD_API_KEY_SECRET=...`
+
 ### פידים מ-rss.app
 
 [rss.app](https://rss.app) מייצר פיד RSS מכל אתר, חשבון X/טוויטר, יוטיוב או
