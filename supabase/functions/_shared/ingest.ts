@@ -71,6 +71,8 @@ export type FeedItem = {
   link: string;
   summary: string;
   publishedAt: string | null;
+  /** Lead image carried by the feed item, when the feed provides one. */
+  image: string | null;
 };
 
 function stripTags(s: string): string {
@@ -118,6 +120,25 @@ function toIso(raw: string): string | null {
   return Number.isNaN(t) ? null : new Date(t).toISOString();
 }
 
+/**
+ * Lead image of a feed item. rss.app (and most modern feeds) attach one as
+ * media:content / media:thumbnail / an image enclosure; older feeds embed an
+ * <img> inside the encoded content. First https URL wins.
+ */
+function itemImage(block: string): string | null {
+  const candidates = [
+    /<media:content[^>]*url=["']([^"']+)["'][^>]*>/i.exec(block)?.[1],
+    /<media:thumbnail[^>]*url=["']([^"']+)["'][^>]*>/i.exec(block)?.[1],
+    /<enclosure[^>]*type=["']image\/[^"']*["'][^>]*url=["']([^"']+)["']/i.exec(block)?.[1],
+    /<enclosure[^>]*url=["']([^"']+\.(?:jpe?g|png|webp|gif))["']/i.exec(block)?.[1],
+    /<img[^>]*src=["']([^"']+)["']/i.exec(block)?.[1],
+  ];
+  for (const url of candidates) {
+    if (url && /^https:\/\//i.test(url)) return url.slice(0, 1000);
+  }
+  return null;
+}
+
 /** Handles RSS 2.0 (<item>) and Atom (<entry>) with the same code path. */
 export function parseFeed(xml: string, max = 25): FeedItem[] {
   const isAtom = /<entry[\s>]/i.test(xml) && !/<item[\s>]/i.test(xml);
@@ -141,7 +162,13 @@ export function parseFeed(xml: string, max = 25): FeedItem[] {
         toIso(tagValue(block, "published")) ||
         toIso(tagValue(block, "updated")) ||
         toIso(tagValue(block, "dc:date"));
-      return { title, link: link.trim(), summary: summary.slice(0, 600), publishedAt: published };
+      return {
+        title,
+        link: link.trim(),
+        summary: summary.slice(0, 600),
+        publishedAt: published,
+        image: itemImage(block),
+      };
     })
     .filter((it) => it.title && /^https?:\/\//i.test(it.link));
 }
@@ -314,9 +341,12 @@ export async function resolveCategory(
     .neq("slug", "home");
   const live = (data || []) as { name: string; slug: string }[];
 
-  const target = CATEGORY_ALIASES[wanted] ?? wanted;
+  // Exact live-name match always wins. Aliases only run when the name isn't a
+  // real category — otherwise renaming a category to an aliased name (which
+  // already happened once) would silently reroute it.
   const match =
-    live.find((c) => c.name === target) ??
+    live.find((c) => c.name === wanted) ??
+    live.find((c) => c.name === (CATEGORY_ALIASES[wanted] ?? "")) ??
     live.find((c) => c.name === "הייטק") ??
     live[0];
   if (match) return { category: match.name, category_slug: match.slug };
@@ -475,3 +505,50 @@ export async function generateImage(
 
 export const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=675&fit=crop";
+
+/**
+ * Mirrors a source image into our bucket and returns its public URL.
+ *
+ * Hotlinking the publisher's CDN would be fragile (expiring URLs, hotlink
+ * protection) and leaks reader traffic to a third party; a copy in our storage
+ * is stable and stays available even after the source rotates its media.
+ */
+export async function mirrorImageToBucket(
+  supabase: SupabaseClient,
+  imageUrl: string,
+  timeoutMs = 15000,
+): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const resp = await fetch(imageUrl, {
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "User-Agent": BROWSER_HEADERS["User-Agent"], "Accept": "image/*" },
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return null;
+
+    const mime = (resp.headers.get("content-type") || "").split(";")[0].trim();
+    if (!mime.startsWith("image/")) return null;
+
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    // Sanity bounds: a lead image under 5KB is a tracking pixel or an icon,
+    // and over 8MB is not worth storing for a 16:9 card.
+    if (buf.length < 5_000 || buf.length > 8_000_000) return null;
+
+    const ext = mime.split("/")[1]?.split("+")[0] || "jpg";
+    const path = `ingest/src-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from("article-images")
+      .upload(path, buf, { contentType: mime, upsert: false });
+    if (error) {
+      console.error("image mirror upload failed", error);
+      return null;
+    }
+    return supabase.storage.from("article-images").getPublicUrl(path).data.publicUrl;
+  } catch (e) {
+    console.error("image mirror failed", imageUrl.slice(0, 120), (e as Error).message);
+    return null;
+  }
+}

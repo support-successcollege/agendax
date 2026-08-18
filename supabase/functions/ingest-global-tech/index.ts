@@ -298,6 +298,7 @@ serve(async (req) => {
         source_name: c.sourceName,
         source_title: c.title.slice(0, 500),
         source_summary: (c.summary || "").slice(0, 1000),
+        source_image_url: c.image,
         source_published_at: c.publishedAt,
         bucket: c.bucket,
         status: pick ? "pending" : "seen",

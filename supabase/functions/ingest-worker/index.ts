@@ -17,6 +17,7 @@ import {
   fetchArticleText,
   fetchFeed,
   generateImage,
+  mirrorImageToBucket,
   json,
   loadStats,
   mdToArticleHtml,
@@ -30,6 +31,7 @@ type Item = {
   source_name: string;
   source_title: string;
   source_summary: string | null;
+  source_image_url: string | null;
   source_published_at: string | null;
   angle: string | null;
   category_hint: string | null;
@@ -39,7 +41,7 @@ type Item = {
 /** Stop claiming new work past this point so the current article can finish. */
 const TIME_BUDGET_MS = 95_000;
 
-const WRITER_SYSTEM = (today: string) => `היום ${today}. אתה כתב הייטק בכיר באתר חדשות ישראלי בעברית. קיבלת כתבה שפורסמה באתר טכנולוגיה בינלאומי. המשימה: לכתוב **כתבה מקורית בעברית** על אותו האירוע.
+const WRITER_SYSTEM = (today: string, categoryNames: string) => `היום ${today}. אתה כתב הייטק בכיר באתר חדשות ישראלי בעברית. קיבלת כתבה שפורסמה באתר טכנולוגיה בינלאומי. המשימה: לכתוב **כתבה מקורית בעברית** על אותו האירוע.
 
 עקרונות עבודה — קרא בעיון:
 - **אל תתרגם.** קרא, הבן, וכתוב מחדש בניסוח עצמאי שלך, במבנה שלך, בעברית עיתונאית טבעית. אסור לשחזר משפטים או פסקאות מהמקור.
@@ -60,7 +62,7 @@ const WRITER_SYSTEM = (today: string) => `היום ${today}. אתה כתב הי�
 בנוסף:
 - title: כותרת חדה בעברית, עד 12 מילים, בלי קליקבייט.
 - subtitle: לידה של 1-2 משפטים.
-- category: אחת מ: טכנולוגיה, כלכלה, חדשות, שוק ההון, אקטואליה.
+- category: אחת מ: ${categoryNames}.
 - image_prompt: פרומפט **באנגלית** לתמונה חדשותית ריאליסטית שמלווה את הכתבה. בלי טקסט בתמונה, בלי לוגואים, בלי פרצופים של אנשים אמיתיים מזוהים.
 - key_facts: 3-5 עובדות מפתח קצרות.
 - confidence: 1-10, כמה בטוח אתה שהחומר המקורי הספיק לכתבה מדויקת ומלאה.
@@ -92,6 +94,15 @@ async function processItem(supabase: any, item: Item): Promise<{ ok: true; artic
 
   // --- 3. Write ------------------------------------------------------------
   const today = new Date().toISOString().slice(0, 10);
+  // The category list is live data, not prompt text — a hardcoded list here
+  // went stale twice (rebrand, then panel renames).
+  const { data: liveCategories } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("is_active", true)
+    .neq("slug", "home");
+  const categoryNames =
+    (liveCategories || []).map((c: { name: string }) => c.name).join(", ") || "הייטק";
   const userContent =
     `מקור: ${item.source_name}\n` +
     `כתובת: ${resolvedUrl}\n` +
@@ -103,7 +114,7 @@ async function processItem(supabase: any, item: Item): Promise<{ ok: true; artic
 
   const response = await callModel({
     messages: [
-      { role: "system", content: WRITER_SYSTEM(today) },
+      { role: "system", content: WRITER_SYSTEM(today, categoryNames) },
       { role: "user", content: userContent },
     ],
     tools: [
@@ -159,7 +170,16 @@ async function processItem(supabase: any, item: Item): Promise<{ ok: true; artic
   const body = `${article.body}\n\n## מקורות\n\n${sourceLines}`;
 
   // --- 5. Image ------------------------------------------------------------
-  const imageUrl = (await generateImage(supabase, article.image_prompt)) || FALLBACK_IMAGE;
+  // Priority: the source's own editorial image (mirrored into our bucket) →
+  // AI generation → stock fallback. The source image is almost always the
+  // better one — it is the actual photo the story is about — and generation
+  // is both quota-limited and generic by comparison.
+  const imageUrl =
+    (item.source_image_url
+      ? await mirrorImageToBucket(supabase, item.source_image_url)
+      : null) ||
+    (await generateImage(supabase, article.image_prompt)) ||
+    FALLBACK_IMAGE;
 
   // --- 6. Save as draft ----------------------------------------------------
   const { category, category_slug } = await resolveCategory(supabase, article.category || item.category_hint);
