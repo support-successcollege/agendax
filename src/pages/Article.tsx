@@ -16,6 +16,7 @@ import ArticleComments from "@/components/ArticleComments";
 import ArticleShare from "@/components/ArticleShare";
 import ArticleReader from "@/components/ArticleReader";
 import ArticleNewsletterCard from "@/components/ArticleNewsletterCard";
+import ReadingProgress from "@/components/ReadingProgress";
 
 const Article = () => {
   const { id } = useParams<{ id: string }>();
@@ -80,6 +81,7 @@ const Article = () => {
 
 
       <Header />
+      <ReadingProgress />
 
       <main className="flex-1" id="main-content">
         {/* Hero Image */}
@@ -149,6 +151,10 @@ const Article = () => {
               <ArticleReader title={article.title} excerpt={article.excerpt} content={article.content} />
             </div>
 
+            {/* Reading column: 65-75 characters per line is where reading is
+                comfortable; the card is wider than that, so the text gets its
+                own measure inside it. */}
+            <div className="mx-auto max-w-[70ch]">
             {/* Excerpt */}
             <p className="text-lg md:text-xl text-foreground/80 font-medium mb-8 leading-relaxed">
               {article.excerpt}
@@ -276,6 +282,7 @@ const Article = () => {
 
             {/* Newsletter Signup */}
             <ArticleNewsletterCard category={article.category} />
+            </div>
           </motion.article>
 
           {/* Related Articles */}

@@ -99,15 +99,20 @@ const Header = () => {
             })}
           </nav>
 
+          {/* 44px minimum touch targets — a thumb is not a cursor. */}
           <div className="md:hidden flex items-center gap-1">
-            <button onClick={() => setSearchOpen(true)} aria-label="חיפוש" className="p-2 text-foreground">
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="חיפוש"
+              className="press min-w-11 min-h-11 flex items-center justify-center text-foreground"
+            >
               <Search className="w-5 h-5" />
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? "סגור תפריט" : "פתח תפריט"}
               aria-expanded={mobileMenuOpen}
-              className="p-2 text-foreground"
+              className="press min-w-11 min-h-11 flex items-center justify-center text-foreground"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
