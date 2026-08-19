@@ -4,7 +4,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "@/lib/router-compat";
-import { Briefcase, Wrench, GraduationCap } from "lucide-react";
+import { Briefcase, GraduationCap } from "lucide-react";
 import wordmark from "@/assets/agendax-wordmark-light.png";
 import SearchDialog from "./SearchDialog";
 
@@ -37,7 +37,6 @@ const Header = () => {
   const secondaryLinks = [
     settings.show_jobs && { to: "/jobs", label: "איזור התעסוקה", Icon: Briefcase },
     settings.show_courses && { to: "/courses", label: "קורסים והרצאות", Icon: GraduationCap },
-    { to: "/toolbox", label: "ארגז הכלים", Icon: Wrench },
   ].filter(Boolean) as { to: string; label: string; Icon: typeof Briefcase }[];
 
   return (
