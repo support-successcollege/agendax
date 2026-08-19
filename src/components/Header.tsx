@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { Menu, X, Search } from "lucide-react";
 import { useCategories } from "@/hooks/useCategories";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "@/lib/router-compat";
-import { Briefcase, GraduationCap } from "lucide-react";
 import wordmark from "@/assets/agendax-wordmark-light.png";
 import SearchDialog from "./SearchDialog";
 
@@ -24,8 +22,9 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
+  // The nav is categories only, straight from the live categories table — a
+  // category created in the admin panel appears here on its own.
   const { categories } = useCategories();
-  const { settings, loading: settingsLoading } = useSiteSettings();
 
   // Active state comes from the URL, so the header needs no props and every
   // page that renders it gets correct highlighting for free.
@@ -33,17 +32,6 @@ const Header = () => {
     location.pathname === "/"
       ? "home"
       : decodeURIComponent(location.pathname.match(/^\/category\/([^/]+)/)?.[1] ?? "");
-
-  // Until the settings are known, show none of the gated links: a link that
-  // appears a beat late is calm, a link that flashes and vanishes is a glitch.
-  const secondaryLinks = (
-    settingsLoading
-      ? []
-      : [
-          settings.show_jobs && { to: "/jobs", label: "איזור התעסוקה", Icon: Briefcase },
-          settings.show_courses && { to: "/courses", label: "קורסים והרצאות", Icon: GraduationCap },
-        ]
-  ).filter(Boolean) as { to: string; label: string; Icon: typeof Briefcase }[];
 
   return (
     // Translucent chrome the page scrolls under, rather than an opaque strip
@@ -109,15 +97,6 @@ const Header = () => {
                 </Link>
               );
             })}
-
-            <span className="mx-2 h-5 w-px bg-border" aria-hidden="true" />
-
-            {secondaryLinks.map(({ to, label, Icon }) => (
-              <Link key={to} to={to} className={`${navItemBase} ${navItemIdle} flex items-center gap-1.5`}>
-                <Icon className="w-4 h-4" />
-                {label}
-              </Link>
-            ))}
           </nav>
 
           <div className="md:hidden flex items-center gap-1">
@@ -163,20 +142,6 @@ const Header = () => {
                   }`}
                 >
                   {category.name}
-                </Link>
-              ))}
-
-              <span className="my-1 h-px bg-border" aria-hidden="true" />
-
-              {secondaryLinks.map(({ to, label, Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="press px-3 py-2.5 rounded-lg text-right font-medium transition-colors text-foreground/70 hover:bg-surface-2 flex items-center gap-2"
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
                 </Link>
               ))}
             </div>
