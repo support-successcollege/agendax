@@ -3,6 +3,7 @@ import { Calendar, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "@/lib/router-compat";
 import OptimizedImage from "./OptimizedImage";
+import { categoryColor } from "@/lib/categoryColor";
 
 interface FeaturedArticleProps {
   articles: Article[];
@@ -41,7 +42,10 @@ const FeaturedArticle = ({ articles }: FeaturedArticleProps) => {
         {/* Content */}
         <div className="absolute bottom-0 right-0 left-0 p-4 sm:p-6 md:p-10">
           <div className="max-w-3xl">
-            <span className="inline-block px-3 py-1 bg-accent text-accent-foreground text-xs sm:text-sm font-semibold rounded-full mb-2 sm:mb-4">
+            <span
+              className="inline-block px-3 py-1 text-white text-xs sm:text-sm font-semibold rounded-sm mb-2 sm:mb-4"
+              style={{ backgroundColor: categoryColor(featured.categorySlug || featured.category) }}
+            >
               {featured.category}
             </span>
             <h2 className="text-lg sm:text-2xl md:text-4xl font-black text-primary-foreground mb-2 sm:mb-4 leading-tight line-clamp-3 sm:line-clamp-none">

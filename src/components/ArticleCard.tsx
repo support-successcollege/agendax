@@ -3,6 +3,7 @@ import { Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "@/lib/router-compat";
 import OptimizedImage from "./OptimizedImage";
+import { categoryColor } from "@/lib/categoryColor";
 
 interface ArticleCardProps {
   article: Article;
@@ -30,8 +31,13 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
           />
           <div className="flex flex-col justify-between py-1">
             <div>
-              <span className="type-label text-primary">{article.category}</span>
-              <h3 className="font-bold text-foreground mt-1 line-clamp-2 group-hover:text-primary transition-colors">
+              <span
+                className="type-label inline-block rounded px-1.5 py-0.5 text-white"
+                style={{ backgroundColor: categoryColor(article.categorySlug || article.category) }}
+              >
+                {article.category}
+              </span>
+              <h3 className="font-bold text-foreground mt-1.5 line-clamp-2 group-hover:text-primary transition-colors">
                 {article.title}
               </h3>
             </div>
@@ -72,12 +78,20 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
           aria-hidden="true"
         />
 
-        <div className="absolute inset-0 p-4 flex flex-col justify-end gap-1.5">
-          <span className="type-label text-primary">{article.category}</span>
-          <h3 className="type-title text-base text-foreground line-clamp-3">
+        {/* Same composition as the Canva post template (it's the same 4:5
+            frame): centered category label on a full-width color box in the
+            category's own color, centered bold white headline beneath it. */}
+        <div className="absolute inset-0 p-4 flex flex-col items-center justify-end gap-2 text-center">
+          <span
+            className="type-label inline-block rounded-sm px-3 py-1 text-white"
+            style={{ backgroundColor: categoryColor(article.categorySlug || article.category) }}
+          >
+            {article.category}
+          </span>
+          <h3 className="type-title text-base text-white line-clamp-3">
             {article.title}
           </h3>
-          <span className="type-label-mono normal-case tracking-normal text-muted-foreground/80 flex items-center gap-1.5">
+          <span className="type-label-mono normal-case tracking-normal text-white/70 flex items-center gap-1.5">
             <Calendar className="w-3 h-3" aria-hidden="true" />
             {new Date(article.date).toLocaleDateString("he-IL")}
           </span>

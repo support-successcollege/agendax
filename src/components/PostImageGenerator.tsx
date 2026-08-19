@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import wordmarkLight from "@/assets/agendax-wordmark-light.png";
+import { categoryColor } from "@/lib/categoryColor";
 import {
   Loader2,
   Download,
@@ -222,16 +223,16 @@ const renderPost = async (
     ctx.drawImage(logo, (W - lw) / 2, LOGO_CENTER_Y - lh / 2, lw, lh);
   }
 
-  // 5. Category label with a highlight box behind its right half (in the
-  //    template the box runs from the center of the word rightwards).
+  // 5. Category label on a highlight box that spans the whole word (centered,
+  //    with breathing room on both sides), in the category's own color.
   const category = opts.category.trim();
   if (category) {
     ctx.font = `400 ${CATEGORY_FONT_SIZE}px Arimo, sans-serif`;
     if (opts.showCategoryHighlight) {
       const textWidth = ctx.measureText(category).width;
-      const boxWidth = Math.min(textWidth / 2 + 45, W / 2 - 20);
+      const boxWidth = Math.min(textWidth + 90, W - 40);
       ctx.fillStyle = opts.highlightColor;
-      ctx.fillRect(W / 2, CATEGORY_BOX_TOP, boxWidth, CATEGORY_BOX_HEIGHT);
+      ctx.fillRect((W - boxWidth) / 2, CATEGORY_BOX_TOP, boxWidth, CATEGORY_BOX_HEIGHT);
     }
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
@@ -290,7 +291,8 @@ const PostImageGenerator = ({
       setShowLogo(true);
       setShowWaves(true);
       setShowCategoryHighlight(true);
-      setHighlightColor(BRAND_BLUE);
+      // Each category brings its own color; the picker still allows overrides.
+      setHighlightColor(categoryColor(article.categorySlug || article.category));
       setCopied(false);
     }
   }, [open, article]);
