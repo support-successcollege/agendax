@@ -48,3 +48,8 @@ verify_jwt = false
 
 [functions.ingest-worker]
 verify_jwt = false
+
+# The daily cron submits sitemaps with the shared secret; the function itself
+# authorizes cron-or-admin before doing anything.
+[functions.submit-sitemap]
+verify_jwt = false

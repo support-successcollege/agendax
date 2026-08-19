@@ -1,9 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { authorize, corsHeaders, json } from "../_shared/ingest.ts";
 
 // Base64url encode
 function base64url(data: Uint8Array): string {
@@ -81,31 +77,13 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Two callers: the admin pressing the button, and the daily cron carrying
+  // the shared secret. Anyone merely logged in is not enough — this function
+  // spends Google API quota and exposes Search Console state.
+  const auth = await authorize(req);
+  if (auth instanceof Response) return auth;
+
   try {
-    // Verify auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Get service account key
     const serviceAccountJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountJson) {
@@ -169,16 +147,19 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // The canonical article URL is the slug (falling back to the id for the
+    // rare row without one) — pinging the id URL would index the legacy path.
     const { data: recentArticles } = await supabaseAdmin
       .from("articles")
-      .select("id")
+      .select("id, slug")
       .eq("is_draft", false)
-      .order("date", { ascending: false })
+      .order("published_at", { ascending: false, nullsFirst: false })
       .limit(10);
 
     const indexingResults = [];
     if (recentArticles) {
       for (const article of recentArticles) {
+        const url = `https://agendax.co.il/article/${encodeURIComponent(article.slug || article.id)}`;
         try {
           const indexRes = await fetch(
             "https://indexing.googleapis.com/v3/urlNotifications:publish",
@@ -188,22 +169,19 @@ Deno.serve(async (req) => {
                 Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({
-                url: `https://agendax.co.il/article/${article.id}`,
-                type: "URL_UPDATED",
-              }),
+              body: JSON.stringify({ url, type: "URL_UPDATED" }),
             }
           );
           const indexBody = await indexRes.json();
           indexingResults.push({
-            url: `https://agendax.co.il/article/${article.id}`,
+            url,
             status: indexRes.status,
             success: indexRes.ok,
             response: indexBody,
           });
         } catch (e) {
           indexingResults.push({
-            url: `https://agendax.co.il/article/${article.id}`,
+            url,
             success: false,
             error: e instanceof Error ? e.message : "Unknown",
           });
