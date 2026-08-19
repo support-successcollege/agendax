@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebarWidgets, SidebarWidget } from "@/hooks/useSidebarWidgets";
 import WidgetRotating from "@/components/WidgetRotating";
+import HotArticlesTable from "@/components/HotArticlesTable";
 import { sendAdminNotification } from "@/lib/admin.functions";
 
 interface SidebarProps {
@@ -92,6 +93,9 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
 
   return (
     <aside className="space-y-8">
+      {/* Live hot-articles list, compact */}
+      {articles.length > 0 && <HotArticlesTable articles={articles} compact />}
+
       {/* Newsletter */}
       <div className="glass-panel rounded-xl p-5">
         <h3 className="font-bold text-lg mb-2 text-white">הרשמו לניוזלטר</h3>

@@ -3,7 +3,6 @@ import Header from "@/components/Header";
 import BreakingNews from "@/components/BreakingNews";
 import FeaturedArticle from "@/components/FeaturedArticle";
 import ArticleGrid from "@/components/ArticleGrid";
-import HotArticlesTable from "@/components/HotArticlesTable";
 import Sidebar from "@/components/Sidebar";
 import Footer from "@/components/Footer";
 
@@ -74,8 +73,6 @@ const Index = () => {
               title="כתבות אחרונות"
             />
 
-            {/* Live hot-articles table */}
-            {publishedArticles.length > 0 && <HotArticlesTable articles={publishedArticles} />}
             </div>
 
             {/* Sidebar */}
