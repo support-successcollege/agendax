@@ -1295,6 +1295,13 @@ export type Database = {
           queued: number
         }[]
       }
+      get_hot_articles: {
+        Args: { p_hours?: number; p_limit?: number }
+        Returns: {
+          article_id: string
+          views: number
+        }[]
+      }
       ingest_category_stats: {
         Args: never
         Returns: {

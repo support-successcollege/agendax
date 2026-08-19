@@ -93,6 +93,32 @@ export const useAllArticleViews = () => {
   return { articleViews, isLoading };
 };
 
+// The hot list: views inside a sliding window (48h), refreshed every minute,
+// so the table reshuffles live as stories rise and fade through the day.
+export const useHotArticles = (hours = 48, limit = 10) => {
+  const { data: hot = [], isLoading } = useQuery({
+    queryKey: ["hotArticles", hours, limit],
+    queryFn: async (): Promise<{ articleId: string; views: number }[]> => {
+      const { data, error } = await supabase.rpc("get_hot_articles", {
+        p_hours: hours,
+        p_limit: limit,
+      });
+      if (error) {
+        console.error("Error getting hot articles:", error);
+        return [];
+      }
+      return (data ?? []).map((row: { article_id: string; views: number }) => ({
+        articleId: row.article_id,
+        views: Number(row.views),
+      }));
+    },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  return { hot, isLoading };
+};
+
 // Get view count for a specific period
 export const usePeriodViewCount = () => {
   const { data: periodViews = { week: 0, month: 0, allTime: 0 }, isLoading } = useQuery({
