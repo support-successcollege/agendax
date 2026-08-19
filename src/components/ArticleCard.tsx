@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Link } from "@/lib/router-compat";
 import OptimizedImage from "./OptimizedImage";
 import { categoryColor } from "@/lib/categoryColor";
+import wordmark from "@/assets/agendax-wordmark-light.png";
 
 interface ArticleCardProps {
   article: Article;
@@ -77,6 +78,27 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
           className="absolute inset-0 bg-linear-to-t from-surface-deep via-surface-deep/70 to-transparent"
           aria-hidden="true"
         />
+
+        {/* The template's top band: two translucent wave ellipses with the
+            wordmark over them — same geometry as the Canva post (1080×1350),
+            expressed in percentages of the card. */}
+        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div
+            className="absolute rounded-[50%] bg-[#0d3c99] opacity-[0.59]"
+            style={{ width: "127.4%", height: "31%", left: "50%", top: "2.4%", transform: "translate(-50%, -50%)" }}
+          />
+          <div
+            className="absolute rounded-[50%] bg-[#fef7f2] opacity-50"
+            style={{ width: "127.4%", height: "32.3%", left: "53%", top: "-3.6%", transform: "translate(-50%, -50%)" }}
+          />
+          <img
+            src={wordmark}
+            alt=""
+            className="absolute w-[55%]"
+            style={{ left: "50%", top: "6.1%", transform: "translate(-50%, -50%)" }}
+            loading="lazy"
+          />
+        </div>
 
         {/* Same composition as the Canva post template (it's the same 4:5
             frame): centered category label on a full-width color box in the
