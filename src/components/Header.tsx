@@ -25,7 +25,7 @@ const Header = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
   const { categories } = useCategories();
-  const { settings } = useSiteSettings();
+  const { settings, loading: settingsLoading } = useSiteSettings();
 
   // Active state comes from the URL, so the header needs no props and every
   // page that renders it gets correct highlighting for free.
@@ -34,10 +34,16 @@ const Header = () => {
       ? "home"
       : decodeURIComponent(location.pathname.match(/^\/category\/([^/]+)/)?.[1] ?? "");
 
-  const secondaryLinks = [
-    settings.show_jobs && { to: "/jobs", label: "איזור התעסוקה", Icon: Briefcase },
-    settings.show_courses && { to: "/courses", label: "קורסים והרצאות", Icon: GraduationCap },
-  ].filter(Boolean) as { to: string; label: string; Icon: typeof Briefcase }[];
+  // Until the settings are known, show none of the gated links: a link that
+  // appears a beat late is calm, a link that flashes and vanishes is a glitch.
+  const secondaryLinks = (
+    settingsLoading
+      ? []
+      : [
+          settings.show_jobs && { to: "/jobs", label: "איזור התעסוקה", Icon: Briefcase },
+          settings.show_courses && { to: "/courses", label: "קורסים והרצאות", Icon: GraduationCap },
+        ]
+  ).filter(Boolean) as { to: string; label: string; Icon: typeof Briefcase }[];
 
   return (
     // Translucent chrome the page scrolls under, rather than an opaque strip

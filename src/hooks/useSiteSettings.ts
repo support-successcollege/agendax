@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface SiteSettings {
@@ -7,40 +8,53 @@ export interface SiteSettings {
 }
 
 const DEFAULTS: SiteSettings = { show_jobs: true, show_courses: true };
+const KEY = ["siteSettings"] as const;
 
+// React Query, not per-mount useState: the old version refetched on every
+// mount with `true` defaults in the meantime, so each navigation flashed the
+// full menu for a beat before the real settings arrived and links vanished.
+// The shared cache makes later mounts render the known answer instantly.
 export function useSiteSettings() {
-  const [settings, setSettings] = useState<SiteSettings>(DEFAULTS);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async () => {
-    const { data } = await supabase.from("site_settings").select("key,value");
-    if (data) {
+  const { data, isLoading } = useQuery({
+    queryKey: KEY,
+    queryFn: async (): Promise<SiteSettings> => {
+      const { data } = await supabase.from("site_settings").select("key,value");
       const next = { ...DEFAULTS };
-      for (const row of data as { key: string; value: any }[]) {
+      for (const row of (data ?? []) as { key: string; value: unknown }[]) {
         if (row.key in next) {
-          (next as any)[row.key] = row.value === true || row.value === "true";
+          (next as Record<string, boolean>)[row.key] = row.value === true || row.value === "true";
         }
       }
-      setSettings(next);
-    }
-    setLoading(false);
-  }, []);
+      return next;
+    },
+    staleTime: 5 * 60_000,
+  });
 
   useEffect(() => {
-    load();
     const channel = supabase
       .channel("site_settings_changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "site_settings" }, () => load())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "site_settings" },
+        () => queryClient.invalidateQueries({ queryKey: KEY }),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [load]);
+  }, [queryClient]);
 
-  const updateSetting = useCallback(async (key: keyof SiteSettings, value: boolean) => {
-    setSettings((s) => ({ ...s, [key]: value }));
-    await supabase.from("site_settings").upsert({ key, value: value as any, updated_at: new Date().toISOString() });
-  }, []);
+  const updateSetting = useCallback(
+    async (key: keyof SiteSettings, value: boolean) => {
+      queryClient.setQueryData<SiteSettings>(KEY, (prev) => ({ ...(prev ?? DEFAULTS), [key]: value }));
+      await supabase
+        .from("site_settings")
+        .upsert({ key, value: value as never, updated_at: new Date().toISOString() });
+    },
+    [queryClient],
+  );
 
-  return { settings, loading, updateSetting };
+  return { settings: data ?? DEFAULTS, loading: isLoading, updateSetting };
 }
