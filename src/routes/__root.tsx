@@ -52,8 +52,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         // Arimo covers Hebrew and Latin in one face; JetBrains Mono is only
         // ever used for Latin/numeric metadata, so it ships fewer weights.
+        // Assistant is the Canva post template's face — the article cards and
+        // the post-image generator render with it so they match the template.
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@500;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Assistant:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap",
       },
     ],
     scripts: [

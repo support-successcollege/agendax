@@ -58,17 +58,23 @@ const DARK_B = 35;
 const LOGO_WIDTH = 600;
 const LOGO_CENTER_Y = 82;
 
-// Category label (template elements LB3RjDB7FJzKBthF + LBVqd1cWZscrNCj6).
-const CATEGORY_FONT_SIZE = 68;
-const CATEGORY_CENTER_Y = 971;
-const CATEGORY_BOX_TOP = 942;
-const CATEGORY_BOX_HEIGHT = 64;
+// The template's typeface (both text elements) — Assistant, loaded site-wide.
+const TEMPLATE_FONT = "Assistant, Arimo, sans-serif";
+
+// Category label (template elements LB3RjDB7FJzKBthF + LBVqd1cWZscrNCj6,
+// re-read from the template after the font update: size 62.5, box 931–1005).
+const CATEGORY_FONT_SIZE = 62;
+const CATEGORY_LETTER_SPACING = 0.035; // em
+const CATEGORY_CENTER_Y = 968;
+const CATEGORY_BOX_TOP = 931;
+const CATEGORY_BOX_HEIGHT = 75;
 
 // Headline (template element LB3T1wjGkl7rRNP8).
 const TITLE_MAX_WIDTH = 978;
 const TITLE_TOP = 1024;
 const TITLE_MAX_HEIGHT = H - TITLE_TOP - 36;
-const TITLE_LINE_HEIGHT = 1.08;
+const TITLE_LINE_HEIGHT = 1.03;
+const TITLE_LETTER_SPACING = 0.033; // em
 
 export interface PostRenderOptions {
   title: string;
@@ -151,11 +157,11 @@ const renderPost = async (
   canvas.width = W;
   canvas.height = H;
 
-  // Arimo (the site font, covers Hebrew + Latin) must be resolved before any
-  // measureText/fillText call, otherwise the canvas falls back silently.
+  // The template face must be resolved before any measureText/fillText call,
+  // otherwise the canvas falls back silently.
   await Promise.all([
-    document.fonts.load(`400 ${CATEGORY_FONT_SIZE}px Arimo`),
-    document.fonts.load(`700 ${opts.titleSize}px Arimo`),
+    document.fonts.load(`400 ${CATEGORY_FONT_SIZE}px Assistant`),
+    document.fonts.load(`700 ${opts.titleSize}px Assistant`),
   ]).catch(() => undefined);
 
   let photo: HTMLImageElement | null = null;
@@ -227,7 +233,8 @@ const renderPost = async (
   //    with breathing room on both sides), in the category's own color.
   const category = opts.category.trim();
   if (category) {
-    ctx.font = `400 ${CATEGORY_FONT_SIZE}px Arimo, sans-serif`;
+    ctx.font = `400 ${CATEGORY_FONT_SIZE}px ${TEMPLATE_FONT}`;
+    ctx.letterSpacing = `${(CATEGORY_LETTER_SPACING * CATEGORY_FONT_SIZE).toFixed(2)}px`;
     if (opts.showCategoryHighlight) {
       const textWidth = ctx.measureText(category).width;
       const boxWidth = Math.min(textWidth + 90, W - 40);
@@ -249,7 +256,8 @@ const renderPost = async (
   let fontSize = opts.titleSize;
   let lines: string[] = [];
   for (; fontSize >= 40; fontSize -= 3) {
-    ctx.font = `700 ${fontSize}px Arimo, sans-serif`;
+    ctx.font = `700 ${fontSize}px ${TEMPLATE_FONT}`;
+    ctx.letterSpacing = `${(TITLE_LETTER_SPACING * fontSize).toFixed(2)}px`;
     lines = wrapLines(ctx, breakAfterColon(opts.title), TITLE_MAX_WIDTH);
     if (lines.length * fontSize * TITLE_LINE_HEIGHT <= TITLE_MAX_HEIGHT) break;
   }

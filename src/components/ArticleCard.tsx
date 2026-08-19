@@ -106,11 +106,17 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
         <div className="absolute inset-0 p-4 flex flex-col items-center justify-end gap-2 text-center">
           <span
             className="type-label inline-block rounded-sm px-3 py-1 text-white"
-            style={{ backgroundColor: categoryColor(article.categorySlug || article.category) }}
+            style={{
+              backgroundColor: categoryColor(article.categorySlug || article.category),
+              fontFamily: "Assistant, Arimo, sans-serif",
+            }}
           >
             {article.category}
           </span>
-          <h3 className="type-title text-base text-white line-clamp-3">
+          <h3
+            className="type-title text-base text-white line-clamp-3"
+            style={{ fontFamily: "Assistant, Arimo, sans-serif", lineHeight: 1.15 }}
+          >
             {article.title}
           </h3>
           <span className="type-label-mono normal-case tracking-normal text-white/70 flex items-center gap-1.5">
