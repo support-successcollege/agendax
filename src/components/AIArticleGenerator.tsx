@@ -147,14 +147,17 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
       date: new Date().toISOString().split("T")[0],
       imageUrl: generatedArticle.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800",
       author: "מחולל AI",
+      // Always a draft: generated text goes to the drafts pile for an editor's
+      // pass, never straight onto the site.
+      isDraft: true,
     };
 
     onArticleGenerated(newArticle);
     handleClose();
-    
+
     toast({
-      title: "הכתבה נוספה בהצלחה",
-      description: "הכתבה נוספה לרשימת הכתבות",
+      title: "הכתבה נשמרה כטיוטה",
+      description: 'נמצאת בטאב "כתבות" תחת "טיוטות" — ערכו ופרסמו כשמוכן',
     });
   };
 

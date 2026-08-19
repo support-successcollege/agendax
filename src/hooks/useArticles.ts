@@ -125,7 +125,11 @@ export const useArticles = (options: { includeContent?: boolean } = {}) => {
       
       toast({
         title: "הכתבה נוספה בהצלחה",
-        description: "הכתבה פורסמה באתר",
+        description: article.isDraft
+          ? "נשמרה כטיוטה"
+          : isImmediatelyPublished
+            ? "הכתבה פורסמה באתר"
+            : "הכתבה מתוזמנת לפרסום",
       });
 
       return newArticle;
