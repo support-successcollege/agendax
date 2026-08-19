@@ -11,7 +11,7 @@ import WidgetPopup from "@/components/WidgetPopup";
 import { useCategories } from "@/hooks/useCategories";
 import { useArticles } from "@/hooks/useArticles";
 import { useSidebarWidgets } from "@/hooks/useSidebarWidgets";
-import { Loader2 } from "lucide-react";
+import { HomeSkeleton } from "@/components/PageSkeleton";
 
 const Index = () => {
   const { articles, isLoading: isArticlesLoading } = useArticles();
@@ -34,11 +34,7 @@ const Index = () => {
   const filteredArticles = publishedArticles;
 
   if (isArticlesLoading || isCategoriesLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <HomeSkeleton />;
   }
 
   return (

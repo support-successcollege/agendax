@@ -7,7 +7,7 @@ import Footer from "@/components/Footer";
 import WidgetPopup from "@/components/WidgetPopup";
 import WidgetBanner from "@/components/WidgetBanner";
 import RichHtmlContent from "@/components/RichHtmlContent";
-import { Calendar, User, ArrowRight, Tag, Loader2 } from "lucide-react";
+import { Calendar, User, ArrowRight, Tag } from "lucide-react";
 import { motion } from "framer-motion";
 import ArticleCard from "@/components/ArticleCard";
 import OptimizedImage from "@/components/OptimizedImage";
@@ -17,6 +17,7 @@ import ArticleShare from "@/components/ArticleShare";
 import ArticleReader from "@/components/ArticleReader";
 import ArticleNewsletterCard from "@/components/ArticleNewsletterCard";
 import ReadingProgress from "@/components/ReadingProgress";
+import { ArticleSkeleton } from "@/components/PageSkeleton";
 
 const Article = () => {
   const { id } = useParams<{ id: string }>();
@@ -45,11 +46,7 @@ const Article = () => {
 
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <ArticleSkeleton />;
   }
 
   // Don't show draft articles on public page

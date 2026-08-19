@@ -9,7 +9,7 @@ import { useParams } from "@/lib/router-compat";
 import { useCategories } from "@/hooks/useCategories";
 import { useArticles, getArticlesByCategory } from "@/hooks/useArticles";
 import { useSidebarWidgets } from "@/hooks/useSidebarWidgets";
-import { Loader2 } from "lucide-react";
+import { CategorySkeleton } from "@/components/PageSkeleton";
 
 // A category's own page. The navbar links here — categories are real routes
 // with their own URL, head and prerendered HTML, not filters on the homepage.
@@ -32,11 +32,7 @@ const CategoryPage = () => {
   }, [widgets]);
 
   if (isArticlesLoading || isCategoriesLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <CategorySkeleton />;
   }
 
   const title = category?.name ?? slug;
