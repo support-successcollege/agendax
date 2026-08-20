@@ -52,9 +52,10 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
     );
   }
 
-  // 4:5 portrait card — the full Canva-post composition at every size. On
-  // phones the grid gives it the whole row, so it renders like the social post
-  // itself: full-bleed image, waves and wordmark, category box, headline.
+  // 4:5 portrait card — a proportional miniature of the 1080×1350 post PNG.
+  // Every text size and offset is in cqw (container-width units, template px
+  // divided by 10.8), so at any card width — including three-per-row on a
+  // phone — the card looks exactly like the generated post image scaled down.
   return (
     <Link
       to={`/article/${encodeURIComponent(article.slug || article.id)}`}
@@ -64,7 +65,7 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", bounce: 0, duration: 0.4, delay: index * 0.04 }}
-        className="press relative aspect-4/5 overflow-hidden rounded-xl cursor-pointer group border border-white/7 hover:border-primary/40 shadow-card hover:shadow-hover spring transition-[box-shadow,border-color]"
+        className="press relative aspect-4/5 overflow-hidden rounded-xl cursor-pointer group border border-white/7 hover:border-primary/40 shadow-card hover:shadow-hover spring transition-[box-shadow,border-color] [container-type:inline-size]"
       >
         <OptimizedImage
           src={article.imageUrl}
@@ -106,26 +107,27 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
         {/* Same composition as the Canva post template (it's the same 4:5
             frame): centered category label on a full-width color box in the
             category's own color, centered bold white headline beneath it. */}
-        <div className="absolute inset-0 p-4 sm:p-4 pb-5 flex flex-col items-center justify-end gap-2 text-center">
+        {/* Template geometry in container units (1080px → 100cqw): category at
+            62px = 5.8cqw on its color box, headline at 73px = 6.75cqw with the
+            template's 1.03 leading, 3.3cqw bottom margin. No date — the post
+            image has none. */}
+        <div className="absolute inset-0 flex flex-col items-center justify-end gap-[1.7cqw] pb-[3.3cqw] px-[4.7cqw] text-center">
           <span
-            className="type-label inline-block rounded-sm px-3 py-1 text-white"
+            className="inline-block text-white font-normal leading-none py-[0.9cqw] px-[4.2cqw] text-[5.8cqw]"
             style={{
               backgroundColor: categoryColor(article.categorySlug || article.category),
               fontFamily: "Assistant, Arimo, sans-serif",
+              letterSpacing: "0.035em",
             }}
           >
             {article.category}
           </span>
           <h3
-            className="type-title text-xl sm:text-base text-white line-clamp-3"
-            style={{ fontFamily: "Assistant, Arimo, sans-serif", lineHeight: 1.15 }}
+            className="w-full font-bold text-white line-clamp-3 text-[6.75cqw]"
+            style={{ fontFamily: "Assistant, Arimo, sans-serif", lineHeight: 1.08, letterSpacing: "0.033em" }}
           >
             {article.title}
           </h3>
-          <span className="type-label-mono normal-case tracking-normal text-white/70 flex items-center gap-1.5">
-            <Calendar className="w-3 h-3" aria-hidden="true" />
-            {new Date(article.date).toLocaleDateString("he-IL")}
-          </span>
         </div>
       </motion.article>
     </Link>

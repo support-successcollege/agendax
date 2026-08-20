@@ -25,9 +25,10 @@ const ArticleGrid = ({ articles, title, initialCount = 9, loadMoreCount = 9 }: A
       )}
       {articles.length > 0 ? (
         <>
-          {/* One full-width post per row on phones — the card IS the social
-              post, so it gets the social post's presence; three-up from sm. */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 sm:gap-1">
+          {/* Three per row at every size. Each card is a proportional miniature
+              of the 1080×1350 post PNG, so the grid reads as a wall of the
+              social posts themselves. */}
+          <div className="grid grid-cols-3 gap-1">
             {visibleArticles.map((article, index) => (
               <ArticleCard key={article.id} article={article} index={index} />
             ))}
