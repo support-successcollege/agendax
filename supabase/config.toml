@@ -63,3 +63,8 @@ verify_jwt = false
 # itself authorizes cron-or-admin.
 [functions.generate-social-post]
 verify_jwt = false
+
+# The auto-publish cron carries the shared secret; the function authorizes
+# cron-or-admin.
+[functions.social-publish]
+verify_jwt = false

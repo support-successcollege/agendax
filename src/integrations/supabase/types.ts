@@ -87,6 +87,63 @@ export type Database = {
           },
         ]
       }
+      social_accounts: {
+        Row: {
+          platform: string
+          enabled: boolean
+          auto_publish: boolean
+          credentials: Json
+          updated_at: string
+        }
+        Insert: {
+          platform: string
+          enabled?: boolean
+          auto_publish?: boolean
+          credentials?: Json
+          updated_at?: string
+        }
+        Update: {
+          platform?: string
+          enabled?: boolean
+          auto_publish?: boolean
+          credentials?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      social_posts: {
+        Row: {
+          id: string
+          article_id: string
+          platform: string
+          status: string
+          external_id: string | null
+          post_text: string | null
+          error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          article_id: string
+          platform: string
+          status?: string
+          external_id?: string | null
+          post_text?: string | null
+          error?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          article_id?: string
+          platform?: string
+          status?: string
+          external_id?: string | null
+          post_text?: string | null
+          error?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       newsletter_sends: {
         Row: {
           id: string

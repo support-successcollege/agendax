@@ -24,6 +24,7 @@ import AdminHighlightsTab from "@/components/AdminHighlightsTab";
 import AdminWidgetsTab from "@/components/AdminWidgetsTab";
 import AdminNewsletterTab from "@/components/AdminNewsletterTab";
 import AdminGlobalIngestTab from "@/components/AdminGlobalIngestTab";
+import AdminSocialTab from "@/components/AdminSocialTab";
 import ArticleStatsDialog from "@/components/ArticleStatsDialog";
 import ArticleExportImport from "@/components/ArticleExportImport";
 import AdminArticleCalendar from "@/components/AdminArticleCalendar";
@@ -449,6 +450,7 @@ const Admin = () => {
               { id: "categories", label: "קטגוריות", icon: Settings },
               { id: "widgets", label: "חלוניות", icon: LayoutGrid },
               { id: "ingest", label: "סוכן חדשות עולמי", icon: Globe },
+              { id: "social", label: "רשתות חברתיות", icon: Share2 },
               { id: "newsletter", label: "ניוזלטר", icon: Users },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
@@ -983,6 +985,8 @@ const Admin = () => {
         {/* Newsletter Tab */}
         {/* Global hi-tech ingest agent */}
         {activeTab === "ingest" && <AdminGlobalIngestTab />}
+
+        {activeTab === "social" && <AdminSocialTab />}
 
         {activeTab === "newsletter" && <AdminNewsletterTab />}
         </motion.div>
