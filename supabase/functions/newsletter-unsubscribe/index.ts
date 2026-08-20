@@ -2,7 +2,6 @@
 // verify_jwt = false: the visitor is anonymous; the subscriber row id (an
 // unguessable uuid that only that subscriber's email carries) is the
 // credential, and the RPC only ever flips is_active to false.
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const page = (title: string, body: string) => `<!doctype html>
@@ -16,10 +15,14 @@ const page = (title: string, body: string) => `<!doctype html>
   </div>
 </body></html>`;
 
-const html = (markup: string, status = 200) =>
-  new Response(markup, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
+const html = (markup: string, status = 200) => {
+  const headers = new Headers();
+  headers.set("content-type", "text/html; charset=utf-8");
+  headers.set("cache-control", "no-store");
+  return new Response(markup, { status, headers });
+};
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const id = new URL(req.url).searchParams.get("id");
   if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
     return html(page("קישור לא תקין", "הקישור שהגעת ממנו אינו שלם. אפשר לפנות אלינו במייל."), 400);

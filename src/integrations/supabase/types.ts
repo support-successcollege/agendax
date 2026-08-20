@@ -1403,6 +1403,10 @@ export type Database = {
           queued: number
         }[]
       }
+      unsubscribe_newsletter: {
+        Args: { _id: string }
+        Returns: boolean
+      }
       get_visitor_stats: {
         Args: never
         Returns: {

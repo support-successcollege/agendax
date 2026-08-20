@@ -179,7 +179,9 @@ serve(async (req) => {
         subject,
         intro,
         articles: ordered,
-        unsubscribeUrl: `${Deno.env.get("SUPABASE_URL")}/functions/v1/newsletter-unsubscribe?id=${r.id}`,
+        // The site's own page: the functions gateway rewrites GET responses
+        // to text/plain, which showed readers raw HTML source.
+        unsubscribeUrl: `${SITE_URL}/unsubscribe?id=${r.id}`,
       }),
     }));
 
