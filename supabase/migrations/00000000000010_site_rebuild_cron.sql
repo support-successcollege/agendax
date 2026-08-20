@@ -16,7 +16,7 @@ select cron.schedule(
   '0 3,7,11,15,19,23 * * *',
   $cron$
     select net.http_post(
-      url := 'https://api.vercel.com/v1/integrations/deploy/prj_4PWv5pCKbiUi7DjIa9YopW4n1qSJ/2CTNxPdZjU',
+      url := 'https://api.vercel.com/v1/integrations/deploy/prj_GlLbmD5Jcm5IBIhXysVaP6SPi3Gx/uLjJKMFkjD',
       body := '{}'::jsonb,
       timeout_milliseconds := 10000
     );
