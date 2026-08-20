@@ -87,6 +87,36 @@ export type Database = {
           },
         ]
       }
+      newsletter_sends: {
+        Row: {
+          id: string
+          subject: string
+          category: string | null
+          article_ids: string[]
+          recipients_count: number
+          test: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          subject: string
+          category?: string | null
+          article_ids?: string[]
+          recipients_count?: number
+          test?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          subject?: string
+          category?: string | null
+          article_ids?: string[]
+          recipients_count?: number
+          test?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       ai_advice: {
         Row: {
           id: string

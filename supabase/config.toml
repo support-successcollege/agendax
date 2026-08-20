@@ -53,3 +53,8 @@ verify_jwt = false
 # authorizes cron-or-admin before doing anything.
 [functions.submit-sitemap]
 verify_jwt = false
+
+# The unsubscribe link in newsletter emails is clicked by anonymous readers;
+# the subscriber's own row id is the credential.
+[functions.newsletter-unsubscribe]
+verify_jwt = false
