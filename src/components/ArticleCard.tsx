@@ -52,11 +52,15 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
     );
   }
 
-  // 4:5 portrait card. The headline is always legible — a news card that hides
-  // its own headline until hover is unreadable while scanning, and invisible on
-  // touch, where there is no hover at all.
+  // 4:5 portrait card. On phones (three per row) the overlay would be crammed
+  // into ~120px, so the card is the clean image alone — a symmetric tile grid —
+  // and the full template composition (waves, wordmark, category box, headline)
+  // appears from the sm breakpoint up, where it has room to be legible.
   return (
-    <Link to={`/article/${encodeURIComponent(article.slug || article.id)}`}>
+    <Link
+      to={`/article/${encodeURIComponent(article.slug || article.id)}`}
+      aria-label={article.title}
+    >
       <motion.article
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -75,14 +79,14 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
         {/* Scrim, anchored to the deepest surface so the card reads as cut from
             the same material as the page rather than pasted onto it. */}
         <div
-          className="absolute inset-0 bg-linear-to-t from-surface-deep via-surface-deep/70 to-transparent"
+          className="hidden sm:block absolute inset-0 bg-linear-to-t from-surface-deep via-surface-deep/70 to-transparent"
           aria-hidden="true"
         />
 
         {/* The template's top band: two translucent wave ellipses with the
             wordmark over them — same geometry as the Canva post (1080×1350),
             expressed in percentages of the card. */}
-        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="hidden sm:block absolute inset-0 overflow-hidden" aria-hidden="true">
           <div
             className="absolute rounded-[50%] bg-[#0d3c99] opacity-[0.59]"
             style={{ width: "127.4%", height: "31%", left: "50%", top: "2.4%", transform: "translate(-50%, -50%)" }}
@@ -103,7 +107,7 @@ const ArticleCard = ({ article, index, variant = "default" }: ArticleCardProps) 
         {/* Same composition as the Canva post template (it's the same 4:5
             frame): centered category label on a full-width color box in the
             category's own color, centered bold white headline beneath it. */}
-        <div className="absolute inset-0 p-4 flex flex-col items-center justify-end gap-2 text-center">
+        <div className="hidden sm:flex absolute inset-0 p-4 flex-col items-center justify-end gap-2 text-center">
           <span
             className="type-label inline-block rounded-sm px-3 py-1 text-white"
             style={{
