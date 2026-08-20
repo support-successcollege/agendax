@@ -53,10 +53,11 @@ export const Route = createFileRoute("/")({
           name: "Agendax",
           url: `${SITE_URL}/`,
           logo: `${SITE_URL}/favicon.png`,
-          // TODO: swap for the Agendax handles once the social accounts are renamed.
           sameAs: [
-            "https://www.instagram.com/yz.news/",
-            "https://www.facebook.com/profile.php?id=61571437427607",
+            "https://www.linkedin.com/in/agendax-80012a42b",
+            "https://www.instagram.com/agendax.co.il",
+            "https://www.facebook.com/profile.php?id=61593402242220",
+            "https://x.com/agendaxcoil",
           ],
         }),
       },

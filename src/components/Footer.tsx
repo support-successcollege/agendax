@@ -1,19 +1,20 @@
-import { Facebook, Instagram, MessageCircle, Mail } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter, Mail } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import wordmark from "@/assets/agendax-wordmark-light.png";
 
 const SOCIALS = [
   {
-    href: "https://www.facebook.com/profile.php?id=61571437427607",
+    href: "https://www.linkedin.com/in/agendax-80012a42b",
+    label: "LinkedIn",
+    Icon: Linkedin,
+  },
+  { href: "https://www.instagram.com/agendax.co.il", label: "Instagram", Icon: Instagram },
+  {
+    href: "https://www.facebook.com/profile.php?id=61593402242220",
     label: "Facebook",
     Icon: Facebook,
   },
-  { href: "https://www.instagram.com/yz.news/", label: "Instagram", Icon: Instagram },
-  {
-    href: "https://whatsapp.com/channel/0029VbCBikc0VycOcGG0z42w",
-    label: "WhatsApp",
-    Icon: MessageCircle,
-  },
+  { href: "https://x.com/agendaxcoil", label: "X (טוויטר)", Icon: Twitter },
 ];
 
 const Footer = () => (

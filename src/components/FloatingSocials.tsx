@@ -1,23 +1,29 @@
-import { Facebook, Instagram, MessageCircle } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
 
 const socials = [
   {
-    icon: Facebook,
-    href: "https://www.facebook.com/profile.php?id=61571437427607",
-    label: "Facebook",
-    bg: "bg-[#1877F2]",
+    icon: Linkedin,
+    href: "https://www.linkedin.com/in/agendax-80012a42b",
+    label: "LinkedIn",
+    bg: "bg-[#0A66C2]",
   },
   {
     icon: Instagram,
-    href: "https://www.instagram.com/yz.news/",
+    href: "https://www.instagram.com/agendax.co.il",
     label: "Instagram",
     bg: "bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]",
   },
   {
-    icon: MessageCircle,
-    href: "https://whatsapp.com/channel/0029VbCBikc0VycOcGG0z42w",
-    label: "ערוץ המשקיעים בווצאפ",
-    bg: "bg-[#25D366]",
+    icon: Facebook,
+    href: "https://www.facebook.com/profile.php?id=61593402242220",
+    label: "Facebook",
+    bg: "bg-[#1877F2]",
+  },
+  {
+    icon: Twitter,
+    href: "https://x.com/agendaxcoil",
+    label: "X (טוויטר)",
+    bg: "bg-black",
   },
 ];
 
