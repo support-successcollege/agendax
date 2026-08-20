@@ -21,6 +21,47 @@ import {
   publishX,
   type ArticleForPost,
 } from "../_shared/social.ts";
+import { renderPostPng } from "../_shared/postImage.ts";
+
+const PALETTE = ["#0d3c99", "#7c3aed", "#0f766e", "#be123c", "#b45309", "#166534", "#0e7490", "#9d174d"];
+function categoryColor(key: string): string {
+  const s = (key || "").trim().toLowerCase();
+  if (!s) return PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return PALETTE[hash % PALETTE.length];
+}
+
+/**
+ * The branded post PNG (the Canva-template composition) for an article:
+ * rendered server-side once, stored at article-images/social/{id}.png, and
+ * reused ever after. Falls back to the raw article image if rendering fails —
+ * a post with a plain photo beats no post.
+ */
+async function brandedImageUrl(supabase: any, article: ArticleRow): Promise<string> {
+  const path = `social/${article.id}.png`;
+  const publicUrl = supabase.storage.from("article-images").getPublicUrl(path).data.publicUrl;
+
+  const head = await fetch(publicUrl, { method: "HEAD" }).catch(() => null);
+  if (head?.ok) return publicUrl;
+
+  try {
+    const png = await renderPostPng({
+      title: article.title,
+      category: article.category,
+      categoryColor: categoryColor(article.category_slug || article.category),
+      photoUrl: article.image_url,
+    });
+    const { error } = await supabase.storage
+      .from("article-images")
+      .upload(path, png, { contentType: "image/png", upsert: true });
+    if (error) throw error;
+    return publicUrl;
+  } catch (e) {
+    console.error("branded image render failed, using article image:", (e as Error).message);
+    return article.image_url;
+  }
+}
 
 type Account = {
   platform: "facebook" | "instagram" | "linkedin" | "x";
@@ -35,6 +76,7 @@ type ArticleRow = {
   title: string;
   excerpt: string;
   category: string;
+  category_slug: string;
   content: string;
   image_url: string;
 };
@@ -63,15 +105,19 @@ async function publishOne(
       case "facebook":
         ({ externalId } = await publishFacebook(account.credentials, { text, link: url }));
         break;
-      case "instagram":
+      case "instagram": {
+        const image = await brandedImageUrl(supabase, article);
         ({ externalId } = await publishInstagram(account.credentials, {
           caption: text,
-          imageUrl: article.image_url,
+          imageUrl: image,
         }));
         break;
-      case "x":
-        ({ externalId } = await publishX(account.credentials, { text, imageUrl: article.image_url }));
+      }
+      case "x": {
+        const image = await brandedImageUrl(supabase, article);
+        ({ externalId } = await publishX(account.credentials, { text, imageUrl: image }));
         break;
+      }
       case "linkedin":
         ({ externalId } = await publishLinkedIn(account.credentials, { text, link: url }));
         break;
@@ -133,7 +179,7 @@ serve(async (req) => {
       const since = new Date(Date.now() - AUTO_WINDOW_MS).toISOString();
       const { data: fresh } = await supabase
         .from("articles")
-        .select("id, slug, title, excerpt, category, content, image_url")
+        .select("id, slug, title, excerpt, category, category_slug, content, image_url")
         .eq("is_draft", false)
         .gte("published_at", since)
         .order("published_at", { ascending: true })
@@ -164,7 +210,7 @@ serve(async (req) => {
 
     const { data: article, error: artErr } = await supabase
       .from("articles")
-      .select("id, slug, title, excerpt, category, content, image_url")
+      .select("id, slug, title, excerpt, category, category_slug, content, image_url")
       .eq("id", articleId)
       .single();
     if (artErr || !article) return json({ error: "הכתבה לא נמצאה" }, 404);
