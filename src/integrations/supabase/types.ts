@@ -87,6 +87,24 @@ export type Database = {
           },
         ]
       }
+      ai_advice: {
+        Row: {
+          id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          content?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       articles: {
         Row: {
           author: string
@@ -946,6 +964,7 @@ export type Database = {
           referrer: string | null
           user_agent: string | null
           viewed_at: string
+          visitor_id: string | null
         }
         Insert: {
           article_id?: string | null
@@ -955,6 +974,7 @@ export type Database = {
           referrer?: string | null
           user_agent?: string | null
           viewed_at?: string
+          visitor_id?: string | null
         }
         Update: {
           article_id?: string | null
@@ -964,6 +984,7 @@ export type Database = {
           referrer?: string | null
           user_agent?: string | null
           viewed_at?: string
+          visitor_id?: string | null
         }
         Relationships: [
           {
@@ -1293,6 +1314,15 @@ export type Database = {
           published_today: number
           queue_buffer: number
           queued: number
+        }[]
+      }
+      get_visitor_stats: {
+        Args: never
+        Returns: {
+          unique_today: number
+          unique_week: number
+          unique_month: number
+          unique_total: number
         }[]
       }
       set_featured_article: {

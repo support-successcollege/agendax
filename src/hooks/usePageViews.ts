@@ -93,6 +93,30 @@ export const useAllArticleViews = () => {
   return { articleViews, isLoading };
 };
 
+// Unique visitors per window — identity is the persistent per-browser id the
+// tracker mints; see PageViewTracker.
+export const useVisitorStats = () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ["visitorStats"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_visitor_stats");
+      if (error) {
+        console.error("Error getting visitor stats:", error);
+        return null;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        today: Number(row?.unique_today) || 0,
+        week: Number(row?.unique_week) || 0,
+        month: Number(row?.unique_month) || 0,
+        total: Number(row?.unique_total) || 0,
+      };
+    },
+    refetchInterval: 60_000,
+  });
+  return { visitorStats: data, isLoading };
+};
+
 // The hot list: views inside a sliding window (48h), refreshed every minute,
 // so the table reshuffles live as stories rise and fade through the day.
 export const useHotArticles = (hours = 48, limit = 10) => {

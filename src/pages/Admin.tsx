@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Article } from "@/hooks/useArticles";
 import { useArticles } from "@/hooks/useArticles";
 import { useCategories, Category } from "@/hooks/useCategories";
-import { useTodayViewCount, useTodayNewArticles, useAllArticleViews, usePeriodViewCount, useTopPages, usePathNames, getRangeBounds, type ViewRangePreset } from "@/hooks/usePageViews";
+import { useTodayViewCount, useTodayNewArticles, useAllArticleViews, usePeriodViewCount, useTopPages, usePathNames, useVisitorStats, getRangeBounds, type ViewRangePreset } from "@/hooks/usePageViews";
 import ArticleEditDialog from "@/components/ArticleEditDialog";
 import ArticleCreateDialog from "@/components/ArticleCreateDialog";
 import AIArticleGenerator from "@/components/AIArticleGenerator";
@@ -150,6 +150,7 @@ const Admin = () => {
   const { todayNewArticles } = useTodayNewArticles();
   const { articleViews } = useAllArticleViews();
   const { periodViews } = usePeriodViewCount();
+  const { visitorStats } = useVisitorStats();
   const [viewsRange, setViewsRange] = useState<ViewRangePreset>("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -352,6 +353,9 @@ const Admin = () => {
     { title: "כניסות היום (כל האתר)", value: todayViews.toLocaleString(), icon: Eye, color: "bg-primary" },
     { title: "כניסות השבוע", value: periodViews.week.toLocaleString(), icon: TrendingUp, color: "bg-accent" },
     { title: "כניסות החודש", value: periodViews.month.toLocaleString(), icon: Calendar, color: "bg-secondary" },
+    { title: "מבקרים ייחודיים היום", value: (visitorStats?.today ?? 0).toLocaleString(), icon: Users, color: "bg-primary" },
+    { title: "מבקרים ייחודיים החודש", value: (visitorStats?.month ?? 0).toLocaleString(), icon: Users, color: "bg-secondary" },
+    { title: "סה״כ מבקרים ייחודיים", value: (visitorStats?.total ?? 0).toLocaleString(), icon: Users, color: "bg-muted" },
     { title: "סה״כ כניסות", value: periodViews.allTime.toLocaleString(), icon: BarChart3, color: "bg-muted" },
     { title: "סה״כ כתבות", value: articles.length, icon: Newspaper, color: "bg-primary" },
     { title: "כתבות חדשות היום", value: todayNewArticles, icon: Plus, color: "bg-accent" },
