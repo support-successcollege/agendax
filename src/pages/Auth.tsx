@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Home, LogIn } from "lucide-react";
+import wordmark from "@/assets/agendax-wordmark-light.png";
 
 const isSafePath = (p: string | null) => !!p && p.startsWith("/") && !p.startsWith("//");
 
@@ -139,9 +140,13 @@ const Auth = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4">
-            <span className="text-primary-foreground font-black text-xl">YZ</span>
-          </div>
+          <img
+            src={wordmark}
+            alt="Agendax"
+            width={800}
+            height={107}
+            className="mx-auto h-8 w-auto mb-4"
+          />
           <CardTitle className="text-2xl font-bold">
             {mode === "login" ? "התחברות מנהלים" : "איפוס סיסמה"}
           </CardTitle>

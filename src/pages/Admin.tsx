@@ -15,28 +15,21 @@ import { useTodayViewCount, useTodayNewArticles, useAllArticleViews, usePeriodVi
 import ArticleEditDialog from "@/components/ArticleEditDialog";
 import ArticleCreateDialog from "@/components/ArticleCreateDialog";
 import AIArticleGenerator from "@/components/AIArticleGenerator";
-import AIArticlePlusBridge from "@/components/AIArticlePlusBridge";
 import SocialPostGenerator from "@/components/SocialPostGenerator";
 import WhatsAppPostGenerator from "@/components/WhatsAppPostGenerator";
 import PostImageGenerator from "@/components/PostImageGenerator";
 import ArticleQualityBadge from "@/components/ArticleQualityBadge";
 import AdminCommentsTab from "@/components/AdminCommentsTab";
-import AdminJobsTab from "@/components/AdminJobsTab";
-import AdminApplicationsTab from "@/components/AdminApplicationsTab";
-import AdminCoursesTab from "@/components/AdminCoursesTab";
 import AdminHighlightsTab from "@/components/AdminHighlightsTab";
 import AdminWidgetsTab from "@/components/AdminWidgetsTab";
 import AdminNewsletterTab from "@/components/AdminNewsletterTab";
-import AdminStudentsTab from "@/components/AdminStudentsTab";
 import AdminGlobalIngestTab from "@/components/AdminGlobalIngestTab";
 import ArticleStatsDialog from "@/components/ArticleStatsDialog";
 import ArticleExportImport from "@/components/ArticleExportImport";
 import AdminArticleCalendar from "@/components/AdminArticleCalendar";
 import AdminAIAdvice from "@/components/AdminAIAdvice";
 import AdminBackup from "@/components/AdminBackup";
-import { Switch } from "@/components/ui/switch";
 
-import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { usePendingComments } from "@/hooks/useComments";
 import { 
   LogOut, 
@@ -52,8 +45,6 @@ import {
   Loader2,
   PenLine,
   Eye,
-  Briefcase,
-  FileText,
   Zap,
   Clock,
   Share2,
@@ -64,7 +55,7 @@ import {
   ArrowUp
 } from "lucide-react";
 
-import { MessageCircle, LayoutGrid, GraduationCap, ImageIcon } from "lucide-react";
+import { MessageCircle, LayoutGrid, ImageIcon } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import {
   Dialog,
@@ -129,7 +120,6 @@ const Admin = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { settings: siteSettings, updateSetting: updateSiteSetting } = useSiteSettings();
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
@@ -144,6 +134,7 @@ const Admin = () => {
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [articleSearchQuery, setArticleSearchQuery] = useState("");
   const [articleStatusFilter, setArticleStatusFilter] = useState<"all" | "published" | "scheduled" | "draft">("all");
+  const [articleSort, setArticleSort] = useState<"newest" | "oldest" | "views" | "title" | "scheduled">("newest");
   // Category management state
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -234,7 +225,10 @@ const Admin = () => {
     await updateArticle(updatedArticle);
   };
 
+  // One confirmation style for every destructive action in the panel.
   const handleDeleteArticle = async (articleId: string) => {
+    const article = articles.find((a) => a.id === articleId);
+    if (!window.confirm(`למחוק את הכתבה "${article?.title ?? ""}" לצמיתות?`)) return;
     await deleteArticle(articleId);
   };
 
@@ -312,7 +306,21 @@ const Admin = () => {
     }
   };
 
+  // Reorder by swapping positions — the nav renders in display_order, so this
+  // is literally rearranging the site's navbar.
+  const moveCategory = async (index: number, dir: -1 | 1) => {
+    const a = categories[index];
+    const b = categories[index + dir];
+    if (!a || !b) return;
+    await updateCategory(a.id, { displayOrder: index + dir });
+    await updateCategory(b.id, { displayOrder: index });
+  };
+
   const handleDeleteCategory = async (categoryId: string) => {
+    const category = categories.find((c) => c.id === categoryId);
+    if (!window.confirm(`למחוק את הקטגוריה "${category?.name ?? ""}"? כתבות המשויכות אליה יישארו.`)) {
+      return;
+    }
     await deleteCategory(categoryId);
   };
 
@@ -396,10 +404,6 @@ const Admin = () => {
               { id: "comments", label: `תגובות${pendingComments.length > 0 ? ` (${pendingComments.length})` : ""}`, icon: MessageCircle },
               { id: "categories", label: "קטגוריות", icon: Settings },
               { id: "widgets", label: "חלוניות", icon: LayoutGrid },
-              { id: "jobs", label: "משרות", icon: Briefcase },
-              { id: "applications", label: "מועמדויות", icon: FileText },
-              { id: "courses", label: "קורסים והרצאות", icon: GraduationCap },
-              { id: "students", label: "תלמידים", icon: Users },
               { id: "ingest", label: "סוכן חדשות עולמי", icon: Globe },
               { id: "newsletter", label: "ניוזלטר", icon: Users },
             ].map((tab) => {
@@ -436,7 +440,6 @@ const Admin = () => {
               <Sparkles className="w-4 h-4" />
               מחולל כתבות AI
             </Button>
-            <AIArticlePlusBridge onSave={handleCreateArticle} />
           </div>
         </div>
 
@@ -561,45 +564,6 @@ const Admin = () => {
             {/* Backup */}
             <AdminBackup />
 
-            {/* Site Sections Visibility */}
-            <Card>
-              <CardHeader>
-                <CardTitle>נראות מקטעים באתר</CardTitle>
-                <CardDescription>הסתר או הצג קישורים בתפריט הראשי</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium">איזור התעסוקה</p>
-                      <p className="text-sm text-muted-foreground">הצגת קישור "איזור התעסוקה" בתפריט הראשי</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={siteSettings.show_jobs}
-                    onCheckedChange={(v) => updateSiteSetting("show_jobs", v)}
-                    aria-label="הצג איזור התעסוקה"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <GraduationCap className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium">קורסים והרצאות</p>
-                      <p className="text-sm text-muted-foreground">הצגת קישור "קורסים והרצאות" בתפריט הראשי</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={siteSettings.show_courses}
-                    onCheckedChange={(v) => updateSiteSetting("show_courses", v)}
-                    aria-label="הצג קורסים והרצאות"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-
             {/* Submit Sitemap to Google */}
             <SitemapSubmitCard />
 
@@ -677,7 +641,6 @@ const Admin = () => {
                   <Sparkles className="w-4 h-4" />
                   כתבה עם AI
                 </Button>
-                <AIArticlePlusBridge onSave={handleCreateArticle} />
               </div>
             </CardHeader>
             <CardContent>
@@ -721,11 +684,24 @@ const Admin = () => {
                         </Button>
                       );
                     })}
+                    <select
+                      className="h-8 rounded-md border border-input bg-background px-2 text-sm mr-auto"
+                      value={articleSort}
+                      onChange={(e) => setArticleSort(e.target.value as typeof articleSort)}
+                      aria-label="מיון כתבות"
+                    >
+                      <option value="newest">חדש → ישן</option>
+                      <option value="oldest">ישן → חדש</option>
+                      <option value="views">הכי נצפות</option>
+                      <option value="title">לפי כותרת</option>
+                      <option value="scheduled">לפי שעת תזמון</option>
+                    </select>
                   </div>
                 );
               })()}
               <div className="space-y-4">
-                {articles
+                {(() => {
+                const filtered = articles
                   .filter((article) => {
                     const now = new Date();
                     const isScheduled = !!(article.isDraft && article.scheduledAt && new Date(article.scheduledAt) > now);
@@ -734,20 +710,41 @@ const Admin = () => {
                     if (articleStatusFilter === "scheduled" && !isScheduled) return false;
                     if (articleStatusFilter === "draft" && !isPlainDraft) return false;
                     if (!articleSearchQuery.trim()) return true;
+                    // Search covers everything an editor remembers about a
+                    // piece: title, excerpt, category, author, and the body.
                     const q = articleSearchQuery.toLowerCase();
                     return (
                       article.title.toLowerCase().includes(q) ||
                       article.excerpt.toLowerCase().includes(q) ||
-                      article.category.toLowerCase().includes(q)
+                      article.category.toLowerCase().includes(q) ||
+                      (article.author ?? "").toLowerCase().includes(q) ||
+                      (article.content ?? "").toLowerCase().includes(q)
                     );
                   })
                   .sort((a, b) => {
-                    if (articleStatusFilter === "scheduled" && a.scheduledAt && b.scheduledAt) {
-                      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+                    switch (articleSort) {
+                      case "views":
+                        return (articleViews[b.id] || 0) - (articleViews[a.id] || 0);
+                      case "title":
+                        return a.title.localeCompare(b.title, "he");
+                      case "oldest":
+                        return +new Date(a.publishedAt || a.date) - +new Date(b.publishedAt || b.date);
+                      case "scheduled":
+                        return +new Date(a.scheduledAt || 0) - +new Date(b.scheduledAt || 0);
+                      default:
+                        return +new Date(b.publishedAt || b.date) - +new Date(a.publishedAt || a.date);
                     }
-                    return 0;
-                  })
-                  .map((article) => (
+                  });
+                if (filtered.length === 0) {
+                  return (
+                    <p className="text-center text-muted-foreground py-10">
+                      {articleSearchQuery.trim()
+                        ? `לא נמצאו כתבות עבור "${articleSearchQuery}"`
+                        : "אין כתבות בסטטוס הזה."}
+                    </p>
+                  );
+                }
+                return filtered.map((article) => (
                   <div 
                     key={article.id} 
                     className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/30 transition-colors"
@@ -818,10 +815,8 @@ const Admin = () => {
 
                     </div>
                   </div>
-                ))}
-                {articles.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">אין כתבות עדיין. לחץ על "כתבה חדשה" כדי להתחיל.</p>
-                )}
+                ));
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -849,40 +844,65 @@ const Admin = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categories.map((category) => (
-                  <Card key={category.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{category.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {articles.filter(a => a.category === category.name).length} כתבות
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">slug: {category.slug}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleOpenCategoryDialog(category)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          {category.slug !== "home" && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-destructive"
-                              onClick={() => handleDeleteCategory(category.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+              {/* A list, not a grid: order IS the navbar order, so the layout
+                  should read top-to-bottom like the thing it controls. */}
+              <div className="space-y-2">
+                {categories.map((category, index) => (
+                  <div
+                    key={category.id}
+                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex flex-col">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        disabled={index === 0}
+                        onClick={() => moveCategory(index, -1)}
+                        aria-label="העלה בסדר"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 rotate-180"
+                        disabled={index === categories.length - 1}
+                        onClick={() => moveCategory(index, 1)}
+                        aria-label="הורד בסדר"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <span className="w-6 text-center text-sm font-bold text-muted-foreground tabular-nums">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium">{category.name}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {articles.filter(a => a.category === category.name).length} כתבות · slug: {category.slug}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenCategoryDialog(category)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      {category.slug !== "home" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          onClick={() => handleDeleteCategory(category.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -891,16 +911,6 @@ const Admin = () => {
 
         {/* Widgets Tab */}
         {activeTab === "widgets" && <AdminWidgetsTab />}
-
-        {/* Jobs Tab */}
-        {activeTab === "jobs" && <AdminJobsTab />}
-
-        {/* Applications Tab */}
-        {activeTab === "applications" && <AdminApplicationsTab />}
-
-        {activeTab === "courses" && <AdminCoursesTab />}
-
-        {activeTab === "students" && <AdminStudentsTab />}
 
         {/* Newsletter Tab */}
         {/* Global hi-tech ingest agent */}

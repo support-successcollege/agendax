@@ -11,50 +11,49 @@ const AdminBackup = () => {
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
 
+  // Everything the panel can manage is in the backup — content, agent state
+  // and audience alike. Restore order follows this list, so referenced tables
+  // (categories before articles, sources before ingest items) land first.
+  const TABLES = [
+    "categories",
+    "articles",
+    "sidebar_widgets",
+    "news_sources",
+    "ingest_items",
+    "newsletter_subscribers",
+    "article_comments",
+    "site_settings",
+  ] as const;
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const [
-        { data: articles },
-        { data: categories },
-        { data: widgets },
-        { data: jobs },
-        { data: subscribers },
-        { data: comments },
-      ] = await Promise.all([
-        supabase.from("articles").select("*"),
-        supabase.from("categories").select("*"),
-        supabase.from("sidebar_widgets").select("*"),
-        supabase.from("jobs").select("*"),
-        supabase.from("newsletter_subscribers").select("*"),
-        supabase.from("article_comments").select("*"),
-      ]);
+      const results = await Promise.all(TABLES.map((t) => supabase.from(t).select("*")));
+      const failed = TABLES.filter((_, i) => results[i].error);
+      if (failed.length > 0) {
+        throw new Error(`קריאת הטבלאות נכשלה: ${failed.join(", ")}`);
+      }
 
-      const backup = {
-        version: "1.1",
-        exportedAt: new Date().toISOString(),
-        data: {
-          articles: articles || [],
-          categories: categories || [],
-          sidebar_widgets: widgets || [],
-          jobs: jobs || [],
-          newsletter_subscribers: subscribers || [],
-          article_comments: comments || [],
-        },
-      };
+      const data: Record<string, unknown[]> = {};
+      TABLES.forEach((t, i) => {
+        data[t] = results[i].data || [];
+      });
+
+      const backup = { version: "2.0", exportedAt: new Date().toISOString(), data };
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `yz-news-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `agendax-backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
 
-      toast({ title: "הגיבוי הורד בהצלחה", description: `${(articles?.length || 0)} כתבות, ${(categories?.length || 0)} קטגוריות, ${(widgets?.length || 0)} חלוניות, ${(jobs?.length || 0)} משרות` });
+      const counts = TABLES.map((t) => `${t}: ${data[t].length}`).join(" · ");
+      toast({ title: "הגיבוי הורד בהצלחה", description: counts });
     } catch (error) {
       console.error("Export error:", error);
-      toast({ title: "שגיאה בגיבוי", variant: "destructive" });
+      toast({ title: "שגיאה בגיבוי", description: String(error), variant: "destructive" });
     } finally {
       setIsExporting(false);
     }
@@ -73,22 +72,35 @@ const AdminBackup = () => {
         throw new Error("קובץ גיבוי לא תקין");
       }
 
-      const tables = ["articles", "categories", "sidebar_widgets", "jobs", "newsletter_subscribers", "article_comments"] as const;
+      // A restore that partially fails must say so — a success toast over
+      // swallowed errors once hid a half-restored database.
       let totalRestored = 0;
+      const failures: string[] = [];
 
-      for (const table of tables) {
+      for (const table of Object.keys(backup.data)) {
         const rows = backup.data[table];
-        if (rows && rows.length > 0) {
-          const { error } = await supabase.from(table).upsert(rows, { onConflict: "id" });
-          if (error) {
-            console.error(`Error restoring ${table}:`, error);
-          } else {
-            totalRestored += rows.length;
-          }
+        if (!rows || rows.length === 0) continue;
+        const onConflict = table === "site_settings" ? "key" : "id";
+        const { error } = await supabase
+          .from(table as (typeof TABLES)[number])
+          .upsert(rows, { onConflict });
+        if (error) {
+          console.error(`Error restoring ${table}:`, error);
+          failures.push(`${table} (${error.message})`);
+        } else {
+          totalRestored += rows.length;
         }
       }
 
-      toast({ title: "שחזור הושלם", description: `שוחזרו ${totalRestored} רשומות` });
+      if (failures.length > 0) {
+        toast({
+          title: "השחזור הושלם חלקית",
+          description: `שוחזרו ${totalRestored} רשומות. נכשלו: ${failures.join(", ")}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "שחזור הושלם", description: `שוחזרו ${totalRestored} רשומות` });
+      }
     } catch (error) {
       console.error("Import error:", error);
       toast({ title: "שגיאה בשחזור", description: String(error), variant: "destructive" });
