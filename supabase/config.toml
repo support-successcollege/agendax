@@ -68,3 +68,8 @@ verify_jwt = false
 # cron-or-admin.
 [functions.social-publish]
 verify_jwt = false
+
+# Admin-only "כתבה שיווקית" generator; authorizes cron-or-admin internally so
+# server-side maintenance calls with the shared secret also work.
+[functions.marketing-article]
+verify_jwt = false

@@ -17,6 +17,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ToolboxRouteImport } from './routes/toolbox'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ArticleIdRouteImport } from './routes/article.$id'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
@@ -66,6 +67,11 @@ const TermsRoute = TermsRouteImport.update({
 const ToolboxRoute = ToolboxRouteImport.update({
   id: '/toolbox',
   path: '/toolbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/article/$id': typeof ArticleIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/article/$id': typeof ArticleIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
@@ -169,6 +177,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/article/$id': typeof ArticleIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/toolbox'
+    | '/unsubscribe'
     | '/article/$id'
     | '/category/$slug'
     | '/courses/$slug'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/toolbox'
+    | '/unsubscribe'
     | '/article/$id'
     | '/category/$slug'
     | '/courses/$slug'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/toolbox'
+    | '/unsubscribe'
     | '/article/$id'
     | '/category/$slug'
     | '/courses/$slug'
@@ -252,6 +264,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolboxRoute: typeof ToolboxRoute
+  UnsubscribeRoute: typeof UnsubscribeRoute
   ArticleIdRoute: typeof ArticleIdRoute
   CategorySlugRoute: typeof CategorySlugRoute
   CoursesSlugRoute: typeof CoursesSlugRoute
@@ -320,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/toolbox'
       fullPath: '/toolbox'
       preLoaderRoute: typeof ToolboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -404,6 +424,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolboxRoute: ToolboxRoute,
+  UnsubscribeRoute: UnsubscribeRoute,
   ArticleIdRoute: ArticleIdRoute,
   CategorySlugRoute: CategorySlugRoute,
   CoursesSlugRoute: CoursesSlugRoute,

@@ -25,6 +25,7 @@ import AdminWidgetsTab from "@/components/AdminWidgetsTab";
 import AdminNewsletterTab from "@/components/AdminNewsletterTab";
 import AdminGlobalIngestTab from "@/components/AdminGlobalIngestTab";
 import AdminSocialTab from "@/components/AdminSocialTab";
+import AdminMarketingTab from "@/components/AdminMarketingTab";
 import ArticleStatsDialog from "@/components/ArticleStatsDialog";
 import ArticleExportImport from "@/components/ArticleExportImport";
 import AdminArticleCalendar from "@/components/AdminArticleCalendar";
@@ -56,7 +57,7 @@ import {
   ArrowUp
 } from "lucide-react";
 
-import { MessageCircle, LayoutGrid, ImageIcon } from "lucide-react";
+import { MessageCircle, LayoutGrid, ImageIcon, Megaphone } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import {
   Dialog,
@@ -451,6 +452,7 @@ const Admin = () => {
               { id: "widgets", label: "חלוניות", icon: LayoutGrid },
               { id: "ingest", label: "סוכן חדשות עולמי", icon: Globe },
               { id: "social", label: "רשתות חברתיות", icon: Share2 },
+              { id: "marketing", label: "כתבה שיווקית", icon: Megaphone },
               { id: "newsletter", label: "ניוזלטר", icon: Users },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
@@ -987,6 +989,8 @@ const Admin = () => {
         {activeTab === "ingest" && <AdminGlobalIngestTab />}
 
         {activeTab === "social" && <AdminSocialTab />}
+
+        {activeTab === "marketing" && <AdminMarketingTab />}
 
         {activeTab === "newsletter" && <AdminNewsletterTab />}
         </motion.div>
