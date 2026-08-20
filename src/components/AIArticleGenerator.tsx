@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { generateArticle, verifyArticle } from "@/lib/ai.functions";
 import { useCategories } from "@/hooks/useCategories";
 import {
@@ -47,6 +47,44 @@ interface VerificationResult {
   summary: string;
 }
 
+// The generation stages, advancing on a timer that mirrors each stage's real
+// share of the wait. Purely presentational — the server does all three in one
+// call — but "researching…" beats a bare spinner for a 40-second wait.
+const GEN_STAGES = [
+  { label: "מחקר — סריקת מקורות עדכניים", at: 0 },
+  { label: "כתיבה — ניסוח הכתבה בעברית", at: 12_000 },
+  { label: "תמונה — הפקת תמונת שער", at: 32_000 },
+];
+
+const GenerationProgress = () => {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const t = setInterval(() => setElapsed(Date.now() - start), 500);
+    return () => clearInterval(t);
+  }, []);
+  const activeIndex = GEN_STAGES.reduce((acc, s, i) => (elapsed >= s.at ? i : acc), 0);
+  return (
+    <div className="space-y-3">
+      {GEN_STAGES.map((stage, i) => (
+        <div key={stage.label} className="flex items-center gap-3 text-sm">
+          {i < activeIndex ? (
+            <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+          ) : i === activeIndex ? (
+            <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+          ) : (
+            <span className="w-4 h-4 rounded-full border border-border shrink-0" />
+          )}
+          <span className={i === activeIndex ? "text-foreground font-medium" : "text-muted-foreground"}>
+            {stage.label}
+          </span>
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground pt-1">בדרך כלל 30-60 שניות. הכתבה תישמר כטיוטה.</p>
+    </div>
+  );
+};
+
 const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticleGeneratorProps) => {
   const { categories } = useCategories();
   const generateArticleFn = generateArticle;
@@ -56,6 +94,7 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
   const [isVerifying, setIsVerifying] = useState(false);
   const [generatedArticle, setGeneratedArticle] = useState<GeneratedArticle | null>(null);
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  const [viewMode, setViewMode] = useState<"edit" | "preview">("preview");
   const { toast } = useToast();
 
   const handleGenerate = async () => {
@@ -242,18 +281,60 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
             </div>
           </div>
 
-          {/* Generated Article Preview */}
+          {/* What the wait actually is: research → writing → image. One server
+              call does all three, so the stages advance on a timer that
+              mirrors their real durations. */}
+          {isGenerating && (
+            <div className="rounded-lg border bg-muted/30 p-5">
+              <GenerationProgress />
+            </div>
+          )}
+
+          {/* Generated Article — edit and preview are two views of the same
+              piece, and the preview renders exactly the classes the site does,
+              so what the editor approves is what readers will see. */}
           {generatedArticle && (
             <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-lg">תצוגה מקדימה</h3>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant={viewMode === "edit" ? "default" : "outline"}
+                    onClick={() => setViewMode("edit")}
+                  >
+                    עריכה
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === "preview" ? "default" : "outline"}
+                    onClick={() => setViewMode("preview")}
+                  >
+                    תצוגה כמו באתר
+                  </Button>
+                </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                    {generatedArticle.category}
-                  </span>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <select
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                    value={generatedArticle.category}
+                    onChange={(e) =>
+                      setGeneratedArticle({ ...generatedArticle, category: e.target.value })
+                    }
+                    aria-label="קטגוריה"
+                  >
+                    {categories
+                      .filter((c) => c.slug !== "home" && c.isActive)
+                      .map((c) => (
+                        <option key={c.slug} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    {!categories.some((c) => c.name === generatedArticle.category) && (
+                      <option value={generatedArticle.category}>{generatedArticle.category}</option>
+                    )}
+                  </select>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleVerify}
                     disabled={isVerifying}
                   >
@@ -275,38 +356,58 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
               {/* Quality Score Indicator */}
               <QualityScoreIndicator content={generatedArticle.content} title={generatedArticle.title} excerpt={generatedArticle.excerpt} />
 
-              <div className="space-y-2">
-                <Label>כותרת</Label>
-                <Input
-                  value={generatedArticle.title}
-                  onChange={(e) =>
-                    setGeneratedArticle({ ...generatedArticle, title: e.target.value })
-                  }
-                />
-              </div>
+              {viewMode === "preview" ? (
+                <div className="rounded-lg border bg-background p-5">
+                  {generatedArticle.imageUrl && (
+                    <img
+                      src={generatedArticle.imageUrl}
+                      alt=""
+                      className="w-full aspect-video object-cover rounded-lg mb-4"
+                    />
+                  )}
+                  <h2 className="text-2xl font-black text-foreground mb-2">{generatedArticle.title}</h2>
+                  <p className="text-lg text-foreground/80 font-medium mb-5">{generatedArticle.excerpt}</p>
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: generatedArticle.content }}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>כותרת</Label>
+                    <Input
+                      value={generatedArticle.title}
+                      onChange={(e) =>
+                        setGeneratedArticle({ ...generatedArticle, title: e.target.value })
+                      }
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label>תקציר</Label>
-                <Textarea
-                  value={generatedArticle.excerpt}
-                  onChange={(e) =>
-                    setGeneratedArticle({ ...generatedArticle, excerpt: e.target.value })
-                  }
-                  rows={2}
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>תקציר</Label>
+                    <Textarea
+                      value={generatedArticle.excerpt}
+                      onChange={(e) =>
+                        setGeneratedArticle({ ...generatedArticle, excerpt: e.target.value })
+                      }
+                      rows={2}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label>תוכן הכתבה</Label>
-                <Textarea
-                  value={generatedArticle.content}
-                  onChange={(e) =>
-                    setGeneratedArticle({ ...generatedArticle, content: e.target.value })
-                  }
-                  rows={12}
-                  className="font-mono text-sm"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>תוכן הכתבה</Label>
+                    <Textarea
+                      value={generatedArticle.content}
+                      onChange={(e) =>
+                        setGeneratedArticle({ ...generatedArticle, content: e.target.value })
+                      }
+                      rows={12}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
