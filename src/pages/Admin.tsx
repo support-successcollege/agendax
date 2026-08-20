@@ -67,6 +67,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { submitSitemap } from "@/lib/admin.functions";
+import { invokeEdge } from "@/lib/edge";
+import { useQueryClient } from "@tanstack/react-query";
 
 const SitemapSubmitCard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,6 +145,7 @@ const Admin = () => {
   
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const { articles, isLoading: isArticlesLoading, addArticle, updateArticle, bumpArticle, deleteArticle } = useArticles({ includeContent: true });
   const { categories, isLoading: isCategoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
@@ -233,6 +236,29 @@ const Admin = () => {
     await deleteArticle(articleId);
   };
 
+  // The rewrite agent: same facts, fresh prose, saved straight back onto the
+  // article. Long-running (a full model pass), so the row shows a spinner.
+  const [rewritingId, setRewritingId] = useState<string | null>(null);
+  const handleRewriteArticle = async (article: Article) => {
+    if (!window.confirm(`לשכתב את "${article.title}"? הנוסח הנוכחי יוחלף.`)) return;
+    setRewritingId(article.id);
+    try {
+      const result = await invokeEdge<{ ok: boolean; title: string }>("rewrite-article", {
+        articleId: article.id,
+      });
+      toast({ title: "הכתבה שוכתבה", description: result.title });
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+    } catch (error) {
+      toast({
+        title: "השכתוב נכשל",
+        description: error instanceof Error ? error.message : "שגיאה בלתי צפויה",
+        variant: "destructive",
+      });
+    } finally {
+      setRewritingId(null);
+    }
+  };
+
   const handleBumpArticle = async (articleId: string) => {
     await bumpArticle(articleId);
   };
@@ -255,10 +281,24 @@ const Admin = () => {
     openPostImageFor(await addArticle(newArticle));
   };
 
-  const handleBulkImport = async (newArticles: Omit<Article, "id">[]) => {
+  // Import is an upsert: a row whose id matches an existing article updates
+  // it in place; anything else inserts. Re-importing an export no longer
+  // duplicates the whole site.
+  const handleBulkImport = async (newArticles: (Omit<Article, "id"> & { id?: string })[]) => {
+    let updated = 0;
+    let created = 0;
     for (const article of newArticles) {
-      await addArticle(article);
+      const existing = article.id ? articles.find((a) => a.id === article.id) : undefined;
+      if (existing) {
+        await updateArticle({ ...existing, ...article, id: existing.id });
+        updated++;
+      } else {
+        const { id: _drop, ...withoutId } = article;
+        await addArticle(withoutId);
+        created++;
+      }
     }
+    toast({ title: "הייבוא הושלם", description: `${created} נוספו, ${updated} עודכנו` });
   };
 
   // Category handlers
@@ -807,6 +847,21 @@ const Admin = () => {
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => handleBumpArticle(article.id)} title="הקפץ את הכתבה לראש האתר">
                         <ArrowUp className="w-4 h-4" />
                         הקפץ לראש
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        disabled={rewritingId === article.id}
+                        onClick={() => handleRewriteArticle(article)}
+                        title="הסוכן משכתב את הכתבה: אותן עובדות, ניסוח רענן"
+                      >
+                        {rewritingId === article.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                        שכתב AI
                       </Button>
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => handleEditArticle(article)}>
                         <Edit className="w-4 h-4" />

@@ -7,7 +7,8 @@ import * as XLSX from "xlsx";
 
 interface ArticleExportImportProps {
   articles: Article[];
-  onImport: (articles: Omit<Article, "id">[]) => Promise<void>;
+  /** Rows carrying an id of an existing article update it; the rest insert. */
+  onImport: (articles: (Omit<Article, "id"> & { id?: string })[]) => Promise<void>;
 }
 
 type ImportRow = Record<string, string | number | boolean | null | undefined>;
@@ -111,7 +112,10 @@ const ArticleExportImport = ({ articles, onImport }: ArticleExportImportProps) =
       return acc;
     }, {} as Record<ExportTextFieldLabel, number>);
 
+    // The id column is what lets a re-import UPDATE instead of duplicating:
+    // export → edit in Excel → import lands on the same articles.
     const headers = [
+      "מזהה",
       ...exportTextFieldOrder.flatMap((label) =>
         Array.from({ length: maxChunksByField[label] }, (_, index) => getChunkColumnName(label, index))
       ),
@@ -121,7 +125,7 @@ const ArticleExportImport = ({ articles, onImport }: ArticleExportImportProps) =
     ];
 
     const data = articles.map((article, articleIndex) => {
-      const row: Record<string, string> = {};
+      const row: Record<string, string> = { "מזהה": article.id };
 
       exportTextFieldOrder.forEach((label) => {
         const chunks = chunkedFieldsByArticle[articleIndex][label];
@@ -168,8 +172,9 @@ const ArticleExportImport = ({ articles, onImport }: ArticleExportImportProps) =
         return;
       }
 
-      const newArticles: Omit<Article, "id">[] = rows
+      const newArticles: (Omit<Article, "id"> & { id?: string })[] = rows
         .map((row) => ({
+          id: getCombinedField(row, ["מזהה", "id"]) || undefined,
           title: getCombinedField(row, ["כותרת", "title"]),
           excerpt: getCombinedField(row, ["תקציר", "excerpt"]),
           content: getCombinedField(row, ["תוכן", "content"]),
