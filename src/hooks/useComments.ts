@@ -133,6 +133,90 @@ export const usePendingComments = () => {
   return { comments, isLoading, refetch };
 };
 
+// Admin: approved comments, newest first — so moderation covers both sides of
+// the fence: what's waiting, and what's already live and may need pulling.
+export const useApprovedComments = () => {
+  const { data: comments = [], isLoading } = useQuery({
+    queryKey: ["approvedComments"],
+    queryFn: async (): Promise<Comment[]> => {
+      const { data: commentsData, error } = await supabase
+        .from("article_comments")
+        .select("*")
+        .eq("is_approved", true)
+        .order("approved_at", { ascending: false })
+        .limit(200);
+      if (error) {
+        console.error("Error fetching approved comments:", error);
+        return [];
+      }
+      if (!commentsData || commentsData.length === 0) return [];
+      const articleIds = [...new Set(commentsData.map((c) => c.article_id))];
+      const { data: articlesData } = await supabase
+        .from("articles")
+        .select("id, title")
+        .in("id", articleIds);
+      const articleTitles: Record<string, string> = {};
+      articlesData?.forEach((a) => {
+        articleTitles[a.id] = a.title;
+      });
+      return commentsData.map((c) => ({
+        ...c,
+        article_title: articleTitles[c.article_id] || "כתבה לא נמצאה",
+      }));
+    },
+  });
+  return { comments, isLoading };
+};
+
+// Admin: pull an approved comment back off the site.
+export const useUnapproveComment = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (commentId: string) => {
+      const { error } = await supabase
+        .from("article_comments")
+        .update({ is_approved: false, approved_at: null })
+        .eq("id", commentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "התגובה הוסרה מהאתר", description: "חזרה לתור הממתינות" });
+      queryClient.invalidateQueries({ queryKey: ["approvedComments"] });
+      queryClient.invalidateQueries({ queryKey: ["pendingComments"] });
+      queryClient.invalidateQueries({ queryKey: ["comments"] });
+    },
+    onError: () => {
+      toast({ title: "שגיאה", description: "לא ניתן להסיר את התגובה", variant: "destructive" });
+    },
+  });
+};
+
+// Admin: approve everything that's waiting, in one go.
+export const useApproveAllComments = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async () => {
+      const { error, count } = await supabase
+        .from("article_comments")
+        .update({ is_approved: true, approved_at: new Date().toISOString() }, { count: "exact" })
+        .eq("is_approved", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    onSuccess: (count) => {
+      toast({ title: "כל התגובות אושרו", description: `${count} תגובות עלו לאתר` });
+      queryClient.invalidateQueries({ queryKey: ["pendingComments"] });
+      queryClient.invalidateQueries({ queryKey: ["approvedComments"] });
+      queryClient.invalidateQueries({ queryKey: ["comments"] });
+    },
+    onError: () => {
+      toast({ title: "שגיאה", description: "אישור מרוכז נכשל", variant: "destructive" });
+    },
+  });
+};
+
 // Admin: Approve a comment
 export const useApproveComment = () => {
   const queryClient = useQueryClient();

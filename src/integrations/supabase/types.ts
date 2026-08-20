@@ -1295,6 +1295,10 @@ export type Database = {
           queued: number
         }[]
       }
+      set_featured_article: {
+        Args: { _article_id: string | null }
+        Returns: undefined
+      }
       get_hot_articles: {
         Args: { p_hours?: number; p_limit?: number }
         Returns: {

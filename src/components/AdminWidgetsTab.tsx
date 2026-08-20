@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, ExternalLink, Loader2, Eye, GripVertical, X, FileText, Link as LinkIcon, BarChart3, MousePointerClick } from "lucide-react";
+import { Plus, Edit, Trash2, ExternalLink, Loader2, Eye, ArrowUp, X, FileText, Link as LinkIcon, BarChart3, MousePointerClick } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -73,6 +73,15 @@ const AdminWidgetsTab = () => {
     setEditing(null);
     setForm({ ...emptyWidget, displayOrder: widgets.length });
     setDialogOpen(true);
+  };
+
+  // Position swap — the list order is the order widgets rotate on the site.
+  const moveWidget = async (index: number, dir: -1 | 1) => {
+    const a = widgets[index];
+    const b = widgets[index + dir];
+    if (!a || !b) return;
+    await updateWidget({ ...a, displayOrder: index + dir });
+    await updateWidget({ ...b, displayOrder: index });
   };
 
   const openEdit = (w: SidebarWidget) => {
@@ -149,8 +158,30 @@ const AdminWidgetsTab = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {widgets.map(w => (
+            {widgets.map((w, index) => (
               <div key={w.id} className={`flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/30 transition-colors ${!w.isActive ? 'opacity-60' : ''}`}>
+                <div className="flex flex-col shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={index === 0}
+                    onClick={() => moveWidget(index, -1)}
+                    aria-label="העלה בסדר"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 rotate-180"
+                    disabled={index === widgets.length - 1}
+                    onClick={() => moveWidget(index, 1)}
+                    aria-label="הורד בסדר"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
                 {w.actionType === "image" && w.imageUrl ? (
                   <img src={w.imageUrl} alt="" className="w-12 h-12 object-cover rounded" />
                 ) : (
@@ -210,7 +241,14 @@ const AdminWidgetsTab = () => {
                     <Edit className="w-4 h-4" />
                     ערוך
                   </Button>
-                  <Button variant="destructive" size="sm" className="gap-1" onClick={() => deleteWidget(w.id)}>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => {
+                      if (window.confirm(`למחוק את החלונית "${w.title}" לצמיתות?`)) deleteWidget(w.id);
+                    }}
+                  >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>

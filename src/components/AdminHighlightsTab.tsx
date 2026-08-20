@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Article } from "@/hooks/useArticles";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,11 +16,20 @@ interface AdminHighlightsTabProps {
 
 const AdminHighlightsTab = ({ articles, onUpdateArticle }: AdminHighlightsTabProps) => {
   const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
   const publishedArticles = articles.filter(a => !a.isDraft);
 
-  const filteredArticles = search
-    ? publishedArticles.filter(a => a.title.includes(search))
-    : publishedArticles;
+  // Case-insensitive, over everything an editor remembers; without a search
+  // only the 50 freshest show — highlighting is a decision about NOW.
+  const q = search.trim().toLowerCase();
+  const filteredArticles = q
+    ? publishedArticles.filter(
+        a =>
+          a.title.toLowerCase().includes(q) ||
+          a.category.toLowerCase().includes(q) ||
+          a.excerpt.toLowerCase().includes(q),
+      )
+    : publishedArticles.slice(0, 50);
 
   const breakingArticles = publishedArticles.filter(a => a.isBreaking);
   const featuredArticle = publishedArticles.find(a => a.isFeatured);
@@ -27,12 +38,18 @@ const AdminHighlightsTab = ({ articles, onUpdateArticle }: AdminHighlightsTabPro
     await onUpdateArticle({ ...article, isBreaking: !article.isBreaking });
   };
 
+  // One atomic statement server-side: the chosen article becomes featured and
+  // the previous one stops, in the same write — a failure can no longer leave
+  // the homepage without a featured article.
   const toggleFeatured = async (article: Article) => {
-    // If setting as featured, unset the current featured first
-    if (!article.isFeatured && featuredArticle) {
-      await onUpdateArticle({ ...featuredArticle, isFeatured: false });
+    const { error } = await supabase.rpc("set_featured_article", {
+      _article_id: article.isFeatured ? null : article.id,
+    });
+    if (error) {
+      console.error("set_featured_article failed", error);
+      return;
     }
-    await onUpdateArticle({ ...article, isFeatured: !article.isFeatured });
+    queryClient.invalidateQueries({ queryKey: ["articles"] });
   };
 
   return (
