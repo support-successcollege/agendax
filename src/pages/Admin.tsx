@@ -612,7 +612,16 @@ const Admin = () => {
             <SitemapSubmitCard />
 
             {/* Article Calendar */}
-            <AdminArticleCalendar articles={articles} />
+            <AdminArticleCalendar
+              articles={articles}
+              onReschedule={async (article, newIso) => {
+                await updateArticle({ ...article, scheduledAt: newIso });
+                toast({
+                  title: "התזמון עודכן",
+                  description: `${article.title} — ${new Date(newIso).toLocaleString("he-IL")}`,
+                });
+              }}
+            />
 
             {/* Recent Articles */}
             <Card>

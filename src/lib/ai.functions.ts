@@ -46,10 +46,20 @@ export type SocialPostInput = {
   url: string;
   content: string;
   imageUrl?: string;
+  /** Target network — tunes tone and length. Default facebook. */
+  platform?: "facebook" | "linkedin" | "twitter" | "instagram" | "whatsapp";
+};
+
+export type SocialPostResult = {
+  post: string;
+  articleUrl: string;
+  imageUrl: string | null;
+  platform: string;
+  hashtags: string[];
 };
 
 export const generateSocialPost = ({ data }: { data: SocialPostInput }) =>
-  invokeEdge<{ post: string }>("generate-social-post", data);
+  invokeEdge<SocialPostResult>("generate-social-post", data);
 
 export type WhatsappPostInput = Omit<SocialPostInput, "imageUrl">;
 

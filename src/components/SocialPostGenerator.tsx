@@ -21,11 +21,19 @@ interface SocialPostGeneratorProps {
 
 const PUBLISHED_BASE_URL = "https://agendax.co.il";
 
+const PLATFORMS = [
+  { key: "facebook", label: "פייסבוק" },
+  { key: "linkedin", label: "לינקדאין" },
+  { key: "twitter", label: "X (טוויטר)" },
+  { key: "instagram", label: "אינסטגרם" },
+] as const;
+
 const SocialPostGenerator = ({ article, open, onOpenChange }: SocialPostGeneratorProps) => {
   const generateSocialPostFn = generateSocialPost;
   const [generatedPost, setGeneratedPost] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [platform, setPlatform] = useState<(typeof PLATFORMS)[number]["key"]>("facebook");
 
   const articleUrl = article ? `${PUBLISHED_BASE_URL}/article/${encodeURIComponent(article.slug || article.id)}` : "";
 
@@ -43,6 +51,7 @@ const SocialPostGenerator = ({ article, open, onOpenChange }: SocialPostGenerato
           url: articleUrl,
           content: article.content,
           imageUrl: article.imageUrl,
+          platform,
         },
       });
       setGeneratedPost(data.post || "");
@@ -79,6 +88,20 @@ const SocialPostGenerator = ({ article, open, onOpenChange }: SocialPostGenerato
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* The platform tunes tone and length server-side — the same function
+              a future auto-posting automation will call with an articleId. */}
+          <div className="flex gap-2 flex-wrap">
+            {PLATFORMS.map((p) => (
+              <Button
+                key={p.key}
+                size="sm"
+                variant={platform === p.key ? "default" : "outline"}
+                onClick={() => setPlatform(p.key)}
+              >
+                {p.label}
+              </Button>
+            ))}
+          </div>
           {!generatedPost && !isGenerating && (
             <Button onClick={handleGenerate} className="w-full gap-2">
               <Share2 className="w-4 h-4" />
@@ -106,7 +129,7 @@ const SocialPostGenerator = ({ article, open, onOpenChange }: SocialPostGenerato
                   {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                   {copied ? "הועתק!" : "העתק פוסט"}
                 </Button>
-                <Button onClick={handleGenerate} variant="secondary" className="gap-2 flex-1">
+                <Button onClick={handleGenerate} variant="secondary" disabled={isGenerating} className="gap-2 flex-1">
                   <Loader2 className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
                   צור מחדש
                 </Button>

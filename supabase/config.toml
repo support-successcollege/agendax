@@ -58,3 +58,8 @@ verify_jwt = false
 # the subscriber's own row id is the credential.
 [functions.newsletter-unsubscribe]
 verify_jwt = false
+
+# Callable by future social automation with the shared secret; the function
+# itself authorizes cron-or-admin.
+[functions.generate-social-post]
+verify_jwt = false
