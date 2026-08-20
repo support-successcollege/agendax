@@ -250,8 +250,13 @@ serve(async (req) => {
       researchText += `\n\n=== תוכן מלא של מקורות מובילים ===\n\n${deepBlocks.join("\n\n---\n\n")}`;
     }
 
-    if (!researchText) {
-      researchText = `לא נמצאו תוצאות חיפוש עדכניות. הסתמך על הידיעה המקורית בלבד וציין שהמידע מוגבל.`;
+    // No verified material — refuse rather than write fiction. A model with an
+    // empty research block will happily invent outlets, dates and numbers.
+    if (parsed.length === 0 && deepBlocks.length === 0) {
+      return json(
+        { error: "לא נמצא מידע עדכני מאומת על הנושא. נסו לנסח את הנושא אחרת או להוסיף פרטים (שם חברה, אירוע)." },
+        422,
+      );
     }
 
     // === Step 2: Compose Hebrew journalistic article from research ===
@@ -275,7 +280,11 @@ serve(async (req) => {
 - ציין סיכונים, צפי קדימה (guidance), דיבידנד, ורכישות עצמיות אם הוזכרו.
 - כלול תגובת שוק (תנועת המניה, שווי שוק) אם זמינה.
 
-- אל תמציא עובדות, מספרים או ציטוטים שלא מופיעים במחקר. אם נתון חסר — דלג עליו.
+**כללי ברזל — אמינות:**
+- **אל תזכיר מקורות בגוף הכתבה.** אסור לכתוב "על פי דיווח ב-X", "נחשף בדיווח של", שמות אתרים או כלי תקשורת, ותאריכי דיווח. כתוב כעיתונאי שמדווח את העובדות ישירות.
+- **אל תמציא.** כל עובדה, מספר, תאריך, שם, אחוז וציטוט חייבים להופיע במחקר המצורף. נתון שלא מופיע — לא קיים. לעולם אל תשלים פערים מהידע הכללי שלך.
+- **חומר דל = כתבה קצרה.** אם המחקר מכסה רק חלק מהנושא, כתוב כתבה קצרה יותר (300-500 מילים) על מה שכן ידוע — אל תרפד באוויר חם, בהכללות או בניסוחים עמומים.
+- החזר שדה confidence: 1-10 — כמה המחקר הספיק לכתבה מדויקת ומלאה. אם המידע כמעט ואינו קיים, החזר 1-3.
 - צור פרומפט באנגלית לתמונה חדשותית ריאליסטית (photojournalism, editorial, realistic, no text).
 
 בנוסף, החזר שדה category בעברית מתוך הרשימה: חדשות, טכנולוגיה, כלכלה, פוליטיקה, אקטואליה, שוק ההון.
@@ -316,8 +325,12 @@ serve(async (req) => {
                     items: { type: "string" },
                     description: "3-5 עובדות מפתח קצרות מהכתבה",
                   },
+                  confidence: {
+                    type: "integer",
+                    description: "1-10: כמה המחקר הספיק לכתבה מדויקת ומלאה",
+                  },
                 },
-                required: ["title", "subtitle", "body", "category", "image_prompt", "key_facts"],
+                required: ["title", "subtitle", "body", "category", "image_prompt", "key_facts", "confidence"],
                 additionalProperties: false,
               },
             },
@@ -345,6 +358,15 @@ serve(async (req) => {
       return json({ error: "המודל לא החזיר כתבה תקינה" }, 500);
     }
     const article = JSON.parse(toolCall.function.arguments);
+
+    // The model's own honesty check: low confidence means the research did not
+    // cover the topic and the body is mostly guesswork — refuse it.
+    if (Number(article.confidence) <= 3) {
+      return json(
+        { error: `המידע שנמצא דל מדי לכתבה אמינה (ביטחון ${article.confidence}/10). נסו לנסח את הנושא אחרת.` },
+        422,
+      );
+    }
 
     // === Step 3: Generate image ===
     // Gemini generateContent, with the stock image as the safety net.
@@ -405,14 +427,9 @@ serve(async (req) => {
       console.error("Image gen exception", e);
     }
 
-    // Append sources at the end of the body (markdown)
-    let body = article.body || "";
-    if (sources.length > 0) {
-      const srcMd = sources
-        .map((s, i) => `${i + 1}. [${s.title}](${s.url})`)
-        .join("\n");
-      body += `\n\n## מקורות\n\n${srcMd}`;
-    }
+    // Sources stay out of the article body (editorial decision) — they are
+    // returned separately in the response for the editor's reference.
+    const body = article.body || "";
 
     // Build excerpt from subtitle + key_facts fallback
     const excerpt =
