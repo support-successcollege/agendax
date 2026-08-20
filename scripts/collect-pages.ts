@@ -5,13 +5,15 @@
 // PostgREST (anon key, same rows the public site can already read) and hands
 // TanStack Start the full page list.
 
+// No `news` field here: TanStack's sitemap generator emits <news:news> without
+// declaring the namespace, which Google rejects as an unbound prefix. Google
+// News is served by the standalone news-sitemap.xml that postbuild writes.
 type PageEntry = {
   path: string;
   sitemap?: {
     priority?: number;
     changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
     lastmod?: string;
-    news?: { publication: { name: string; language: string }; publicationDate: string; title: string };
   };
 };
 
@@ -90,13 +92,6 @@ export async function collectPrerenderPages(
         priority: isFresh ? 0.9 : 0.6,
         changefreq: isFresh ? "hourly" : "monthly",
         lastmod: publishedAt.toISOString(),
-        ...(isFresh && {
-          news: {
-            publication: { name: "Agendax", language: "he" },
-            publicationDate: publishedAt.toISOString(),
-            title: article.title,
-          },
-        }),
       },
     };
   });
