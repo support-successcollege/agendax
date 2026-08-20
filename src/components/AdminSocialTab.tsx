@@ -82,8 +82,13 @@ const PLATFORM_META: Record<
     label: "X (טוויטר)",
     Icon: Twitter,
     color: "#000000",
-    fields: [{ key: "access_token", label: "OAuth2 User Access Token" }],
-    help: "developer.x.com → אפליקציה עם הרשאת tweet.write. שים לב: טוקן OAuth2 פג — יש לרענן ידנית כשנופל.",
+    fields: [
+      { key: "api_key", label: "API Key", hint: "Consumer Keys" },
+      { key: "api_secret", label: "API Key Secret" },
+      { key: "access_token", label: "Access Token", hint: "עם Read and Write" },
+      { key: "access_secret", label: "Access Token Secret" },
+    ],
+    help: "developer.x.com → האפליקציה → Keys and tokens. ודא ש-App permissions הוא Read and Write לפני הפקת ה-Access Token (אם הופק לפני — Regenerate). ארבעת המפתחות לא פגים. לא ה-Bearer Token — הוא לקריאה בלבד.",
   },
 };
 

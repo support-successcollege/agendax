@@ -109,16 +109,83 @@ export async function publishInstagram(
   return { externalId: String(published.id) };
 }
 
-/** X (Twitter) tweet via API v2 with an OAuth2 user token. */
+// ---------------------------------------------------------------------------
+// X (Twitter)
+// ---------------------------------------------------------------------------
+// Preferred auth: OAuth 1.0a user context — four keys copied straight from the
+// developer portal (Consumer Keys + Access Token & Secret), which never
+// expire. An OAuth2 *user* bearer token also works as a fallback, but the
+// portal's easy-to-grab App-Only bearer does NOT (posting is forbidden with
+// application context — the exact mistake this dual path exists to absorb).
+
+const pctEncode = (s: string) =>
+  encodeURIComponent(s).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+
+async function hmacSha1Base64(key: string, message: string): Promise<string> {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(key),
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
+/** OAuth 1.0a Authorization header for a JSON-body request (no body params). */
+async function oauth1Header(method: string, url: string, creds: Creds): Promise<string> {
+  const params: Record<string, string> = {
+    oauth_consumer_key: creds.api_key,
+    oauth_nonce: crypto.randomUUID().replace(/-/g, ""),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: String(Math.floor(Date.now() / 1000)),
+    oauth_token: creds.access_token,
+    oauth_version: "1.0",
+  };
+  const paramString = Object.keys(params)
+    .sort()
+    .map((k) => `${pctEncode(k)}=${pctEncode(params[k])}`)
+    .join("&");
+  const base = [method.toUpperCase(), pctEncode(url), pctEncode(paramString)].join("&");
+  const signingKey = `${pctEncode(creds.api_secret)}&${pctEncode(creds.access_secret)}`;
+  params.oauth_signature = await hmacSha1Base64(signingKey, base);
+  return (
+    "OAuth " +
+    Object.keys(params)
+      .sort()
+      .map((k) => `${pctEncode(k)}="${pctEncode(params[k])}"`)
+      .join(", ")
+  );
+}
+
 export async function publishX(creds: Creds, post: { text: string }): Promise<PublishResult> {
-  need(creds, ["access_token"], "X");
-  const resp = await fetch("https://api.x.com/2/tweets", {
+  const url = "https://api.x.com/2/tweets";
+  let authHeader: string;
+
+  if (creds.api_key && creds.api_secret && creds.access_token && creds.access_secret) {
+    authHeader = await oauth1Header("POST", url, creds);
+  } else if (creds.access_token) {
+    authHeader = `Bearer ${creds.access_token}`;
+  } else {
+    throw new Error("חסרים מפתחות X: נדרשים API Key + API Secret + Access Token + Access Secret");
+  }
+
+  const resp = await fetch(url, {
     method: "POST",
-    headers: { Authorization: `Bearer ${creds.access_token}`, "Content-Type": "application/json" },
+    headers: { Authorization: authHeader, "Content-Type": "application/json" },
     body: JSON.stringify({ text: post.text.slice(0, 280) }),
   });
   const data = await resp.json();
-  if (!resp.ok) throw new Error(`X ${resp.status}: ${data?.detail ?? data?.title ?? JSON.stringify(data).slice(0, 200)}`);
+  if (!resp.ok) {
+    const detail = data?.detail ?? data?.title ?? JSON.stringify(data).slice(0, 200);
+    if (String(detail).includes("Application-Only")) {
+      throw new Error(
+        "X דחה את הטוקן: זהו Bearer של האפליקציה (קריאה בלבד). יש להזין את ארבעת המפתחות: API Key, API Secret, Access Token, Access Secret",
+      );
+    }
+    throw new Error(`X ${resp.status}: ${detail}`);
+  }
   return { externalId: String(data?.data?.id ?? "") };
 }
 
