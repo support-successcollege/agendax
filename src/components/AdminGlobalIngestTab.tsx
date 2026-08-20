@@ -35,6 +35,8 @@ import {
   Trash2,
   Plus,
   RotateCcw,
+  PowerOff,
+  ScrollText,
 } from "lucide-react";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
@@ -130,13 +132,18 @@ const AdminGlobalIngestTab = () => {
     );
   }, [sources, liveCategories]);
 
+  // Optional bucket filter: scan a single category's feeds toward its quota.
+  const [scanBucket, setScanBucket] = useState<string>("");
+
   const handleScan = async (dryRun: boolean) => {
     const setBusy = dryRun ? setIsTesting : setIsScanning;
     setBusy(true);
     try {
       // No explicit limit: the scanner tops up each category toward its own
       // daily quota, so the pacing lives server-side.
-      const result = await scanGlobalTech({ data: { dryRun } });
+      const result = await scanGlobalTech({
+        data: { dryRun, ...(scanBucket && !dryRun ? { buckets: [scanBucket] } : {}) },
+      });
       setLastScan(result);
       refresh();
       toast({
@@ -260,6 +267,32 @@ const AdminGlobalIngestTab = () => {
     refresh();
   };
 
+  const disableAllSources = async () => {
+    if (!window.confirm("לכבות את כל המקורות? הסריקות ייעצרו עד שתדליק מקורות מחדש.")) return;
+    const { error } = await supabase.from("news_sources").update({ is_active: false }).eq("is_active", true);
+    if (error) {
+      toast({ title: "הכיבוי נכשל", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "כל המקורות כובו" });
+    refresh();
+  };
+
+  const deleteCategorySources = async (bucket: string) => {
+    const name = categoryName(bucket);
+    if (!window.confirm(`למחוק את כל המקורות של "${name}" לצמיתות? כתבות שכבר נוצרו יישארו.`)) return;
+    const { error, count } = await supabase
+      .from("news_sources")
+      .delete({ count: "exact" })
+      .eq("bucket", bucket);
+    if (error) {
+      toast({ title: "המחיקה נכשלה", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `נמחקו ${count ?? 0} מקורות`, description: name });
+    refresh();
+  };
+
   const deleteSource = async (source: NewsSource) => {
     // Items already ingested from this source keep their rows (and their
     // articles); deleting a source only stops future scans from reading it.
@@ -340,15 +373,31 @@ const AdminGlobalIngestTab = () => {
               רץ אוטומטית שש פעמים ביום ומשלים את היעד היומי.
             </CardDescription>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <Button variant="outline" onClick={() => handleScan(true)} disabled={isTesting} className="gap-2">
               {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rss className="w-4 h-4" />}
               בדוק מקורות
             </Button>
-            <Button onClick={() => handleScan(false)} disabled={isScanning} className="gap-2">
-              {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              סרוק עכשיו
-            </Button>
+            <div className="flex items-center">
+              <select
+                className="h-9 rounded-r-md border border-l-0 border-input bg-background px-2 text-sm"
+                value={scanBucket}
+                onChange={(e) => setScanBucket(e.target.value)}
+                aria-label="קטגוריה לסריקה"
+                title="סרוק הכל או קטגוריה אחת בלבד"
+              >
+                <option value="">כל הקטגוריות</option>
+                {liveCategories.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    רק {c.name}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={() => handleScan(false)} disabled={isScanning} className="gap-2 rounded-r-none">
+                {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                השלם חסרות
+              </Button>
+            </div>
             <Button
               onClick={handleWork}
               disabled={isWorking}
@@ -562,9 +611,21 @@ const AdminGlobalIngestTab = () => {
 
       {/* Sources */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">מקורות</CardTitle>
-          <CardDescription>כבו מקור כדי להוציא אותו מהסריקה. "בדוק מקורות" מריץ סריקה יבשה בלי לכתוב כלום.</CardDescription>
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">מקורות</CardTitle>
+            <CardDescription>כבו מקור כדי להוציא אותו מהסריקה. "בדוק מקורות" מריץ סריקה יבשה בלי לכתוב כלום.</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={disableAllSources}
+            disabled={sources.every((s) => !s.is_active)}
+            className="gap-2 shrink-0 text-muted-foreground hover:text-destructive"
+          >
+            <PowerOff className="w-4 h-4" />
+            כבה את כל המקורות
+          </Button>
         </CardHeader>
         <CardContent>
           {loadingSources ? (
@@ -573,7 +634,21 @@ const AdminGlobalIngestTab = () => {
             <div className="space-y-6">
               {byBucket.map(([bucket, list]) => (
                 <div key={bucket}>
-                  <h4 className="font-medium text-sm mb-2">{categoryName(bucket)}</h4>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-medium text-sm">{categoryName(bucket)}</h4>
+                    <span className="text-xs text-muted-foreground">
+                      ({list.filter((s) => s.is_active).length}/{list.length} פעילים)
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive mr-auto"
+                      onClick={() => deleteCategorySources(bucket)}
+                    >
+                      <Trash2 className="w-3 h-3 ml-1" />
+                      מחק את כל הקטגוריה
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {list.map((source) => (
                       <div key={source.id} className="flex items-center gap-3 p-3 border rounded-lg">
@@ -679,38 +754,72 @@ const AdminGlobalIngestTab = () => {
         </CardContent>
       </Card>
 
-      {/* Run log */}
+      {/* Run log — a timeline the eye can scan: icon and color say what kind
+          of run and whether it produced anything, notes unfold on demand. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">יומן ריצות</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ScrollText className="w-4 h-4 text-primary" />
+            יומן ריצות
+          </CardTitle>
+          <CardDescription>סריקות וכתיבות אחרונות — כולל הריצות האוטומטיות של הקרון</CardDescription>
         </CardHeader>
         <CardContent>
           {runs.length === 0 ? (
             <p className="text-muted-foreground text-sm">אין ריצות עדיין.</p>
           ) : (
-            <div className="space-y-2">
-              {runs.map((run) => (
-                <div key={run.id} className="flex items-start gap-3 p-3 border rounded-lg text-sm">
-                  <Badge variant="outline" className="shrink-0">
-                    {run.kind === "scan" ? "סריקה" : "כתיבה"}
-                  </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p>
-                      {run.kind === "scan"
-                        ? `${run.items_new} חדשות · ${run.items_queued} נבחרו · ${run.sources_ok} מקורות תקינים${run.sources_failed ? `, ${run.sources_failed} נכשלו` : ""}`
-                        : `${run.articles_created} טיוטות נוצרו`}
-                    </p>
-                    {(run.notes?.length ?? 0) > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{run.notes.join(" · ")}</p>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {relativeTime(run.created_at)}
-                    {run.duration_ms ? ` · ${(run.duration_ms / 1000).toFixed(1)}s` : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <ol className="relative border-r border-border/60 mr-2 space-y-1">
+              {runs.map((run) => {
+                const isScan = run.kind === "scan";
+                const productive = isScan ? run.items_queued > 0 : run.articles_created > 0;
+                const failed = !isScan && run.articles_created === 0 && (run.notes?.length ?? 0) > 0;
+                return (
+                  <li key={run.id} className="relative pr-5 py-1.5">
+                    <span
+                      className={`absolute right-[-4.5px] top-3 w-2 h-2 rounded-full ${
+                        productive ? "bg-emerald-500" : failed ? "bg-destructive" : "bg-muted-foreground/40"
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <div className="flex items-start gap-2 text-sm">
+                      {isScan ? (
+                        <Rss className="w-4 h-4 mt-0.5 shrink-0 text-primary/70" aria-hidden="true" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mt-0.5 shrink-0 text-primary/70" aria-hidden="true" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="leading-snug">
+                          <span className="font-medium">{isScan ? "סריקה" : "כתיבה"}</span>
+                          {" · "}
+                          {isScan
+                            ? `${run.items_new} חדשות, ${run.items_queued} נכנסו לתור, ${run.sources_ok} מקורות תקינים${run.sources_failed ? `, ${run.sources_failed} נכשלו` : ""}`
+                            : run.articles_created > 0
+                              ? `${run.articles_created} כתבות נוצרו`
+                              : "ללא תוצר"}
+                        </p>
+                        {(run.notes?.length ?? 0) > 0 && (
+                          <details className="mt-0.5">
+                            <summary className="text-xs text-muted-foreground cursor-pointer select-none">
+                              {run.notes.length} הערות
+                            </summary>
+                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                              {run.notes.map((n, i) => (
+                                <li key={i} className="break-words">· {n}</li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                        {relativeTime(run.created_at)}
+                        {run.duration_ms ? ` · ${(run.duration_ms / 1000).toFixed(1)}s` : ""}
+                        {run.trigger === "cron" ? " · אוטומטי" : ""}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           )}
         </CardContent>
       </Card>

@@ -445,6 +445,23 @@ ${budgetLines}
       duration_ms: Date.now() - startedAt,
     });
 
+    // Stories in the queue mean writing starts NOW, not on the next cron tick:
+    // the scan kicks the worker, and the worker chains itself until the queue
+    // drains or the quotas fill.
+    const secret = Deno.env.get("INGEST_CRON_SECRET");
+    if (secret && pickByKey.size > 0) {
+      const kick = fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ingest-worker`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-ingest-secret": secret },
+        body: JSON.stringify({}),
+      }).then((r) => r.body?.cancel()).catch((e) => console.error("worker kick failed", e));
+      const runtime = (globalThis as {
+        EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void };
+      }).EdgeRuntime;
+      if (runtime) runtime.waitUntil(kick);
+      notes.push("הכתיבה החלה מיד");
+    }
+
     return json({
       ok: true,
       sources: perSource,
