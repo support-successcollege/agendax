@@ -1,6 +1,6 @@
 // Shared social-publishing plumbing: per-platform post styles, AI text
 // generation, and the actual publishers that talk to each network's API.
-import { callModel } from "./ingest.ts";
+import { callModel, toolArgs } from "./ingest.ts";
 
 export const SITE_URL = "https://agendax.co.il";
 
@@ -36,7 +36,7 @@ ${style}
 - כתוב בעברית. אל תתייחס לתמונה. אל תמציא עובדות שלא בפרטי הכתבה.
 ${includeLink ? `- סיים עם: 📖 לכתבה המלאה: ${article.url}` : ""}
 ${wantHashtags ? "- שורה אחרונה: לפחות 4 האשטגים בעברית." : "- בלי האשטגים."}
-- החזר רק את הפוסט עצמו, בלי הערות.
+- **החזר אך ורק את הפוסט הסופי.** בלי טיוטות, בלי ספירת תווים, בלי "Draft", בלי הערות או הסברים — כל תו שתחזיר יפורסם כלשונו.
 
 פרטי הכתבה:
 כותרת: ${article.title}
@@ -44,8 +44,31 @@ ${wantHashtags ? "- שורה אחרונה: לפחות 4 האשטגים בעבר�
 קטגוריה: ${article.category}
 תוכן: ${plainContent || "לא סופק"}`;
 
-  const data = await callModel({ messages: [{ role: "user", content: prompt }], max_tokens: 800 });
-  const post = (data as any).choices?.[0]?.message?.content?.trim() || "";
+  // Forced tool call, not free text: two live tweets went out with leaked
+  // meta ("char count for Draft 1:", a post starting mid-word) when the model
+  // narrated around its answer. A structured field cannot carry narration.
+  const data = await callModel({
+    messages: [{ role: "user", content: prompt }],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "write_post",
+          description: "מחזיר את הפוסט הסופי לפרסום",
+          parameters: {
+            type: "object",
+            properties: {
+              post: { type: "string", description: "הפוסט המלא, מוכן לפרסום כלשונו" },
+            },
+            required: ["post"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ],
+    tool_choice: { type: "function", function: { name: "write_post" } },
+  });
+  const post = String((toolArgs(data as any) as { post?: string }).post ?? "").trim();
   if (!post) throw new Error("המודל לא החזיר טקסט לפוסט");
   return post;
 }
@@ -159,6 +182,32 @@ async function oauth1Header(method: string, url: string, creds: Creds): Promise<
   );
 }
 
+/**
+ * Fits a tweet into X's 280 weighted characters: every URL counts as 23
+ * (t.co wraps it), so a percent-encoded Hebrew slug of 250 characters is
+ * fine — and a naive slice(0,280) would cut it mid-encoding and break the
+ * link (which is exactly what it did). Only the opening text is trimmed.
+ */
+function fitTweet(text: string): string {
+  const urlRegex = /https?:\/\/\S+/g;
+  const weight = (s: string) =>
+    [...s.replace(urlRegex, "")].length + (s.match(urlRegex)?.length ?? 0) * 23;
+  if (weight(text) <= 280) return text;
+
+  const lines = text.split("\n");
+  const firstUrlLine = lines.findIndex((l) => /https?:\/\//.test(l));
+  if (firstUrlLine === -1) return [...text].slice(0, 279).join("").trimEnd() + "…";
+
+  const tail = lines.slice(firstUrlLine).join("\n");
+  let head = lines.slice(0, firstUrlLine).join("\n").trimEnd();
+  const budget = 280 - weight(tail) - 1; // the joining newline
+  if (budget < 20) return tail; // pathological: keep the link, drop the copy
+  if ([...head].length > budget) {
+    head = [...head].slice(0, budget - 1).join("").trimEnd() + "…";
+  }
+  return `${head}\n${tail}`;
+}
+
 export async function publishX(creds: Creds, post: { text: string }): Promise<PublishResult> {
   const url = "https://api.x.com/2/tweets";
   let authHeader: string;
@@ -174,7 +223,7 @@ export async function publishX(creds: Creds, post: { text: string }): Promise<Pu
   const resp = await fetch(url, {
     method: "POST",
     headers: { Authorization: authHeader, "Content-Type": "application/json" },
-    body: JSON.stringify({ text: post.text.slice(0, 280) }),
+    body: JSON.stringify({ text: fitTweet(post.text) }),
   });
   const data = await resp.json();
   if (!resp.ok) {
