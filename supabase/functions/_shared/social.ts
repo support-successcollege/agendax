@@ -82,20 +82,45 @@ const need = (creds: Creds, keys: string[], platform: string) => {
   }
 };
 
-/** Facebook Page post (message + link). */
+/**
+ * Resolves the PAGE access token: whichever token the admin pasted — a user
+ * token with pages_manage_posts, or the page token itself — asking the page
+ * for its own access_token returns the page token in both cases. Posting
+ * always uses the result, so the panel accepts either without ceremony.
+ */
+async function fbPageToken(creds: Creds): Promise<string> {
+  const resp = await fetch(
+    `https://graph.facebook.com/v21.0/${creds.page_id}?fields=access_token&access_token=${encodeURIComponent(creds.access_token)}`,
+  );
+  const data = await resp.json();
+  if (resp.ok && data?.access_token) return String(data.access_token);
+  // No exchange available (missing permission?) — try the stored token as-is.
+  return creds.access_token;
+}
+
+/**
+ * Facebook Page post. With imageUrl: a photo post — the branded PNG up front,
+ * the text (which already carries the article link) as its caption. Without:
+ * a plain feed post with a link card.
+ */
 export async function publishFacebook(
   creds: Creds,
-  post: { text: string; link: string },
+  post: { text: string; link: string; imageUrl?: string },
 ): Promise<PublishResult> {
   need(creds, ["page_id", "access_token"], "פייסבוק");
-  const resp = await fetch(`https://graph.facebook.com/v21.0/${creds.page_id}/feed`, {
+  const pageToken = await fbPageToken(creds);
+  const endpoint = post.imageUrl ? "photos" : "feed";
+  const body = post.imageUrl
+    ? { url: post.imageUrl, message: post.text, access_token: pageToken }
+    : { message: post.text, link: post.link, access_token: pageToken };
+  const resp = await fetch(`https://graph.facebook.com/v21.0/${creds.page_id}/${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: post.text, link: post.link, access_token: creds.access_token }),
+    body: JSON.stringify(body),
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(`Facebook ${resp.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 200)}`);
-  return { externalId: String(data.id) };
+  return { externalId: String(data.post_id ?? data.id) };
 }
 
 /** Instagram Business photo post: media container → publish. */
@@ -287,26 +312,79 @@ export async function publishX(
   return { externalId: String(data?.data?.id ?? "") };
 }
 
-/** LinkedIn post for a member or organization (author = URN). */
+// Must be a currently-active version — LinkedIn sunsets them after ~a year
+// and answers 426 NONEXISTENT_VERSION once it lapses.
+const LI_VERSION = "202601";
+
+const liHeaders = (creds: Creds) => ({
+  Authorization: `Bearer ${creds.access_token}`,
+  "Content-Type": "application/json",
+  "X-Restli-Protocol-Version": "2.0.0",
+  "LinkedIn-Version": LI_VERSION,
+});
+
+/**
+ * Uploads an image to LinkedIn's asset store and returns its urn:li:image id:
+ * initializeUpload hands back a one-time PUT URL, the binary goes there.
+ */
+async function uploadLinkedInImage(creds: Creds, imageUrl: string): Promise<string> {
+  const init = await fetch("https://api.linkedin.com/rest/images?action=initializeUpload", {
+    method: "POST",
+    headers: liHeaders(creds),
+    body: JSON.stringify({ initializeUploadRequest: { owner: creds.author_urn } }),
+  });
+  const initData = await init.json();
+  if (!init.ok) throw new Error(`LinkedIn image init ${init.status}: ${JSON.stringify(initData).slice(0, 200)}`);
+  const uploadUrl: string = initData?.value?.uploadUrl;
+  const imageUrn: string = initData?.value?.image;
+  if (!uploadUrl || !imageUrn) throw new Error("LinkedIn לא החזיר כתובת העלאה לתמונה");
+
+  const imgResp = await fetch(imageUrl);
+  if (!imgResp.ok) throw new Error(`הורדת התמונה נכשלה: HTTP ${imgResp.status}`);
+  const bytes = new Uint8Array(await imgResp.arrayBuffer());
+
+  const put = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${creds.access_token}` },
+    body: bytes,
+  });
+  if (!put.ok) throw new Error(`LinkedIn image upload ${put.status}`);
+  return imageUrn;
+}
+
+/**
+ * LinkedIn post for a member or organization (author = URN). With imageUrl the
+ * branded PNG leads the post (the article link stays in the text); a failed
+ * upload falls back to the plain article link card — a post without our
+ * template beats no post.
+ */
 export async function publishLinkedIn(
   creds: Creds,
-  post: { text: string; link: string },
+  post: { text: string; link: string; imageUrl?: string },
 ): Promise<PublishResult> {
   need(creds, ["access_token", "author_urn"], "לינקדאין");
+
+  let content: Record<string, unknown> = {
+    article: { source: post.link, title: post.text.slice(0, 100) },
+  };
+  if (post.imageUrl) {
+    try {
+      const imageUrn = await uploadLinkedInImage(creds, post.imageUrl);
+      content = { media: { id: imageUrn, altText: post.text.slice(0, 100) } };
+    } catch (e) {
+      console.error("LinkedIn image upload failed, posting link card instead:", (e as Error).message);
+    }
+  }
+
   const resp = await fetch("https://api.linkedin.com/rest/posts", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${creds.access_token}`,
-      "Content-Type": "application/json",
-      "X-Restli-Protocol-Version": "2.0.0",
-      "LinkedIn-Version": "202401",
-    },
+    headers: liHeaders(creds),
     body: JSON.stringify({
       author: creds.author_urn,
       commentary: post.text,
       visibility: "PUBLIC",
       distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
-      content: { article: { source: post.link, title: post.text.slice(0, 100) } },
+      content,
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     }),

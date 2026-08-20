@@ -89,7 +89,15 @@ async function publishOne(
   article: ArticleRow,
   account: Account,
 ): Promise<{ platform: string; ok: boolean; error?: string }> {
-  const url = `${SITE_URL}/article/${encodeURIComponent(article.slug || article.id)}`;
+  // Facebook renders and linkifies the raw Hebrew URL correctly, so it gets
+  // the readable form. LinkedIn's and X's URL detectors stop at the first
+  // non-Latin character — a raw Hebrew slug got cut to /article/ and the
+  // lnkd.in short link led nowhere — so they get the percent-encoded form,
+  // which readers never see anyway (both display a lnkd.in / t.co link).
+  const slug = article.slug || article.id;
+  const url = account.platform === "facebook" || account.platform === "instagram"
+    ? `${SITE_URL}/article/${slug}`
+    : `${SITE_URL}/article/${encodeURIComponent(slug)}`;
   const forPost: ArticleForPost = {
     title: article.title,
     excerpt: article.excerpt,
@@ -102,9 +110,11 @@ async function publishOne(
     const text = await generatePostText(forPost, account.platform);
     let externalId = "";
     switch (account.platform) {
-      case "facebook":
-        ({ externalId } = await publishFacebook(account.credentials, { text, link: url }));
+      case "facebook": {
+        const image = await brandedImageUrl(supabase, article);
+        ({ externalId } = await publishFacebook(account.credentials, { text, link: url, imageUrl: image }));
         break;
+      }
       case "instagram": {
         const image = await brandedImageUrl(supabase, article);
         ({ externalId } = await publishInstagram(account.credentials, {
@@ -118,9 +128,11 @@ async function publishOne(
         ({ externalId } = await publishX(account.credentials, { text, imageUrl: image }));
         break;
       }
-      case "linkedin":
-        ({ externalId } = await publishLinkedIn(account.credentials, { text, link: url }));
+      case "linkedin": {
+        const image = await brandedImageUrl(supabase, article);
+        ({ externalId } = await publishLinkedIn(account.credentials, { text, link: url, imageUrl: image }));
         break;
+      }
     }
     await supabase.from("social_posts").upsert(
       {
