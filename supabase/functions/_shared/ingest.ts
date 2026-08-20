@@ -176,8 +176,13 @@ export function parseFeed(xml: string, max = 25): FeedItem[] {
     .filter((it) => it.title && /^https?:\/\//i.test(it.link));
 }
 
+// A plain browser UA, not a bot signature: Cloudflare-fronted feeds (Geektime,
+// MarkTechPost, PCMag and a third of the source list) return 403 to anything
+// that self-identifies as a bot, RSS reader or unknown agent — the feeds are
+// public, the block is UA heuristics.
 const BROWSER_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (compatible; AgendaxBot/1.0; +https://agendax.co.il)",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.8",
   "Accept-Language": "en,he;q=0.8",
 };
