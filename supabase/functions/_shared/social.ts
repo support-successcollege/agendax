@@ -208,11 +208,48 @@ function fitTweet(text: string): string {
   return `${head}\n${tail}`;
 }
 
-export async function publishX(creds: Creds, post: { text: string }): Promise<PublishResult> {
+const hasOauth1 = (creds: Creds) =>
+  !!(creds.api_key && creds.api_secret && creds.access_token && creds.access_secret);
+
+/**
+ * Uploads an image to X (v1.1 media/upload, the only media door) and returns
+ * its media id. OAuth 1.0a only — multipart bodies are excluded from the
+ * signature base, so the same header builder works.
+ */
+async function uploadXMedia(creds: Creds, imageUrl: string): Promise<string> {
+  const imgResp = await fetch(imageUrl);
+  if (!imgResp.ok) throw new Error(`הורדת התמונה נכשלה: HTTP ${imgResp.status}`);
+  const mime = (imgResp.headers.get("content-type") || "").split(";")[0].trim();
+  if (!mime.startsWith("image/")) throw new Error(`הקובץ אינו תמונה (${mime})`);
+  const bytes = new Uint8Array(await imgResp.arrayBuffer());
+  if (bytes.length > 5_000_000) throw new Error("התמונה גדולה מ-5MB — מעל מגבלת X");
+
+  const uploadUrl = "https://upload.twitter.com/1.1/media/upload.json";
+  const form = new FormData();
+  form.append("media", new Blob([bytes], { type: mime }));
+
+  const resp = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { Authorization: await oauth1Header("POST", uploadUrl, creds) },
+    body: form,
+  });
+  const data = await resp.json();
+  if (!resp.ok) {
+    throw new Error(`X media ${resp.status}: ${JSON.stringify(data).slice(0, 200)}`);
+  }
+  const mediaId = String(data.media_id_string ?? data.media_id ?? "");
+  if (!mediaId) throw new Error("X לא החזיר מזהה מדיה");
+  return mediaId;
+}
+
+export async function publishX(
+  creds: Creds,
+  post: { text: string; imageUrl?: string | null },
+): Promise<PublishResult> {
   const url = "https://api.x.com/2/tweets";
   let authHeader: string;
 
-  if (creds.api_key && creds.api_secret && creds.access_token && creds.access_secret) {
+  if (hasOauth1(creds)) {
     authHeader = await oauth1Header("POST", url, creds);
   } else if (creds.access_token) {
     authHeader = `Bearer ${creds.access_token}`;
@@ -220,10 +257,22 @@ export async function publishX(creds: Creds, post: { text: string }): Promise<Pu
     throw new Error("חסרים מפתחות X: נדרשים API Key + API Secret + Access Token + Access Secret");
   }
 
+  // The image rides along when it can; a failed upload never blocks the
+  // tweet — text with a working link beats nothing.
+  const body: Record<string, unknown> = { text: fitTweet(post.text) };
+  if (post.imageUrl && hasOauth1(creds)) {
+    try {
+      const mediaId = await uploadXMedia(creds, post.imageUrl);
+      body.media = { media_ids: [mediaId] };
+    } catch (e) {
+      console.error("X media upload failed, tweeting without image:", (e as Error).message);
+    }
+  }
+
   const resp = await fetch(url, {
     method: "POST",
     headers: { Authorization: authHeader, "Content-Type": "application/json" },
-    body: JSON.stringify({ text: fitTweet(post.text) }),
+    body: JSON.stringify(body),
   });
   const data = await resp.json();
   if (!resp.ok) {

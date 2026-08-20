@@ -70,7 +70,7 @@ async function publishOne(
         }));
         break;
       case "x":
-        ({ externalId } = await publishX(account.credentials, { text }));
+        ({ externalId } = await publishX(account.credentials, { text, imageUrl: article.image_url }));
         break;
       case "linkedin":
         ({ externalId } = await publishLinkedIn(account.credentials, { text, link: url }));
