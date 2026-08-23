@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Article, getFeaturedArticle, getBreakingNews } from "@/hooks/useArticles";
-import { Calendar, User, Zap } from "lucide-react";
+import { Calendar, User } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "@/lib/router-compat";
 import OptimizedImage from "./OptimizedImage";
@@ -46,7 +46,6 @@ const FeaturedArticle = ({ articles }: FeaturedArticleProps) => {
 
   const featured = pool[index] ?? pool[0];
   if (!featured) return null;
-  const isBreakingNow = index > 0;
 
   return (
     <Link
@@ -83,19 +82,11 @@ const FeaturedArticle = ({ articles }: FeaturedArticleProps) => {
             {/* Content */}
             <div className="absolute bottom-0 right-0 left-0 p-4 sm:p-6 md:p-10">
               <div className="max-w-3xl">
-                <span className="flex items-center gap-2 mb-2 sm:mb-4">
-                  <span
-                    className="inline-block px-3 py-1 text-white text-xs sm:text-sm font-semibold rounded-sm"
-                    style={{ backgroundColor: categoryColor(featured.categorySlug || featured.category) }}
-                  >
-                    {featured.category}
-                  </span>
-                  {isBreakingNow && (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-destructive text-destructive-foreground text-xs sm:text-sm font-semibold rounded-sm">
-                      <Zap className="w-3.5 h-3.5" aria-hidden="true" />
-                      בזק
-                    </span>
-                  )}
+                <span
+                  className="inline-block px-3 py-1 text-white text-xs sm:text-sm font-semibold rounded-sm mb-2 sm:mb-4"
+                  style={{ backgroundColor: categoryColor(featured.categorySlug || featured.category) }}
+                >
+                  {featured.category}
                 </span>
                 <h2 className="text-lg sm:text-2xl md:text-4xl font-black text-primary-foreground mb-2 sm:mb-4 leading-tight line-clamp-3 sm:line-clamp-none">
                   {featured.title}
