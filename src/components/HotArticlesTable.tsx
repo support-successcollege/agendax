@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Flame, Eye } from "lucide-react";
+import { Flame } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { Article } from "@/data/articles";
 import { useHotArticles } from "@/hooks/usePageViews";
@@ -54,7 +54,7 @@ const HotArticlesTable = ({ articles, compact = false }: HotArticlesTableProps) 
         </div>
 
         <ol className="divide-y divide-border/40">
-          {rows.map(({ article, views }, i) => (
+          {rows.map(({ article }, i) => (
             <li key={article.id}>
               <Link
                 to={`/article/${encodeURIComponent(article.slug || article.id)}`}
@@ -79,12 +79,6 @@ const HotArticlesTable = ({ articles, compact = false }: HotArticlesTableProps) 
                 <p className="flex-1 min-w-0 text-[13px] leading-snug font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                   {article.title}
                 </p>
-                {views !== null && (
-                  <span className="shrink-0 flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums">
-                    <Eye className="w-3 h-3" aria-hidden="true" />
-                    {views.toLocaleString("he-IL")}
-                  </span>
-                )}
               </Link>
             </li>
           ))}
@@ -108,7 +102,7 @@ const HotArticlesTable = ({ articles, compact = false }: HotArticlesTableProps) 
       </div>
 
       <ol className="divide-y divide-border/60">
-        {rows.map(({ article, views }, i) => (
+        {rows.map(({ article }, i) => (
           <li key={article.id}>
             <Link
               to={`/article/${encodeURIComponent(article.slug || article.id)}`}
@@ -141,12 +135,6 @@ const HotArticlesTable = ({ articles, compact = false }: HotArticlesTableProps) 
                   {article.category}
                 </span>
               </div>
-              {views !== null && (
-                <span className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
-                  <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-                  {views.toLocaleString("he-IL")}
-                </span>
-              )}
             </Link>
           </li>
         ))}

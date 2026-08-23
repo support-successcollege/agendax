@@ -73,3 +73,8 @@ verify_jwt = false
 # server-side maintenance calls with the shared secret also work.
 [functions.marketing-article]
 verify_jwt = false
+
+# Fired by the publish DB trigger with the shared secret; pings Google's
+# Indexing API for a freshly-published article.
+[functions.index-article]
+verify_jwt = false

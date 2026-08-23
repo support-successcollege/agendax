@@ -39,7 +39,7 @@ const escapeXml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-type ArticleRow = { slug: string | null; id: string; title: string; date: string };
+type ArticleRow = { slug: string | null; id: string; title: string; date: string; image_url: string | null };
 
 const supabaseUrl = process.env["VITE_SUPABASE_URL"];
 const supabaseKey = process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
@@ -51,7 +51,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const since = new Date(Date.now() - NEWS_WINDOW_MS).toISOString();
 const response = await fetch(
-  `${supabaseUrl}/rest/v1/articles?select=slug,id,title,date&is_draft=eq.false&date=gte.${since}&order=date.desc&limit=1000`,
+  `${supabaseUrl}/rest/v1/articles?select=slug,id,title,date,image_url&is_draft=eq.false&date=gte.${since}&order=date.desc&limit=1000`,
   { headers: { apikey: supabaseKey, Accept: "application/json" } },
 );
 if (!response.ok) {
@@ -62,6 +62,15 @@ const articles = (await response.json()) as ArticleRow[];
 const entries = articles
   .map((article) => {
     const loc = `${SITE_URL}/article/${encodeURIComponent(article.slug || article.id)}`;
+    // The lead image rides along so Google Images can pick the articles up —
+    // the crawler treats sitemap images as first-class discovery.
+    const image = article.image_url?.startsWith("https://")
+      ? `
+    <image:image>
+      <image:loc>${escapeXml(article.image_url)}</image:loc>
+      <image:title>${escapeXml(article.title)}</image:title>
+    </image:image>`
+      : "";
     return `  <url>
     <loc>${escapeXml(loc)}</loc>
     <news:news>
@@ -71,7 +80,7 @@ const entries = articles
       </news:publication>
       <news:publication_date>${new Date(article.date).toISOString()}</news:publication_date>
       <news:title>${escapeXml(article.title)}</news:title>
-    </news:news>
+    </news:news>${image}
   </url>`;
   })
   .join("\n");
@@ -82,7 +91,8 @@ await writeFile(
   target,
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${entries}
 </urlset>
 `,
