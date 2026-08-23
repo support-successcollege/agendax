@@ -83,3 +83,8 @@ verify_jwt = false
 # per worker; authorizes cron-or-admin internally.
 [functions.social-image]
 verify_jwt = false
+
+# The daily team schedule email; cron carries the shared secret, the function
+# authorizes cron-or-admin.
+[functions.team-digest]
+verify_jwt = false

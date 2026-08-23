@@ -120,6 +120,11 @@ type ArticleRow = {
 
 const AUTO_WINDOW_MS = 12 * 60 * 60 * 1000;
 const AUTO_CAP = 6;
+// Stories are posted by the team by hand (the API cannot attach the link
+// sticker, which is the whole point of a story); the daily team digest tells
+// them what is going live and hands them the story image. Flip to re-enable
+// the automatic image-only story behind every post.
+const AUTO_STORIES = false;
 
 async function publishOne(
   supabase: any,
@@ -182,7 +187,7 @@ async function publishOne(
       },
       { onConflict: "article_id,platform" },
     );
-    await publishStory(supabase, article, account);
+    if (AUTO_STORIES) await publishStory(supabase, article, account);
     return { platform: account.platform, ok: true };
   } catch (e: any) {
     const message = e?.message || String(e);
