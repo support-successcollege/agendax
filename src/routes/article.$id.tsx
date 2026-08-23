@@ -67,6 +67,15 @@ export const Route = createFileRoute("/article/$id")({
         { property: "og:description", content: description },
         { property: "og:type", content: "article" },
         { property: "og:url", content: url },
+        { property: "og:site_name", content: "Agendax" },
+        ...(article
+          ? [
+              { property: "article:published_time", content: new Date(article.date).toISOString() },
+              { property: "article:modified_time", content: new Date(article.date).toISOString() },
+              { property: "article:section", content: article.category },
+              { property: "article:author", content: article.author },
+            ]
+          : []),
         { name: "twitter:card", content: "summary_large_image" },
         ...(image && image.startsWith("https://")
           ? [
@@ -86,15 +95,22 @@ export const Route = createFileRoute("/article/$id")({
                 headline: article.title,
                 description: article.excerpt,
                 image: article.image_url ? [article.image_url] : undefined,
-                datePublished: article.date,
-                dateModified: article.date,
-                author: { "@type": "Person", name: article.author },
+                datePublished: new Date(article.date).toISOString(),
+                dateModified: new Date(article.date).toISOString(),
+                // The newsroom byline is the organization, not a person —
+                // Google treats the two differently for E-E-A-T.
+                author: article.author.includes("מערכת")
+                  ? { "@type": "Organization", name: "Agendax", url: SITE_URL }
+                  : { "@type": "Person", name: article.author },
                 publisher: {
-                  "@type": "Organization",
+                  "@type": "NewsMediaOrganization",
                   name: "Agendax",
+                  url: SITE_URL,
                   logo: {
                     "@type": "ImageObject",
                     url: `${SITE_URL}/favicon.png`,
+                    width: 512,
+                    height: 512,
                   },
                 },
                 mainEntityOfPage: { "@type": "WebPage", "@id": url },

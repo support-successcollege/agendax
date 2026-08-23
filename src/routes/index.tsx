@@ -49,14 +49,16 @@ export const Route = createFileRoute("/")({
         type: "application/ld+json",
         children: JSON.stringify({
           "@context": "https://schema.org",
-          "@type": "Organization",
+          "@type": "NewsMediaOrganization",
           name: "Agendax",
           url: `${SITE_URL}/`,
           logo: `${SITE_URL}/favicon.png`,
+          // The Facebook link points at the real Page (the profile.php id was
+          // a personal profile, unusable for the brand entity).
           sameAs: [
             "https://www.linkedin.com/in/agendax-80012a42b",
             "https://www.instagram.com/agendax.co.il",
-            "https://www.facebook.com/profile.php?id=61593402242220",
+            "https://www.facebook.com/1173078022564816",
             "https://x.com/agendaxcoil",
           ],
         }),
