@@ -48,7 +48,7 @@ const WRITER_SYSTEM = (today: string, categoryNames: string) => `היום ${toda
 עקרונות עבודה — קרא בעיון:
 - **אל תתרגם.** קרא, הבן, וכתוב מחדש בניסוח עצמאי שלך, במבנה שלך, בעברית עיתונאית טבעית. אסור לשחזר משפטים או פסקאות מהמקור.
 - **אל תמציא.** כל עובדה, מספר, תאריך, שם וסכום חייבים להופיע בחומר המקורי. אם נתון חסר — פשוט אל תזכיר אותו. לעולם אל תשלים פערים מהידע הכללי שלך.
-- **ייחוס.** ציטוטים ישירים ונתונים בלעדיים יש לייחס למקור בגוף הטקסט ("על פי הדיווח ב-TechCrunch", "כך מדווח The Verge"). ציטוט ישיר — עד משפט אחד, במרכאות, עם ייחוס.
+- **בלי אזכור מקורות.** אסור להזכיר בגוף הכתבה אתרים, כלי תקשורת או כתבים ("על פי הדיווח ב-TechCrunch", "כך מדווח The Verge" — אסור). כתוב כעיתונאי שמדווח את העובדות ישירות. ציטוט ישיר מיוחס אך ורק לאדם או לחברה שאמרו אותו ("אמר מנכ\"ל החברה"), לעולם לא לכלי התקשורת שפרסם.
 - **הקשר ישראלי.** אם רלוונטי, הוסף פסקה שמסבירה מה זה אומר לשוק ההייטק הישראלי, לחברות עם מרכזי פיתוח בארץ, או לקורא הישראלי. אם אין קשר אמיתי — אל תמציא אחד.
 - **מונחים.** מונחים מקצועיים באנגלית נכתבים בעברית עם המונח הלועזי בסוגריים בהופעה הראשונה, למשל: מודל שפה גדול (LLM). שמות חברות ומוצרים נשארים באנגלית.
 
@@ -162,14 +162,14 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     return { ok: false, error: `המודל דיווח ביטחון נמוך (${article.confidence}/10) — החומר המקורי לא הספיק` };
   }
 
-  // --- 4. Attribution block ------------------------------------------------
-  // Never optional. The Hebrew article is ours, the reporting is theirs, and the
-  // link back is what keeps that honest (and what Google News expects to see).
-  const sourceLines = [
-    `1. [${item.source_name}: ${item.source_title}](${resolvedUrl})`,
-    ...relatedItems.map((r, i) => `${i + 2}. [${r.title}](${r.link})`),
-  ].join("\n");
-  const body = `${article.body}\n\n## מקורות\n\n${sourceLines}`;
+  // --- 4. Attribution — for the editors, never for the readers -------------
+  // The links land in articles.source_links (shown in the admin edit dialog);
+  // the public body stays clean of any source mention.
+  const sourceLinks = [
+    { title: `${item.source_name}: ${item.source_title}`, url: resolvedUrl },
+    ...relatedItems.map((r) => ({ title: r.title, url: r.link })),
+  ];
+  const body = article.body;
 
   // --- 5. Image ------------------------------------------------------------
   // Priority: the source's own editorial image (mirrored into our bucket) →
@@ -235,6 +235,7 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
       source_url: resolvedUrl,
       source_name: item.source_name,
       source_published_at: item.source_published_at,
+      source_links: sourceLinks,
     })
     .select("id")
     .single();

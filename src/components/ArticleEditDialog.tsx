@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Article } from "@/hooks/useArticles";
 import {
   Dialog,
@@ -17,7 +19,14 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import ImageUpload from "@/components/ImageUpload";
 import RichTextEditor from "@/components/RichTextEditor";
-import { Clock, Calendar } from "lucide-react";
+import { Clock, Calendar, Link2, ExternalLink } from "lucide-react";
+
+type SourceLink = { title: string; url: string };
+type ArticleSources = {
+  source_name: string | null;
+  source_url: string | null;
+  source_links: SourceLink[] | null;
+};
 
 interface ArticleEditDialogProps {
   article: Article | null;
@@ -36,6 +45,23 @@ const ArticleEditDialog = ({ article, open, onOpenChange, onSave }: ArticleEditD
     article?.scheduledAt ? new Date(article.scheduledAt).toTimeString().slice(0, 5) : "09:00"
   );
   const { toast } = useToast();
+
+  // Editorial sources — admin-eyes-only, fetched lazily; they are not part of
+  // the Article list shape because the public site never touches them.
+  const { data: sources } = useQuery({
+    queryKey: ["article-sources", article?.id],
+    enabled: open && !!article?.id,
+    queryFn: async (): Promise<ArticleSources | null> => {
+      const { data } = await supabase
+        .from("articles")
+        .select("source_name, source_url, source_links")
+        .eq("id", article!.id)
+        .maybeSingle();
+      return (data as ArticleSources | null) ?? null;
+    },
+  });
+  const sourceLinks: SourceLink[] = Array.isArray(sources?.source_links) ? sources!.source_links! : [];
+  const hasSources = !!sources?.source_url || sourceLinks.length > 0;
 
   // Update local state when article prop changes
   if (article && editedArticle?.id !== article.id) {
@@ -136,6 +162,46 @@ const ArticleEditDialog = ({ article, open, onOpenChange, onSave }: ArticleEditD
               onChange={(content) => setEditedArticle({ ...editedArticle, content })}
             />
           </div>
+
+          {/* Editorial sources — visible only here, never rendered on the site */}
+          {hasSources && (
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Link2 className="w-4 h-4" />
+                מקורות (לעיני המערכת בלבד — לא מוצג בכתבה)
+              </div>
+              <ul className="space-y-1">
+                {sources?.source_url && (
+                  <li>
+                    <a
+                      href={sources.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      {sources.source_name ? `${sources.source_name} — מקור ראשי` : "מקור ראשי"}
+                    </a>
+                  </li>
+                )}
+                {sourceLinks
+                  .filter((l) => l.url !== sources?.source_url)
+                  .map((l) => (
+                    <li key={l.url}>
+                      <a
+                        href={l.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        <span className="truncate max-w-[560px]">{l.title || l.url}</span>
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
 
           {/* Scheduling */}
           <div className="p-4 bg-muted/50 rounded-lg space-y-3">
