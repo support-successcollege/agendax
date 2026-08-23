@@ -11,7 +11,6 @@ import { authorize, corsHeaders, json } from "../_shared/ingest.ts";
 
 const SITE_URL = "https://agendax.co.il";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const STORAGE = `${SUPABASE_URL}/storage/v1/object/public/article-images`;
 const TZ = "Asia/Jerusalem";
 
 const PALETTE = ["#0d3c99", "#7c3aed", "#0f766e", "#be123c", "#b45309", "#166534", "#0e7490", "#9d174d"];
@@ -87,8 +86,9 @@ Deno.serve(async (req) => {
     const items = rows.map((r) => {
       const live = !r.is_draft;
       const url = `${SITE_URL}/article/${encodeURIComponent(r.slug || r.id)}`;
-      const postImg = `${STORAGE}/social/${r.id}.png`;
-      const storyImg = `${STORAGE}/social/${r.id}-story.png`;
+      // Smart links: render on first click if the file is not there yet.
+      const postImg = `${SUPABASE_URL}/functions/v1/social-image?articleId=${r.id}&variant=post`;
+      const storyImg = `${SUPABASE_URL}/functions/v1/social-image?articleId=${r.id}&variant=story`;
       const color = categoryColor(r.category_slug || r.category);
       const status = live
         ? `<span style="color:#166534;font-weight:700">פורסם</span>`
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       <b>איך עובדים עם הלוז:</b><br>
       1. השעה היא מועד הפרסום באתר (שעון ישראל). הפוסט לרשתות עולה אוטומטית תוך כ-20 דקות אחריו.<br>
       2. אחרי שהפוסט עלה — פתחו את <b>תמונת הסטורי</b> בטלפון, שמרו, והעלו סטורי עם מדבקת קישור לכתבה (הקישור בכותרת).<br>
-      3. התמונות נוצרות אוטומטית כשעה לפני הפרסום; אם קישור תמונה עדיין לא נפתח — נסו שוב בהמשך.<br>
+      3. קישורי התמונות תמיד עובדים — אם התמונה עוד לא הוכנה, הלחיצה הראשונה מייצרת אותה (כ-5 שניות) ואז פותחת אותה.<br>
       4. שורה "ממתין לפרסום" = עברה השעה והכתבה עוד טיוטה — כדאי להציץ בפאנל.
     </div>
     <div style="margin-top:14px;font-size:12px;color:#94a3b8">נשלח אוטומטית ממערכת Agendax · <a href="${SITE_URL}/admin" style="color:#94a3b8">פאנל ניהול</a></div>

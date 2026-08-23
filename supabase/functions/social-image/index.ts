@@ -20,14 +20,25 @@ function categoryColor(key: string): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  const auth = await authorize(req);
-  if (auth instanceof Response) return auth;
+
+  // GET ?articleId=&variant= is the "smart link" used in the team digest:
+  // renders on demand if the file is missing, then redirects to the image.
+  // No secret needed — the article id is an unguessable UUID and the output
+  // is a public image anyway.
+  const isLink = req.method === "GET";
+  if (!isLink) {
+    const auth = await authorize(req);
+    if (auth instanceof Response) return auth;
+  }
 
   try {
-    const body = await req.json().catch(() => ({}));
+    const url = new URL(req.url);
+    const body = isLink
+      ? { articleId: url.searchParams.get("articleId"), variant: url.searchParams.get("variant") }
+      : await req.json().catch(() => ({}));
     const articleId = String(body?.articleId || "");
     const variant = body?.variant === "story" ? "story" : "post";
-    if (!articleId) return json({ error: "חסר מזהה כתבה" }, 400);
+    if (!articleId || !/^[0-9a-f-]{36}$/i.test(articleId)) return json({ error: "חסר מזהה כתבה" }, 400);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -43,9 +54,12 @@ Deno.serve(async (req) => {
     const path = variant === "story" ? `social/${article.id}-story.png` : `social/${article.id}.png`;
     const publicUrl = supabase.storage.from("article-images").getPublicUrl(path).data.publicUrl;
 
+    const redirect = () =>
+      new Response(null, { status: 302, headers: { ...corsHeaders, Location: publicUrl, "Cache-Control": "no-store" } });
+
     if (!body?.force) {
       const head = await fetch(publicUrl, { method: "HEAD" }).catch(() => null);
-      if (head?.ok) return json({ url: publicUrl, cached: true });
+      if (head?.ok) return isLink ? redirect() : json({ url: publicUrl, cached: true });
     }
 
     const opts = {
@@ -59,7 +73,7 @@ Deno.serve(async (req) => {
       .from("article-images")
       .upload(path, png, { contentType: "image/png", upsert: true });
     if (error) throw error;
-    return json({ url: publicUrl, cached: false });
+    return isLink ? redirect() : json({ url: publicUrl, cached: false });
   } catch (e: any) {
     console.error("social-image error", e);
     return json({ error: e?.message || "שגיאה לא ידועה" }, 500);
