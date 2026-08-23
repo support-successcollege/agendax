@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Article, getFeaturedArticle, getBreakingNews } from "@/hooks/useArticles";
 import { Calendar, User } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -14,18 +16,41 @@ interface FeaturedArticleProps {
 const ROTATE_MS = 7000;
 
 /**
- * The hero rotates through the pinned article plus every breaking (בזק)
- * story: a random different one every few seconds, so the top of the page is
- * never the same twice. Hovering pauses the rotation — the story someone is
- * about to click must not slip away under the cursor.
+ * The hero rotates through the week's leading stories: 10 articles picked
+ * automatically every Sunday (at least 2 per category, the rest by views —
+ * see refresh_hero_rotation in the DB), a random different one every few
+ * seconds. Hovering pauses the rotation — the story someone is about to
+ * click must not slip away under the cursor. Until the weekly table has
+ * picks, the pinned article plus the breaking stories fill in.
  */
 const FeaturedArticle = ({ articles }: FeaturedArticleProps) => {
+  const { data: rotationIds = [] } = useQuery({
+    queryKey: ["hero-rotation"],
+    staleTime: 60 * 60 * 1000,
+    queryFn: async (): Promise<string[]> => {
+      // hero_rotation is newer than the generated DB types — the untyped
+      // escape hatch until the next type regeneration.
+      const client = supabase as unknown as {
+        from: (table: string) => {
+          select: (cols: string) => { order: (col: string) => Promise<{ data: { article_id: string }[] | null }> };
+        };
+      };
+      const { data } = await client.from("hero_rotation").select("article_id, rank").order("rank");
+      return (data ?? []).map((r) => r.article_id);
+    },
+  });
+
   const pool = useMemo(() => {
+    const byId = new Map(articles.map((a) => [a.id, a]));
+    const weekly = rotationIds
+      .map((id) => byId.get(id))
+      .filter((a): a is Article => !!a);
+    if (weekly.length >= 2) return weekly;
     const featured = getFeaturedArticle(articles);
     if (!featured) return [] as Article[];
     const breaking = getBreakingNews(articles).filter((a) => a.id !== featured.id);
     return [featured, ...breaking];
-  }, [articles]);
+  }, [articles, rotationIds]);
 
   const [index, setIndex] = useState(0);
   const hovering = useRef(false);
