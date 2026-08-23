@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import AdminSocialScheduler from "@/components/AdminSocialScheduler";
 import {
   Share2,
   Loader2,
@@ -117,6 +118,7 @@ const AdminSocialTab = () => {
   const [publishArticleId, setPublishArticleId] = useState("");
   const [publishTargets, setPublishTargets] = useState<Platform[]>([]);
   const [forceRepost, setForceRepost] = useState(false);
+  const [publishKind, setPublishKind] = useState<"post" | "story">("post");
   const [isPublishing, setIsPublishing] = useState(false);
 
   const recentPublished = articles.filter((a) => !a.isDraft).slice(0, 20);
@@ -181,7 +183,7 @@ const AdminSocialTab = () => {
     try {
       const result = await invokeEdge<{ ok: boolean; results: { platform: string; ok: boolean; error?: string }[] }>(
         "social-publish",
-        { articleId: publishArticleId, platforms: publishTargets, force: forceRepost },
+        { articleId: publishArticleId, platforms: publishTargets, force: forceRepost, kind: publishKind },
       );
       const failed = result.results.filter((r) => !r.ok);
       if (failed.length === 0) {
@@ -225,8 +227,8 @@ const AdminSocialTab = () => {
             חיבור רשתות חברתיות
           </CardTitle>
           <CardDescription>
-            הדבק את פרטי הגישה של כל פלטפורמה. "אוטומטי" = כתבה שמתפרסמת באתר נשלחת לרשת לבד
-            (בדיקה כל 20 דקות). הטקסט לכל פוסט נכתב על ידי ה-AI בסגנון המתאים לפלטפורמה.
+            הדבק את פרטי הגישה של כל פלטפורמה. "אוטומטי" = הפלטפורמה נכללת בפוסטים שהלוז ממלא לבד
+            (לפי כמות ושעות שנקבעות למטה). הטקסט לכל פוסט נכתב על ידי ה-AI בסגנון המתאים לפלטפורמה.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -300,14 +302,17 @@ const AdminSocialTab = () => {
         </CardContent>
       </Card>
 
+      {/* Schedule + queue */}
+      <AdminSocialScheduler articles={articles} enabledPlatforms={enabledPlatforms} onChanged={fetchAll} />
+
       {/* Manual publish */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Send className="w-4 h-4 text-primary" />
-            פרסום ידני
+            פרסום מיידי
           </CardTitle>
-          <CardDescription>בחר כתבה ופלטפורמות — ה-AI מנסח פוסט לכל רשת בנפרד ומפרסם.</CardDescription>
+          <CardDescription>בלי תור ובלי המתנה: בחר כתבה, פוסט או סטורי ופלטפורמות — ה-AI מנסח ומפרסם עכשיו.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <select
@@ -324,11 +329,26 @@ const AdminSocialTab = () => {
             ))}
           </select>
           <div className="flex flex-wrap items-center gap-4">
+            <span className="flex items-center gap-1 border rounded-md p-0.5">
+              {(["post", "story"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setPublishKind(k);
+                    if (k === "story") setPublishTargets((t) => t.filter((p) => p === "facebook" || p === "instagram"));
+                  }}
+                  className={`px-3 h-7 rounded text-sm ${publishKind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  {k === "post" ? "פוסט" : "סטורי"}
+                </button>
+              ))}
+            </span>
             {PLATFORMS.map((p) => (
               <label
                 key={p}
                 className={`flex items-center gap-1.5 text-sm ${
-                  accounts[p].enabled ? "" : "opacity-40 pointer-events-none"
+                  accounts[p].enabled && (publishKind === "post" || p === "facebook" || p === "instagram") ? "" : "opacity-40 pointer-events-none"
                 }`}
               >
                 <Checkbox

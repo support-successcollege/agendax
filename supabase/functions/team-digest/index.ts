@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 // The team's daily publishing schedule, by email: every article going live
-// today (already published + scheduled), in order, with the article link and
-// the ready-made post/story images — so whoever runs the social accounts can
+// today (already published + scheduled) plus the social queue for the day,
+// in order, with the article link and the ready-made post/story images — so whoever runs the social accounts can
 // prepare stories and post them by hand right after each post goes up.
 //
 // Body: { to?: string[], date?: "YYYY-MM-DD" }  (defaults: TEAM_DIGEST_TO env,
@@ -82,6 +82,48 @@ Deno.serve(async (req) => {
       .filter((r) => r.when && israelDate(r.when) === day)
       .sort((a, b) => a.when!.getTime() - b.when!.getTime());
 
+    // The social queue for the same day: what goes out to the networks and when.
+    const { data: qData } = await supabase
+      .from("social_queue")
+      .select("id, article_id, platforms, kind, scheduled_at, status, source")
+      .neq("status", "cancelled")
+      .gte("scheduled_at", lo)
+      .lte("scheduled_at", hi)
+      .order("scheduled_at", { ascending: true })
+      .limit(100);
+    const queueRows = ((qData ?? []) as any[]).filter((q) => israelDate(new Date(q.scheduled_at)) === day);
+    const queueArticleIds = [...new Set(queueRows.map((q) => q.article_id))].filter((id) => !rows.some((r) => r.id === id));
+    const extraTitles = new Map<string, { title: string; slug: string | null; category: string }>();
+    if (queueArticleIds.length) {
+      const { data: extra } = await supabase.from("articles").select("id, title, slug, category").in("id", queueArticleIds);
+      for (const a of (extra ?? []) as any[]) extraTitles.set(a.id, a);
+    }
+    const PLATFORM_HE: Record<string, string> = { facebook: "פייסבוק", instagram: "אינסטגרם", linkedin: "לינקדאין", x: "X" };
+    const QSTATUS: Record<string, string> = {
+      queued: `<span style="color:#0369a1">בתור</span>`,
+      publishing: `<span style="color:#b45309">מפרסם…</span>`,
+      posted: `<span style="color:#166534;font-weight:700">פורסם</span>`,
+      failed: `<span style="color:#b91c1c;font-weight:700">נכשל</span>`,
+    };
+    const queueItems = queueRows.map((q) => {
+      const a = rows.find((r) => r.id === q.article_id) ?? extraTitles.get(q.article_id);
+      const title = a?.title ?? "כתבה שנמחקה";
+      const url = `${SITE_URL}/article/${encodeURIComponent(a?.slug || q.article_id)}`;
+      const img = `${SUPABASE_URL}/functions/v1/social-image?articleId=${q.article_id}&variant=${q.kind === "story" ? "story" : "post"}`;
+      const kind = q.kind === "story"
+        ? `<span style="display:inline-block;background:#c026d3;color:#fff;font-size:12px;padding:2px 8px;border-radius:4px">סטורי</span>`
+        : `<span style="display:inline-block;background:#0d3c99;color:#fff;font-size:12px;padding:2px 8px;border-radius:4px">פוסט</span>`;
+      return `
+        <tr>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums">${israelTime(new Date(q.scheduled_at))}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb">${kind}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;line-height:1.4"><a href="${url}" style="color:#0d3c99;text-decoration:none;font-weight:600">${esc(title)}</a></td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;font-size:13px">${(q.platforms as string[]).map((p) => PLATFORM_HE[p] ?? p).join(", ")}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;white-space:nowrap">${QSTATUS[q.status] ?? esc(q.status)}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;white-space:nowrap;font-size:13px"><a href="${img}" style="color:#0d3c99">תמונה</a></td>
+        </tr>`;
+    }).join("");
+
     const now = new Date();
     const items = rows.map((r) => {
       const live = !r.is_draft;
@@ -128,10 +170,18 @@ Deno.serve(async (req) => {
         <th style="padding:8px">שעה</th><th style="padding:8px">קטגוריה</th><th style="padding:8px">כותרת</th><th style="padding:8px">סטטוס</th><th style="padding:8px">תמונות</th>
       </tr></thead>
       <tbody>${items}</tbody></table>`}
+    <h3 style="margin:22px 8px 6px;font-size:16px">פרסומים ברשתות היום (${queueRows.length})</h3>
+    ${queueRows.length === 0
+      ? `<p style="padding:6px 8px 12px;color:#64748b">אין פרסומים מתוזמנים לרשתות היום.</p>`
+      : `<table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr style="text-align:right;color:#64748b;font-size:12px">
+        <th style="padding:8px">שעה</th><th style="padding:8px">סוג</th><th style="padding:8px">כותרת</th><th style="padding:8px">רשתות</th><th style="padding:8px">סטטוס</th><th style="padding:8px">תמונה</th>
+      </tr></thead>
+      <tbody>${queueItems}</tbody></table>`}
     <div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:10px;font-size:13px;line-height:1.7;color:#334155">
       <b>איך עובדים עם הלוז:</b><br>
-      1. השעה היא מועד הפרסום באתר (שעון ישראל). הפוסט לרשתות עולה אוטומטית תוך כ-20 דקות אחריו.<br>
-      2. אחרי שהפוסט עלה — פתחו את <b>תמונת הסטורי</b> בטלפון, שמרו, והעלו סטורי עם מדבקת קישור לכתבה (הקישור בכותרת).<br>
+      1. הטבלה הראשונה — מה עולה באתר ומתי. הטבלה השנייה — הפוסטים/סטוריז לרשתות לפי התור בפאנל (אפשר להזיז, לבטל ולהוסיף שם).<br>
+      2. סטורי ידני: אחרי שהפוסט עלה — פתחו את <b>תמונת הסטורי</b> בטלפון, שמרו, והעלו סטורי עם מדבקת קישור לכתבה (הקישור בכותרת).<br>
       3. קישורי התמונות תמיד עובדים — אם התמונה עוד לא הוכנה, הלחיצה הראשונה מייצרת אותה (כ-5 שניות) ואז פותחת אותה.<br>
       4. שורה "ממתין לפרסום" = עברה השעה והכתבה עוד טיוטה — כדאי להציץ בפאנל.
     </div>
@@ -151,7 +201,7 @@ Deno.serve(async (req) => {
     });
     const result = await resp.json().catch(() => ({}));
     if (!resp.ok) return json({ error: `Resend ${resp.status}: ${JSON.stringify(result).slice(0, 200)}` }, 502);
-    return json({ ok: true, to, day, articles: rows.length, published, pending, id: result?.id });
+    return json({ ok: true, to, day, articles: rows.length, published, pending, social: queueRows.length, id: result?.id });
   } catch (e: any) {
     console.error("team-digest error", e);
     return json({ error: e?.message || "שגיאה לא ידועה" }, 500);
