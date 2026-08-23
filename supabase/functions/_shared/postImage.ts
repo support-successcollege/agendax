@@ -267,3 +267,193 @@ export async function renderPostPng(opts: {
   const png = new Resvg(svg, { fitTo: { mode: "width", value: W } }).render().asPng();
   return png;
 }
+
+// ---- story variant (1080×1920) ---------------------------------------------
+// Same composition stretched to 9:16, plus a call-to-action footer carrying
+// the site address: stories published through the API cannot hold a link
+// sticker, so the pointer to the article is baked into the pixels.
+const SW = 1080;
+const SH = 1920;
+
+export async function renderStoryPng(opts: {
+  title: string;
+  category: string;
+  categoryColor: string;
+  photoUrl: string;
+  ctaHost?: string;
+}): Promise<Uint8Array> {
+  const [fonts, wordmark, photo] = await Promise.all([
+    ensureFonts(),
+    ensureWordmark(),
+    toDataUrl(opts.photoUrl),
+    ensureWasm(),
+  ]);
+  const { size, lines } = layoutTitle(opts.title);
+  const ctaHost = opts.ctaHost ?? "agendax.co.il";
+
+  const tree = h(
+    "div",
+    {
+      style: {
+        width: `${SW}px`,
+        height: `${SH}px`,
+        display: "flex",
+        position: "relative",
+        fontFamily: "Assistant, AssistantLatin",
+        overflow: "hidden",
+        backgroundColor: "#07142a",
+      },
+    },
+    h("img", {
+      src: photo,
+      width: SW,
+      height: SH,
+      style: { position: "absolute", top: 0, left: 0, width: `${SW}px`, height: `${SH}px`, objectFit: "cover" },
+    }),
+    h("div", {
+      style: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: `${SW}px`,
+        height: `${SH}px`,
+        background:
+          "linear-gradient(to bottom, rgba(7,14,35,0.30) 0%, rgba(7,14,35,0.35) 45%, rgba(7,14,35,0.82) 100%)",
+      },
+    }),
+    h("div", {
+      style: {
+        position: "absolute",
+        left: "-148px",
+        top: "-176px",
+        width: "1376px",
+        height: "418px",
+        borderRadius: "50%",
+        backgroundColor: BRAND_BLUE,
+        opacity: 0.59,
+      },
+    }),
+    h("div", {
+      style: {
+        position: "absolute",
+        left: "-115px",
+        top: "-266px",
+        width: "1376px",
+        height: "437px",
+        borderRadius: "50%",
+        backgroundColor: CREAM,
+        opacity: 0.5,
+      },
+    }),
+    h("img", {
+      src: wordmark,
+      width: 600,
+      height: 80,
+      style: { position: "absolute", left: "240px", top: "60px", width: "600px", height: "80px" },
+    }),
+    // Category box
+    h(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          top: "1180px",
+          left: 0,
+          width: `${SW}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      },
+      h(
+        "div",
+        {
+          style: {
+            backgroundColor: opts.categoryColor,
+            color: "#ffffff",
+            fontSize: "58px",
+            height: "75px",
+            padding: "0 45px",
+            display: "flex",
+            alignItems: "center",
+            letterSpacing: "2px",
+          },
+        },
+        toVisualLine(opts.category),
+      ),
+    ),
+    // Headline
+    h(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          top: "1275px",
+          left: "51px",
+          width: "978px",
+          height: "330px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        },
+      },
+      ...lines.map((line) =>
+        h(
+          "div",
+          {
+            style: {
+              fontSize: `${size}px`,
+              fontWeight: 700,
+              color: "#ffffff",
+              lineHeight: 1.08,
+              letterSpacing: "1.5px",
+              whiteSpace: "nowrap",
+            },
+          },
+          line,
+        ),
+      ),
+    ),
+    // CTA footer: "read the full article at" + the address, in a pill.
+    h(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          top: "1660px",
+          left: 0,
+          width: `${SW}px`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        },
+      },
+      h(
+        "div",
+        { style: { fontSize: "38px", color: "rgba(255,255,255,0.85)", letterSpacing: "1px" } },
+        toVisualLine("לכתבה המלאה באתר"),
+      ),
+      h(
+        "div",
+        {
+          style: {
+            marginTop: "18px",
+            backgroundColor: "#ffffff",
+            color: BRAND_BLUE,
+            fontSize: "50px",
+            fontWeight: 700,
+            padding: "14px 56px",
+            borderRadius: "999px",
+            letterSpacing: "1px",
+          },
+        },
+        ctaHost,
+      ),
+    ),
+  );
+
+  const svg = await satori(tree as any, { width: SW, height: SH, fonts });
+  // Rasterized at 720×1280 (plenty for a phone story): the full 1080×1920
+  // raster pushed the edge worker past its CPU budget.
+  return new Resvg(svg, { fitTo: { mode: "width", value: 720 } }).render().asPng();
+}

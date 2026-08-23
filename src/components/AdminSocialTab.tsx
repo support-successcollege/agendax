@@ -94,6 +94,13 @@ const PLATFORM_META: Record<
 
 const PLATFORMS = Object.keys(PLATFORM_META) as Platform[];
 
+// Ledger rows the publisher writes beside the main post (the 9:16 story that
+// rides behind every Facebook / Instagram post).
+const EXTRA_LABELS: Record<string, string> = {
+  facebook_story: "סטורי פייסבוק",
+  instagram_story: "סטורי אינסטגרם",
+};
+
 const AdminSocialTab = () => {
   const { toast } = useToast();
   const { articles } = useArticles();
@@ -381,7 +388,7 @@ const AdminSocialTab = () => {
                       )}
                     </div>
                     <Badge variant="outline" className="shrink-0">
-                      {meta?.label ?? post.platform}
+                      {meta?.label ?? EXTRA_LABELS[post.platform] ?? post.platform}
                     </Badge>
                     <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                       {new Date(post.created_at).toLocaleString("he-IL")}

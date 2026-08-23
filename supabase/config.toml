@@ -78,3 +78,8 @@ verify_jwt = false
 # Indexing API for a freshly-published article.
 [functions.index-article]
 verify_jwt = false
+
+# Called by social-publish with the shared secret to render one branded image
+# per worker; authorizes cron-or-admin internally.
+[functions.social-image]
+verify_jwt = false

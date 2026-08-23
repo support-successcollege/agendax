@@ -123,6 +123,89 @@ export async function publishFacebook(
   return { externalId: String(data.post_id ?? data.id) };
 }
 
+/**
+ * Facebook Page story: the photo goes up unpublished, then is promoted to a
+ * story. Stories created through the API carry no link sticker (Meta keeps
+ * that to the app), so the story image itself has the site address on it.
+ */
+export async function publishFacebookStory(
+  creds: Creds,
+  post: { imageUrl: string },
+): Promise<PublishResult> {
+  need(creds, ["page_id", "access_token"], "פייסבוק");
+  const pageToken = await fbPageToken(creds);
+  const upload = await fetch(`https://graph.facebook.com/v21.0/${creds.page_id}/photos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: post.imageUrl, published: false, access_token: pageToken }),
+  });
+  const photo = await upload.json();
+  if (!upload.ok || !photo?.id) {
+    throw new Error(`Facebook story upload ${upload.status}: ${photo?.error?.message ?? JSON.stringify(photo).slice(0, 200)}`);
+  }
+  const story = await fetch(`https://graph.facebook.com/v21.0/${creds.page_id}/photo_stories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ photo_id: photo.id, access_token: pageToken }),
+  });
+  const data = await story.json();
+  if (!story.ok) throw new Error(`Facebook story ${story.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 200)}`);
+  return { externalId: String(data.post_id ?? data.id ?? photo.id) };
+}
+
+/** Instagram story from the branded image (no link sticker — API limit). */
+export async function publishInstagramStory(
+  creds: Creds,
+  post: { imageUrl: string },
+): Promise<PublishResult> {
+  need(creds, ["ig_user_id", "access_token"], "אינסטגרם");
+  const createResp = await fetch(`https://graph.facebook.com/v21.0/${creds.ig_user_id}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      image_url: post.imageUrl,
+      media_type: "STORIES",
+      access_token: creds.access_token,
+    }),
+  });
+  const created = await createResp.json();
+  if (!createResp.ok) {
+    throw new Error(`Instagram story ${createResp.status}: ${created?.error?.message ?? JSON.stringify(created).slice(0, 200)}`);
+  }
+  return await publishIgContainer(creds, created.id);
+}
+
+/** Polls an IG media container to FINISHED, then publishes it (with retries). */
+async function publishIgContainer(creds: Creds, containerId: string): Promise<PublishResult> {
+  for (let i = 0; i < 10; i++) {
+    const statusResp = await fetch(
+      `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${encodeURIComponent(creds.access_token)}`,
+    );
+    const status = await statusResp.json().catch(() => ({}));
+    if (status?.status_code === "FINISHED") break;
+    if (status?.status_code === "ERROR") {
+      throw new Error(`Instagram container ERROR: ${JSON.stringify(status).slice(0, 200)}`);
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  let published: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const publishResp = await fetch(`https://graph.facebook.com/v21.0/${creds.ig_user_id}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: containerId, access_token: creds.access_token }),
+    });
+    published = await publishResp.json();
+    if (publishResp.ok) return { externalId: String(published.id) };
+    const message = String(published?.error?.message ?? "");
+    if (!message.includes("Media ID is not available")) {
+      throw new Error(`Instagram publish ${publishResp.status}: ${message || JSON.stringify(published).slice(0, 200)}`);
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  throw new Error(`Instagram publish: ${published?.error?.message ?? "המדיה לא סיימה עיבוד בזמן"}`);
+}
+
 /** Instagram Business photo post: media container → publish. */
 export async function publishInstagram(
   creds: Creds,
@@ -144,38 +227,7 @@ export async function publishInstagram(
   if (!createResp.ok) {
     throw new Error(`Instagram media ${createResp.status}: ${created?.error?.message ?? JSON.stringify(created).slice(0, 200)}`);
   }
-
-  // The container processes the image asynchronously; publishing before it
-  // reaches FINISHED fails with "Media ID is not available". Poll first.
-  for (let i = 0; i < 10; i++) {
-    const statusResp = await fetch(
-      `https://graph.facebook.com/v21.0/${created.id}?fields=status_code&access_token=${encodeURIComponent(creds.access_token)}`,
-    );
-    const status = await statusResp.json().catch(() => ({}));
-    if (status?.status_code === "FINISHED") break;
-    if (status?.status_code === "ERROR") {
-      throw new Error(`Instagram container ERROR: ${JSON.stringify(status).slice(0, 200)}`);
-    }
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-
-  let published: any = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const publishResp = await fetch(`https://graph.facebook.com/v21.0/${creds.ig_user_id}/media_publish`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ creation_id: created.id, access_token: creds.access_token }),
-    });
-    published = await publishResp.json();
-    if (publishResp.ok) return { externalId: String(published.id) };
-    const message = String(published?.error?.message ?? "");
-    // Still processing — wait and retry; anything else is a real failure.
-    if (!message.includes("Media ID is not available")) {
-      throw new Error(`Instagram publish ${publishResp.status}: ${message || JSON.stringify(published).slice(0, 200)}`);
-    }
-    await new Promise((r) => setTimeout(r, 3000));
-  }
-  throw new Error(`Instagram publish: ${published?.error?.message ?? "המדיה לא סיימה עיבוד בזמן"}`);
+  return await publishIgContainer(creds, created.id);
 }
 
 // ---------------------------------------------------------------------------

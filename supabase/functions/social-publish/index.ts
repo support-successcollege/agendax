@@ -16,50 +16,87 @@ import {
   SITE_URL,
   generatePostText,
   publishFacebook,
+  publishFacebookStory,
   publishInstagram,
+  publishInstagramStory,
   publishLinkedIn,
   publishX,
   type ArticleForPost,
 } from "../_shared/social.ts";
-import { renderPostPng } from "../_shared/postImage.ts";
-
-const PALETTE = ["#0d3c99", "#7c3aed", "#0f766e", "#be123c", "#b45309", "#166534", "#0e7490", "#9d174d"];
-function categoryColor(key: string): string {
-  const s = (key || "").trim().toLowerCase();
-  if (!s) return PALETTE[0];
-  let hash = 0;
-  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
-  return PALETTE[hash % PALETTE.length];
-}
 
 /**
- * The branded post PNG (the Canva-template composition) for an article:
- * rendered server-side once, stored at article-images/social/{id}.png, and
- * reused ever after. Falls back to the raw article image if rendering fails —
- * a post with a plain photo beats no post.
+ * The branded images (4:5 post, 9:16 story) are rendered by the social-image
+ * function — one fresh worker per render, because satori + resvg at these
+ * sizes exhaust a single worker when two renders share it. Cached in storage
+ * at social/{id}.png and social/{id}-story.png; this call returns the URL.
  */
-async function brandedImageUrl(supabase: any, article: ArticleRow): Promise<string> {
-  const path = `social/${article.id}.png`;
-  const publicUrl = supabase.storage.from("article-images").getPublicUrl(path).data.publicUrl;
-
+async function renderedImageUrl(supabase: any, article: ArticleRow, variant: "post" | "story"): Promise<string | null> {
+  // Already rendered on an earlier pass? Skip the render worker entirely.
+  const path = variant === "story" ? `social/${article.id}-story.png` : `social/${article.id}.png`;
+  const publicUrl: string = supabase.storage.from("article-images").getPublicUrl(path).data.publicUrl;
   const head = await fetch(publicUrl, { method: "HEAD" }).catch(() => null);
   if (head?.ok) return publicUrl;
 
+  const secret = Deno.env.get("INGEST_CRON_SECRET");
+  if (!secret) return null;
+  // Two attempts: a render worker that just finished a heavy job can answer
+  // 546 once before the runtime recycles it.
+  let lastError = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const resp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/social-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-ingest-secret": secret },
+        body: JSON.stringify({ articleId: article.id, variant }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data?.url) return String(data.url);
+      lastError = data?.error || `HTTP ${resp.status}`;
+    } catch (e) {
+      lastError = (e as Error).message;
+    }
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  console.error(`${variant} image render failed:`, lastError);
+  return null;
+}
+
+/** Post image, with the raw article photo as the fallback — a plain photo beats no post. */
+async function brandedImageUrl(supabase: any, article: ArticleRow): Promise<string> {
+  return (await renderedImageUrl(supabase, article, "post")) ?? article.image_url;
+}
+
+/** Story image; null when rendering failed (the story is then skipped). */
+async function storyImageUrl(supabase: any, article: ArticleRow): Promise<string | null> {
+  return await renderedImageUrl(supabase, article, "story");
+}
+
+/**
+ * After a Facebook/Instagram post goes up, the same story rides behind it:
+ * the 9:16 branded image with the site address baked in (the API allows no
+ * link sticker). A story failure never fails the post — it gets its own
+ * ledger row, platform "<platform>_story".
+ */
+async function publishStory(supabase: any, article: ArticleRow, account: Account): Promise<void> {
+  if (account.platform !== "facebook" && account.platform !== "instagram") return;
+  const storyPlatform = `${account.platform}_story`;
   try {
-    const png = await renderPostPng({
-      title: article.title,
-      category: article.category,
-      categoryColor: categoryColor(article.category_slug || article.category),
-      photoUrl: article.image_url,
-    });
-    const { error } = await supabase.storage
-      .from("article-images")
-      .upload(path, png, { contentType: "image/png", upsert: true });
-    if (error) throw error;
-    return publicUrl;
-  } catch (e) {
-    console.error("branded image render failed, using article image:", (e as Error).message);
-    return article.image_url;
+    const image = await storyImageUrl(supabase, article);
+    if (!image) throw new Error("רינדור תמונת הסטורי נכשל");
+    const { externalId } = account.platform === "facebook"
+      ? await publishFacebookStory(account.credentials, { imageUrl: image })
+      : await publishInstagramStory(account.credentials, { imageUrl: image });
+    await supabase.from("social_posts").upsert(
+      { article_id: article.id, platform: storyPlatform, status: "posted", external_id: externalId, post_text: null, error: null },
+      { onConflict: "article_id,platform" },
+    );
+  } catch (e: any) {
+    const message = e?.message || String(e);
+    console.error(`${storyPlatform} failed:`, message);
+    await supabase.from("social_posts").upsert(
+      { article_id: article.id, platform: storyPlatform, status: "failed", post_text: null, error: message.slice(0, 500) },
+      { onConflict: "article_id,platform" },
+    );
   }
 }
 
@@ -145,6 +182,7 @@ async function publishOne(
       },
       { onConflict: "article_id,platform" },
     );
+    await publishStory(supabase, article, account);
     return { platform: account.platform, ok: true };
   } catch (e: any) {
     const message = e?.message || String(e);
