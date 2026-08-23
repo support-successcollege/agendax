@@ -145,16 +145,37 @@ export async function publishInstagram(
     throw new Error(`Instagram media ${createResp.status}: ${created?.error?.message ?? JSON.stringify(created).slice(0, 200)}`);
   }
 
-  const publishResp = await fetch(`https://graph.facebook.com/v21.0/${creds.ig_user_id}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ creation_id: created.id, access_token: creds.access_token }),
-  });
-  const published = await publishResp.json();
-  if (!publishResp.ok) {
-    throw new Error(`Instagram publish ${publishResp.status}: ${published?.error?.message ?? JSON.stringify(published).slice(0, 200)}`);
+  // The container processes the image asynchronously; publishing before it
+  // reaches FINISHED fails with "Media ID is not available". Poll first.
+  for (let i = 0; i < 10; i++) {
+    const statusResp = await fetch(
+      `https://graph.facebook.com/v21.0/${created.id}?fields=status_code&access_token=${encodeURIComponent(creds.access_token)}`,
+    );
+    const status = await statusResp.json().catch(() => ({}));
+    if (status?.status_code === "FINISHED") break;
+    if (status?.status_code === "ERROR") {
+      throw new Error(`Instagram container ERROR: ${JSON.stringify(status).slice(0, 200)}`);
+    }
+    await new Promise((r) => setTimeout(r, 2000));
   }
-  return { externalId: String(published.id) };
+
+  let published: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const publishResp = await fetch(`https://graph.facebook.com/v21.0/${creds.ig_user_id}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: created.id, access_token: creds.access_token }),
+    });
+    published = await publishResp.json();
+    if (publishResp.ok) return { externalId: String(published.id) };
+    const message = String(published?.error?.message ?? "");
+    // Still processing — wait and retry; anything else is a real failure.
+    if (!message.includes("Media ID is not available")) {
+      throw new Error(`Instagram publish ${publishResp.status}: ${message || JSON.stringify(published).slice(0, 200)}`);
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  throw new Error(`Instagram publish: ${published?.error?.message ?? "המדיה לא סיימה עיבוד בזמן"}`);
 }
 
 // ---------------------------------------------------------------------------
