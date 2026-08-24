@@ -59,8 +59,10 @@ export interface IngestRun {
 export interface IngestStats {
   publishedToday: number;
   queued: number;
-  /** Per active category, not per site. */
+  /** Per active category, not per site (weekday value). */
   dailyTarget: number;
+  /** Friday/Saturday value. */
+  weekendTarget: number;
   queueBuffer: number;
   lookbackHours: number;
   categoryCount: number;
@@ -97,6 +99,7 @@ export const useIngestStats = () =>
         publishedToday: row?.published_today ?? 0,
         queued: row?.queued ?? 0,
         dailyTarget: row?.daily_target ?? 10,
+        weekendTarget: (row as { weekend_target?: number } | null)?.weekend_target ?? 1,
         queueBuffer: row?.queue_buffer ?? 3,
         lookbackHours: row?.lookback_hours ?? 24,
         categoryCount: row?.category_count ?? 1,
@@ -122,10 +125,10 @@ export const useCategoryStats = () =>
     refetchInterval: 30_000,
   });
 
-export const updateDailyTarget = async (dailyTarget: number) => {
+export const updateDailyTarget = async (dailyTarget: number, weekendTarget?: number) => {
   const { error } = await supabase
     .from("ingest_config")
-    .update({ daily_target: dailyTarget })
+    .update({ daily_target: dailyTarget, ...(weekendTarget != null ? { weekend_target: weekendTarget } : {}) })
     .eq("id", true);
   if (error) throw error;
 };

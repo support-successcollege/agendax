@@ -124,6 +124,16 @@ Deno.serve(async (req) => {
         </tr>`;
     }).join("");
 
+    // Feeds the scanner shut down in the last day (14 straight days of
+    // failures) — the team should know the pool shrank.
+    const { data: deadSources } = await supabase
+      .from("news_sources")
+      .select("name, last_status, auto_disabled_at")
+      .gte("auto_disabled_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+    const disabledLines = ((deadSources ?? []) as any[])
+      .map((d) => `<li><b>${esc(d.name)}</b> — ${esc((d.last_status || "").slice(0, 120))}</li>`)
+      .join("");
+
     const now = new Date();
     const items = rows.map((r) => {
       const live = !r.is_draft;
@@ -178,6 +188,12 @@ Deno.serve(async (req) => {
         <th style="padding:8px">שעה</th><th style="padding:8px">סוג</th><th style="padding:8px">כותרת</th><th style="padding:8px">רשתות</th><th style="padding:8px">סטטוס</th><th style="padding:8px">תמונה</th>
       </tr></thead>
       <tbody>${queueItems}</tbody></table>`}
+    ${disabledLines
+      ? `<div style="margin-top:18px;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:13px;color:#7f1d1d">
+      <b>מקורות RSS שכובו אוטומטית (נכשלו 14 יום ברצף):</b>
+      <ul style="margin:6px 0 0;padding-inline-start:18px">${disabledLines}</ul>
+      אפשר לתקן את הכתובת ולהדליק מחדש בפאנל, בלשונית סוכן החדשות.</div>`
+      : ""}
     <div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:10px;font-size:13px;line-height:1.7;color:#334155">
       <b>איך עובדים עם הלוז:</b><br>
       1. הטבלה הראשונה — מה עולה באתר ומתי. הטבלה השנייה — הפוסטים/סטוריז לרשתות לפי התור בפאנל (אפשר להזיז, לבטל ולהוסיף שם).<br>

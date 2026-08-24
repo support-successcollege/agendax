@@ -369,7 +369,8 @@ export async function resolveCategory(
 export type IngestStats = {
   publishedToday: number;
   queued: number;
-  /** Per active category, not per site. */
+  /** Per active category, not per site. Already the EFFECTIVE value for
+   * today: weekdays use daily_target, Friday/Saturday (Israel) weekend_target. */
   dailyTarget: number;
   queueBuffer: number;
   lookbackHours: number;
@@ -411,10 +412,15 @@ export async function loadStats(supabase: SupabaseClient): Promise<IngestStats> 
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
   };
+  // Friday/Saturday in Israel run on the weekend quota.
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", weekday: "short" }).format(new Date());
+  const isWeekend = weekday === "Fri" || weekday === "Sat";
+  const weekdayTarget = num(row.daily_target, STATS_FALLBACK.dailyTarget);
+  const weekendTarget = num(row.weekend_target, weekdayTarget);
   return {
     publishedToday: num(row.published_today, 0),
     queued: num(row.queued, 0),
-    dailyTarget: num(row.daily_target, STATS_FALLBACK.dailyTarget),
+    dailyTarget: isWeekend ? weekendTarget : weekdayTarget,
     queueBuffer: num(row.queue_buffer, STATS_FALLBACK.queueBuffer),
     lookbackHours: num(row.lookback_hours, STATS_FALLBACK.lookbackHours),
     categoryCount: num(row.category_count, STATS_FALLBACK.categoryCount),

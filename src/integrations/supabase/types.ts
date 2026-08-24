@@ -120,6 +120,8 @@ export type Database = {
           is_draft: boolean
           is_featured: boolean | null
           published_at: string | null
+          review_note: string | null
+          review_score: number | null
           scheduled_at: string | null
           slug: string | null
           source_links: Json | null
@@ -143,6 +145,8 @@ export type Database = {
           is_draft?: boolean
           is_featured?: boolean | null
           published_at?: string | null
+          review_note?: string | null
+          review_score?: number | null
           scheduled_at?: string | null
           slug?: string | null
           source_links?: Json | null
@@ -166,6 +170,8 @@ export type Database = {
           is_draft?: boolean
           is_featured?: boolean | null
           published_at?: string | null
+          review_note?: string | null
+          review_score?: number | null
           scheduled_at?: string | null
           slug?: string | null
           source_links?: Json | null
@@ -663,7 +669,223 @@ export type Database = {
         }
         Relationships: []
       }
+      articles_backup_20260823_2226: {
+        Row: {
+          author: string | null
+          category: string | null
+          category_slug: string | null
+          content: string | null
+          created_at: string | null
+          date: string | null
+          excerpt: string | null
+          id: string | null
+          image_url: string | null
+          is_breaking: boolean | null
+          is_draft: boolean | null
+          is_featured: boolean | null
+          published_at: string | null
+          scheduled_at: string | null
+          slug: string | null
+          source_links: Json | null
+          source_name: string | null
+          source_published_at: string | null
+          source_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author?: string | null
+          category?: string | null
+          category_slug?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          excerpt?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_breaking?: boolean | null
+          is_draft?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          slug?: string | null
+          source_links?: Json | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author?: string | null
+          category?: string | null
+          category_slug?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          excerpt?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_breaking?: boolean | null
+          is_draft?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          slug?: string | null
+          source_links?: Json | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       articles_backup_20260823_post: {
+        Row: {
+          author: string | null
+          category: string | null
+          category_slug: string | null
+          content: string | null
+          created_at: string | null
+          date: string | null
+          excerpt: string | null
+          id: string | null
+          image_url: string | null
+          is_breaking: boolean | null
+          is_draft: boolean | null
+          is_featured: boolean | null
+          published_at: string | null
+          scheduled_at: string | null
+          slug: string | null
+          source_links: Json | null
+          source_name: string | null
+          source_published_at: string | null
+          source_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author?: string | null
+          category?: string | null
+          category_slug?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          excerpt?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_breaking?: boolean | null
+          is_draft?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          slug?: string | null
+          source_links?: Json | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author?: string | null
+          category?: string | null
+          category_slug?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          excerpt?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_breaking?: boolean | null
+          is_draft?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          slug?: string | null
+          source_links?: Json | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      articles_backup_20260824: {
+        Row: {
+          author: string | null
+          category: string | null
+          category_slug: string | null
+          content: string | null
+          created_at: string | null
+          date: string | null
+          excerpt: string | null
+          id: string | null
+          image_url: string | null
+          is_breaking: boolean | null
+          is_draft: boolean | null
+          is_featured: boolean | null
+          published_at: string | null
+          scheduled_at: string | null
+          slug: string | null
+          source_links: Json | null
+          source_name: string | null
+          source_published_at: string | null
+          source_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author?: string | null
+          category?: string | null
+          category_slug?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          excerpt?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_breaking?: boolean | null
+          is_draft?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          slug?: string | null
+          source_links?: Json | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author?: string | null
+          category?: string | null
+          category_slug?: string | null
+          content?: string | null
+          created_at?: string | null
+          date?: string | null
+          excerpt?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_breaking?: boolean | null
+          is_draft?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          slug?: string | null
+          source_links?: Json | null
+          source_name?: string | null
+          source_published_at?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      articles_backup_20260824_pre2: {
         Row: {
           author: string | null
           category: string | null
@@ -1241,6 +1463,7 @@ export type Database = {
           lookback_hours: number
           queue_buffer: number
           updated_at: string
+          weekend_target: number
         }
         Insert: {
           daily_target?: number
@@ -1248,6 +1471,7 @@ export type Database = {
           lookback_hours?: number
           queue_buffer?: number
           updated_at?: string
+          weekend_target?: number
         }
         Update: {
           daily_target?: number
@@ -1255,6 +1479,7 @@ export type Database = {
           lookback_hours?: number
           queue_buffer?: number
           updated_at?: string
+          weekend_target?: number
         }
         Relationships: []
       }
@@ -1276,6 +1501,7 @@ export type Database = {
           source_summary: string | null
           source_title: string
           status: string
+          update_of: string | null
           updated_at: string
           url: string
           url_key: string
@@ -1297,6 +1523,7 @@ export type Database = {
           source_summary?: string | null
           source_title: string
           status?: string
+          update_of?: string | null
           updated_at?: string
           url: string
           url_key: string
@@ -1318,6 +1545,7 @@ export type Database = {
           source_summary?: string | null
           source_title?: string
           status?: string
+          update_of?: string | null
           updated_at?: string
           url?: string
           url_key?: string
@@ -1326,6 +1554,13 @@ export type Database = {
           {
             foreignKeyName: "ingest_items_article_id_fkey"
             columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_items_update_of_fkey"
+            columns: ["update_of"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
@@ -1541,9 +1776,11 @@ export type Database = {
       }
       news_sources: {
         Row: {
+          auto_disabled_at: string | null
           bucket: string | null
           created_at: string
           feed_url: string
+          first_failed_at: string | null
           homepage: string | null
           id: string
           is_active: boolean
@@ -1555,9 +1792,11 @@ export type Database = {
           weight: number
         }
         Insert: {
+          auto_disabled_at?: string | null
           bucket?: string | null
           created_at?: string
           feed_url: string
+          first_failed_at?: string | null
           homepage?: string | null
           id?: string
           is_active?: boolean
@@ -1569,9 +1808,11 @@ export type Database = {
           weight?: number
         }
         Update: {
+          auto_disabled_at?: string | null
           bucket?: string | null
           created_at?: string
           feed_url?: string
+          first_failed_at?: string | null
           homepage?: string | null
           id?: string
           is_active?: boolean
@@ -1582,8 +1823,7 @@ export type Database = {
           updated_at?: string
           weight?: number
         }
-        Relationships: [
-        ]
+        Relationships: []
       }
       newsletter_sends: {
         Row: {
@@ -2136,6 +2376,7 @@ export type Database = {
           source_summary: string | null
           source_title: string
           status: string
+          update_of: string | null
           updated_at: string
           url: string
           url_key: string
@@ -2246,6 +2487,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      headline_performance: {
+        Args: never
+        Returns: {
+          side: string
+          title: string
+          views: number
+        }[]
+      }
       ingest_category_stats: {
         Args: never
         Returns: {
@@ -2264,6 +2513,7 @@ export type Database = {
           published_today: number
           queue_buffer: number
           queued: number
+          weekend_target: number
         }[]
       }
       next_publish_slot: { Args: { _step_minutes?: number }; Returns: string }

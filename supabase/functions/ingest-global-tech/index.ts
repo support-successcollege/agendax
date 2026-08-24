@@ -26,6 +26,7 @@ type Source = {
   name: string;
   feed_url: string;
   weight: number;
+  first_failed_at: string | null;
 };
 
 type Candidate = FeedItem & {
@@ -129,7 +130,7 @@ serve(async (req) => {
     // files each picked story under a category by itself.
     const { data: sources, error: srcErr } = await supabase
       .from("news_sources")
-      .select("id, name, feed_url, weight")
+      .select("id, name, feed_url, weight, first_failed_at")
       .eq("is_active", true);
     if (srcErr) throw new Error(`טעינת מקורות נכשלה: ${srcErr.message}`);
     if (!sources?.length) return json({ error: "אין מקורות פעילים" }, 400);
@@ -149,10 +150,22 @@ serve(async (req) => {
         sourcesFailed++;
         perSource.push({ name: source.name, ok: false, items: 0, error: result.error });
         notes.push(`${source.name}: ${result.error}`);
+        // A feed that has answered nothing but errors for two straight weeks
+        // is dead — switch it off so it stops weighing on every scan. The
+        // panel and the daily digest both surface the shutdown.
+        const failingSince = source.first_failed_at ? Date.parse(source.first_failed_at) : Date.now();
+        const deadFor14Days = Date.now() - failingSince > 14 * 24 * 3600_000;
         await supabase
           .from("news_sources")
-          .update({ last_fetched_at: new Date().toISOString(), last_status: result.error, last_item_count: 0 })
+          .update({
+            last_fetched_at: new Date().toISOString(),
+            last_status: result.error,
+            last_item_count: 0,
+            first_failed_at: source.first_failed_at ?? new Date().toISOString(),
+            ...(deadFor14Days ? { is_active: false, auto_disabled_at: new Date().toISOString() } : {}),
+          })
           .eq("id", source.id);
+        if (deadFor14Days) notes.push(`המקור ${source.name} כובה אוטומטית — נכשל ברצף 14 יום`);
         continue;
       }
       sourcesOk++;
@@ -165,7 +178,7 @@ serve(async (req) => {
       perSource.push({ name: source.name, ok: true, items: fresh.length });
       await supabase
         .from("news_sources")
-        .update({ last_fetched_at: new Date().toISOString(), last_status: "ok", last_item_count: fresh.length })
+        .update({ last_fetched_at: new Date().toISOString(), last_status: "ok", last_item_count: fresh.length, first_failed_at: null })
         .eq("id", source.id);
 
       for (const it of fresh) {
@@ -239,15 +252,17 @@ serve(async (req) => {
       .sort((a, b) => b.weight - a.weight || hoursAgo(a.publishedAt) - hoursAgo(b.publishedAt))
       .slice(0, MAX_RANKED);
 
-    // Titles already on the site, so the ranker does not pick a story we ran.
+    // Articles already on the site: the ranker skips stories we ran — unless
+    // a candidate is a genuine DEVELOPMENT of one of them, in which case it
+    // marks it as an update (update_of) instead of a fresh piece.
     const since = new Date(Date.now() - 72 * 3_600_000).toISOString();
     const { data: recentArticles } = await supabase
       .from("articles")
-      .select("title")
+      .select("id, title")
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(40);
-    const alreadyCovered = (recentArticles || []).map((a: { title: string }) => a.title);
+    const covered = (recentArticles || []) as { id: string; title: string }[];
 
     const listing = shortlist
       .map(
@@ -283,8 +298,12 @@ ${budgetLines}
 - רלוונטיות לישראל: חברות עם מרכזי פיתוח בישראל, משקיעים ישראלים, סטארטאפים ישראלים, טכנולוגיה שמשפיעה על שוק העבודה בהייטק הישראלי — קבלו עדיפות.
 - עניין לקורא: משהו שקורא הייטק ישראלי ירצה לדעת עליו הבוקר.
 
+עדכונים לכתבות קיימות:
+- אם ידיעה מועמדת היא **המשך או התפתחות אמיתית** של כתבה שכבר באתר (רשימה מצורפת, כל אחת עם [U-מספר]) ויש בה מידע חדש מהותי — בחר אותה וסמן update_of עם המספר של הכתבה הקיימת. היא תתווסף ככתבת עדכון לכתבה הקיימת, לא תיפתח כתבה חדשה.
+- אם היא רק חוזרת על מה שכבר נכתב — אל תבחר אותה בכלל.
+
 מה **לא** לבחור:
-- ידיעות שכבר מכוסות באתר (רשימת הכותרות האחרונות מצורפת).
+- ידיעות שחוזרות על מה שכבר מכוסה באתר בלי חדש (רשימת הכותרות האחרונות מצורפת).
 - כפילויות: אם שתי ידיעות מספרות את אותו הסיפור, בחר רק אחת — את זו מהמקור האמין יותר.
 - תוכן שיווקי, מבצעי קניות, ביקורות גאדג'טים שוליות, רשימות "10 הכי טובים".
 - ידיעות שהן בעיקר דעה או פרשנות אישית בלי חדשות אמיתיות.
@@ -295,6 +314,7 @@ ${budgetLines}
 - priority: 1-10, כמה חשוב לפרסם את זה (10 = ידיעה מובילה).
 - angle: משפט אחד בעברית — הזווית שבה כדאי לכתוב את הכתבה לקורא הישראלי.
 - category: הקטגוריה שבחרת לידיעה — אחת מ: ${categoryNamesList}.
+- update_of (רק לעדכון): המספר של הכתבה הקיימת מרשימת ה-[U].
 
 אם בקטגוריה מסוימת אין מספיק ידיעות ראויות — החזר פחות ממכסתה. עדיף לא לפרסם מאשר לפרסם זבל.`;
 
@@ -304,7 +324,7 @@ ${budgetLines}
         {
           role: "user",
           content:
-            `כותרות שכבר פורסמו באתר ב-72 השעות האחרונות:\n${alreadyCovered.map((t) => `- ${t}`).join("\n") || "— אין —"}\n\n` +
+            `כתבות שכבר פורסמו באתר ב-72 השעות האחרונות:\n${covered.map((a, i) => `[U${i}] ${a.title}`).join("\n") || "— אין —"}\n\n` +
             `=== ידיעות מועמדות ===\n\n${listing}`,
         },
       ],
@@ -326,6 +346,7 @@ ${budgetLines}
                       priority: { type: "integer", description: "1-10" },
                       angle: { type: "string", description: "משפט אחד בעברית: הזווית לכתבה" },
                       category: { type: "string", description: "קטגוריה בעברית" },
+                      update_of: { type: "integer", description: "מספר U של כתבה קיימת — רק כשזו התפתחות שלה" },
                     },
                     required: ["index", "priority", "angle", "category"],
                     additionalProperties: false,
@@ -341,7 +362,7 @@ ${budgetLines}
       tool_choice: { type: "function", function: { name: "select_stories" } },
     });
 
-    const picks: { index: number; priority: number; angle: string; category: string }[] =
+    const picks: { index: number; priority: number; angle: string; category: string; update_of?: number }[] =
       (toolArgs(ranked).picks as any[]) || [];
 
     // Enforce the per-category budgets in code: the ranker's own category
@@ -350,14 +371,33 @@ ${budgetLines}
     // category name the model invented falls back to any category that still
     // has budget — better than dropping a good story.
     const bucketByName = new Map(categoryStats.map((c) => [c.name, c.bucket]));
-    const chosen = new Map<number, { priority: number; angle: string; category: string; bucket: string }>();
+    const chosen = new Map<number, { priority: number; angle: string; category: string; bucket: string | null; updateOf: string | null }>();
     const usedByBucket = new Map<string, number>();
     const hasRoom = (b: string) => (usedByBucket.get(b) ?? 0) < (wantedByBucket.get(b) ?? 0);
     const validPicks = picks
       .filter((p) => Number.isInteger(p.index) && p.index >= 0 && p.index < shortlist.length)
       .sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0));
+    let updatesTaken = 0;
     for (const p of validPicks) {
-      if (chosen.size >= limit) break;
+      // An update rides on an existing article: it spends no category budget
+      // and no daily quota, capped at 3 per scan so a noisy day cannot turn
+      // one story into an endless append-chain.
+      const updateTarget = Number.isInteger(p.update_of) && p.update_of! >= 0 && p.update_of! < covered.length
+        ? covered[p.update_of!]
+        : null;
+      if (updateTarget) {
+        if (updatesTaken >= 3 || chosen.has(p.index)) continue;
+        updatesTaken++;
+        chosen.set(p.index, {
+          priority: Math.min(Math.max(Number(p.priority) || 5, 1), 10),
+          angle: String(p.angle || "").slice(0, 500),
+          category: String(p.category || "").slice(0, 40),
+          bucket: null,
+          updateOf: updateTarget.id,
+        });
+        continue;
+      }
+      if (chosen.size - updatesTaken >= limit) continue;
       const pickedName = String(p.category || "").trim();
       let bucket = bucketByName.get(pickedName);
       if (!bucket) bucket = [...wantedByBucket.keys()].find((b) => hasRoom(b));
@@ -369,13 +409,14 @@ ${budgetLines}
         angle: String(p.angle || "").slice(0, 500),
         category: (stat?.name || pickedName || "הייטק").slice(0, 40),
         bucket,
+        updateOf: null,
       });
     }
 
     // --- 5. Write the ledger ------------------------------------------------
     // Every new URL is recorded, picked or not. That is the whole dedupe
     // guarantee: a story the ranker passed on is never offered again.
-    const pickByKey = new Map<string, { priority: number; angle: string; category: string; bucket: string }>();
+    const pickByKey = new Map<string, { priority: number; angle: string; category: string; bucket: string | null; updateOf: string | null }>();
     for (const [idx, pick] of chosen) pickByKey.set(shortlist[idx].key, pick);
 
     const rows = fresh.map((c) => {
@@ -395,6 +436,7 @@ ${budgetLines}
         priority: pick?.priority ?? 0,
         angle: pick?.angle ?? null,
         category_hint: pick?.category ?? null,
+        update_of: pick?.updateOf ?? null,
       };
     });
 
@@ -426,6 +468,7 @@ ${budgetLines}
           angle: r.angle,
           category_hint: r.category_hint,
           bucket: r.bucket,
+          update_of: r.update_of,
           source_image_url: r.source_image_url,
         })
         .eq("url_key", r.url_key)

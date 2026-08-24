@@ -26,6 +26,8 @@ type ArticleSources = {
   source_name: string | null;
   source_url: string | null;
   source_links: SourceLink[] | null;
+  review_score: number | null;
+  review_note: string | null;
 };
 
 interface ArticleEditDialogProps {
@@ -54,7 +56,7 @@ const ArticleEditDialog = ({ article, open, onOpenChange, onSave }: ArticleEditD
     queryFn: async (): Promise<ArticleSources | null> => {
       const { data } = await supabase
         .from("articles")
-        .select("source_name, source_url, source_links")
+        .select("source_name, source_url, source_links, review_score, review_note")
         .eq("id", article!.id)
         .maybeSingle();
       return (data as ArticleSources | null) ?? null;
@@ -162,6 +164,25 @@ const ArticleEditDialog = ({ article, open, onOpenChange, onSave }: ArticleEditD
               onChange={(content) => setEditedArticle({ ...editedArticle, content })}
             />
           </div>
+
+          {/* The sub-editor's verdict on an AI draft — admin eyes only */}
+          {sources?.review_score != null && (
+            <div
+              className={`p-3 rounded-lg text-sm space-y-1 border ${
+                sources.review_score <= 6
+                  ? "bg-destructive/10 border-destructive/30"
+                  : "bg-emerald-500/10 border-emerald-500/30"
+              }`}
+            >
+              <p className="font-medium">
+                ביקורת עורך AI: {sources.review_score}/10
+                {sources.review_score <= 6 && " — הכתבה לא תוזמנה, דורשת אישור אנושי"}
+              </p>
+              {sources.review_note && (
+                <p className="text-muted-foreground whitespace-pre-wrap">{sources.review_note}</p>
+              )}
+            </div>
+          )}
 
           {/* Editorial sources — visible only here, never rendered on the site */}
           {hasSources && (

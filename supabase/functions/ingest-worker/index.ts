@@ -17,6 +17,7 @@ import {
   fetchArticleText,
   fetchFeed,
   generateImage,
+  htmlToText,
   mirrorImageToBucket,
   json,
   loadCategoryStats,
@@ -37,13 +38,14 @@ type Item = {
   bucket: string | null;
   angle: string | null;
   category_hint: string | null;
+  update_of: string | null;
   attempts: number;
 };
 
 /** Stop claiming new work past this point so the current article can finish. */
 const TIME_BUDGET_MS = 95_000;
 
-const WRITER_SYSTEM = (today: string, categoryNames: string) => `היום ${today}. אתה כתב הייטק בכיר באתר חדשות ישראלי בעברית. קיבלת כתבה שפורסמה באתר טכנולוגיה בינלאומי. המשימה: לכתוב **כתבה מקורית בעברית** על אותו האירוע.
+const WRITER_SYSTEM = (today: string, categoryNames: string, headlineBlock: string) => `היום ${today}. אתה כתב הייטק בכיר באתר חדשות ישראלי בעברית. קיבלת כתבה שפורסמה באתר טכנולוגיה בינלאומי. המשימה: לכתוב **כתבה מקורית בעברית** על אותו האירוע.
 
 עקרונות עבודה — קרא בעיון:
 - **אל תתרגם.** קרא, הבן, וכתוב מחדש בניסוח עצמאי שלך, במבנה שלך, בעברית עיתונאית טבעית. אסור לשחזר משפטים או פסקאות מהמקור.
@@ -58,6 +60,7 @@ const WRITER_SYSTEM = (today: string, categoryNames: string) => `היום ${toda
 - **לפחות 3 כותרות משנה** במרקדאון (## כותרת משנה) לפי נושאי משנה.
 - שלב רשימות bullet (- פריט) היכן שמתאים, **הדגשות** לנתונים מרכזיים, ו-> לציטוטים.
 - טבלת מרקדאון (GFM) רק אם יש נתונים מספריים שמצדיקים אותה.
+- **סיים כל כתבה בסקשן קבוע**: ‏## למה זה חשוב לך‏ — 2-4 משפטים תכליתיים: מה ההתפתחות אומרת לקורא הישראלי (שוק העבודה בהייטק, הכיס, כלים שכדאי להכיר). בלי להמציא רלוונטיות — כשאין זווית ישראלית אמיתית, כתוב מה זה אומר לתעשייה או למשתמשים.
 - שפה רהוטה, אובייקטיבית, בלי דעות אישיות ובלי סופרלטיבים שיווקיים.
 - החזר מרקדאון נקי בשדה body — בלי code fences ובלי כותרת H1 (הכותרת נשלחת בנפרד).
 
@@ -69,9 +72,213 @@ const WRITER_SYSTEM = (today: string, categoryNames: string) => `היום ${toda
 - key_facts: 3-5 עובדות מפתח קצרות.
 - confidence: 1-10, כמה בטוח אתה שהחומר המקורי הספיק לכתבה מדויקת ומלאה.
 
-החזר רק דרך הכלי write_hebrew_article.`;
+החזר רק דרך הכלי write_hebrew_article.${headlineBlock}`;
+
+// ---------------------------------------------------------------------------
+// Update flow: the ranker flagged this story as a development of an article
+// that is already on the site — append an update block instead of opening a
+// fresh piece.
+// ---------------------------------------------------------------------------
+const UPDATER_SYSTEM = `אתה כתב באתר חדשות ישראלי בעברית. כתבה שלך כבר פורסמה, והגיע דיווח חדש עם התפתחות באותו סיפור. כתוב **פסקת עדכון** שתתווסף לסוף הכתבה.
+
+כללים:
+- 60-200 מילים, מרקדאון (מותר **הדגשות** ורשימות קצרות), בלי כותרות.
+- רק מה שחדש — אל תחזור על מה שכבר כתוב בכתבה.
+- כל עובדה חייבת להופיע בדיווח החדש. אל תמציא.
+- בלי אזכור אתרים או כלי תקשורת; ציטוט מיוחס רק לאדם/חברה שאמרו אותו.
+- אם ההתפתחות משנה את התמונה מהותית, הצע גם כותרת מעודכנת לכתבה (updated_title); אחרת השאר ריק.
+- אם אין באמת מידע חדש מהותי — החזר significant=false.
+
+החזר רק דרך הכלי write_update.`;
+
+/** The date line shown on an update block, Israel time. */
+function updateStamp(): string {
+  return new Intl.DateTimeFormat("he-IL", {
+    timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  }).format(new Date());
+}
+
+/**
+ * The closing "למה זה חשוב לך" section gets its branded box. Everything from
+ * that heading to the end of the article is wrapped; when the model skipped
+ * the section (it happens), the article simply renders unboxed.
+ */
+function wrapWhyItMatters(html: string): string {
+  const m = html.match(/<h2[^>]*>\s*למה זה חשוב/);
+  if (!m || m.index === undefined) return html;
+  return html.slice(0, m.index) +
+    `<div class="why-it-matters">` + html.slice(m.index) + `</div>`;
+}
+
+/**
+ * Sub-editor pass: the draft against the raw material. Score and issues are
+ * saved on the article for the editors; a low score keeps the draft
+ * unscheduled so a human decides. A failed review never blocks the article.
+ */
+async function reviewDraft(
+  draft: { title: string; body: string },
+  sourceMaterial: string,
+): Promise<{ score: number | null; note: string | null }> {
+  try {
+    const response = await callModel({
+      messages: [
+        {
+          role: "system",
+          content: `אתה עורך משנה קפדן באתר חדשות. קיבלת טיוטת כתבה בעברית ואת חומר הגלם שממנו נכתבה. בדוק:
+1. דיוק: כל מספר, שם, תאריך וסכום בטיוטה מופיע בחומר הגלם. עובדה שאין לה מקור = בעיה חמורה.
+2. שלמות: הלב של הסיפור לא הוחמץ.
+3. כותרת: משקפת את התוכן, בלי הבטחת יתר.
+4. עברית: ניסוח טבעי, בלי שרידי תרגום.
+החזר ציון 1-10 (10 = מוכן לפרסום כמו שהוא, 6 ומטה = דורש עין אנושית) ורשימת בעיות קצרה. החזר רק דרך הכלי review_article.`,
+        },
+        { role: "user", content: `=== הטיוטה ===\nכותרת: ${draft.title}\n\n${draft.body.slice(0, 9000)}\n\n=== חומר הגלם ===\n${sourceMaterial.slice(0, 9000)}` },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "review_article",
+            description: "פסק דין של עורך המשנה על הטיוטה",
+            parameters: {
+              type: "object",
+              properties: {
+                score: { type: "integer", description: "1-10" },
+                issues: { type: "array", items: { type: "string" }, description: "בעיות שנמצאו, קצר וענייני" },
+              },
+              required: ["score", "issues"],
+              additionalProperties: false,
+            },
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "review_article" } },
+    });
+    const verdict = toolArgs(response) as { score: number; issues: string[] };
+    const score = Math.min(Math.max(Number(verdict.score) || 0, 1), 10);
+    const issues = (verdict.issues || []).filter(Boolean).slice(0, 6);
+    return { score, note: issues.length ? issues.join(" · ").slice(0, 800) : null };
+  } catch (e) {
+    console.error("reviewDraft failed", e);
+    return { score: null, note: null };
+  }
+}
+
+/** The recent headline scoreboard, injected into the writer's prompt. */
+async function headlinePerformanceBlock(supabase: any): Promise<string> {
+  try {
+    const { data } = await supabase.rpc("headline_performance");
+    const rows = (data || []) as { title: string; views: number; side: string }[];
+    const top = rows.filter((r) => r.side === "top" && r.views > 0);
+    const bottom = rows.filter((r) => r.side === "bottom");
+    if (top.length < 2) return "";
+    return `\n\nנתוני קהל מהשבוע האחרון — למד מסגנון הכותרות שעבדו (בלי להעתיק אותן):
+הכי נקראו:
+${top.map((r) => `- ${r.title}`).join("\n")}
+הכי פחות נקראו:
+${bottom.map((r) => `- ${r.title}`).join("\n")}`;
+  } catch {
+    return "";
+  }
+}
+
+async function processUpdate(supabase: any, item: Item): Promise<{ ok: true; articleId: string; title: string } | { ok: false; error: string }> {
+  const { data: target } = await supabase
+    .from("articles")
+    .select("id, slug, title, content, is_draft, source_links")
+    .eq("id", item.update_of!)
+    .maybeSingle();
+  if (!target) return { ok: false, error: "כתבת היעד לעדכון כבר לא קיימת" };
+
+  const original = await fetchArticleText(item.url);
+  const originalText = original?.text || "";
+  const resolvedUrl = original?.url || item.url;
+  if (originalText.length < 500 && (item.source_summary || "").length < 300) {
+    return { ok: false, error: "לא הצלחנו לקרוא את הדיווח החדש (paywall או חסימה)" };
+  }
+
+  const existingText = htmlToText(target.content || "").slice(0, 7000);
+  const response = await callModel({
+    messages: [
+      { role: "system", content: UPDATER_SYSTEM },
+      {
+        role: "user",
+        content: `=== הכתבה שכבר באתר ===\nכותרת: ${target.title}\n\n${existingText}\n\n=== הדיווח החדש (${item.source_name}) ===\nכותרת: ${item.source_title}\n\n${(originalText || item.source_summary || "").slice(0, 9000)}`,
+      },
+    ],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "write_update",
+          description: "פסקת עדכון לכתבה קיימת",
+          parameters: {
+            type: "object",
+            properties: {
+              update_md: { type: "string", description: "פסקת העדכון במרקדאון, בלי כותרות" },
+              updated_title: { type: "string", description: "כותרת מעודכנת לכתבה, או מחרוזת ריקה" },
+              significant: { type: "boolean" },
+            },
+            required: ["update_md", "significant"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ],
+    tool_choice: { type: "function", function: { name: "write_update" } },
+  });
+  const upd = toolArgs(response) as { update_md: string; updated_title?: string; significant: boolean };
+  if (!upd.significant || !upd.update_md || upd.update_md.trim().length < 40) {
+    return { ok: false, error: "אין בדיווח החדש מידע מהותי מעבר לכתבה הקיימת" };
+  }
+
+  const block =
+    `<div class="article-update">` +
+    `<h2 class="text-2xl md:text-3xl font-bold text-foreground mt-8 mb-4 border-b-2 border-primary/20 pb-2">עדכון · ${updateStamp()}</h2>` +
+    mdToArticleHtml(upd.update_md) +
+    `</div>`;
+
+  // The update lands after the body but before the closing "why it matters"
+  // box, so the box stays the article's last word.
+  const content: string = target.content || "";
+  const boxAt = content.indexOf('<div class="why-it-matters">');
+  const newContent = boxAt >= 0
+    ? content.slice(0, boxAt) + block + content.slice(boxAt)
+    : content + block;
+
+  const sourceLinks = Array.isArray(target.source_links) ? [...target.source_links] : [];
+  sourceLinks.push({ title: `עדכון — ${item.source_name}: ${item.source_title}`, url: resolvedUrl });
+
+  const newTitle = (upd.updated_title || "").trim();
+  const { error: updErr } = await supabase
+    .from("articles")
+    .update({
+      content: newContent,
+      ...(newTitle && newTitle.length >= 10 ? { title: newTitle.slice(0, 300) } : {}),
+      source_links: sourceLinks,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", target.id);
+  if (updErr) return { ok: false, error: `עדכון הכתבה נכשל: ${updErr.message}` };
+
+  // A live article changed — tell Google right away (the DB trigger only
+  // fires on the draft→published flip).
+  if (!target.is_draft) {
+    const secret = Deno.env.get("INGEST_CRON_SECRET");
+    if (secret) {
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/index-article`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-ingest-secret": secret },
+        body: JSON.stringify({ articleId: target.id }),
+      }).catch((e) => console.error("index-article ping failed", e));
+    }
+  }
+  return { ok: true, articleId: target.id, title: `עדכון: ${newTitle || target.title}` };
+}
 
 async function processItem(supabase: any, item: Item, slotStepMinutes: number): Promise<{ ok: true; articleId: string; title: string } | { ok: false; error: string }> {
+  // A development of an article already on the site takes the update path.
+  if (item.update_of) return await processUpdate(supabase, item);
+
   // --- 1. The original, in full ------------------------------------------
   const original = await fetchArticleText(item.url);
   const originalText = original?.text || "";
@@ -114,9 +321,10 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     `\n=== גוף הכתבה המקורית ===\n${originalText || item.source_summary}` +
     relatedBlock;
 
+  const headlineBlock = await headlinePerformanceBlock(supabase);
   const response = await callModel({
     messages: [
-      { role: "system", content: WRITER_SYSTEM(today, categoryNames) },
+      { role: "system", content: WRITER_SYSTEM(today, categoryNames, headlineBlock) },
       { role: "user", content: userContent },
     ],
     tools: [
@@ -171,6 +379,16 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
   ];
   const body = article.body;
 
+  // --- 4b. Sub-editor review ------------------------------------------------
+  // A second model pass checks the draft against the raw material. The verdict
+  // is saved for the editors; 6 and under keeps the draft unscheduled so a
+  // human approves it before it can go live.
+  const review = await reviewDraft(
+    { title: article.title, body },
+    `${originalText || item.source_summary || ""}${relatedBlock}`,
+  );
+  const needsHuman = review.score !== null && review.score <= 6;
+
   // --- 5. Image ------------------------------------------------------------
   // Priority: the source's own editorial image (mirrored into our bucket) →
   // AI generation → stock fallback. The source image is almost always the
@@ -197,9 +415,9 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
   // the slot arrives. Until then the editor can still edit or delete it. If
   // the slot RPC fails the article stays an unscheduled draft — manual
   // publishing is the fallback, never a lost article.
-  const { data: slot, error: slotErr } = await supabase.rpc("next_publish_slot", {
-    _step_minutes: slotStepMinutes,
-  });
+  const { data: slot, error: slotErr } = needsHuman
+    ? { data: null, error: null }
+    : await supabase.rpc("next_publish_slot", { _step_minutes: slotStepMinutes });
   if (slotErr) console.error("next_publish_slot failed", slotErr);
 
   const { data: inserted, error: insertErr } = await supabase
@@ -207,7 +425,7 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     .insert({
       title: article.title.slice(0, 300),
       excerpt,
-      content: mdToArticleHtml(body),
+      content: wrapWhyItMatters(mdToArticleHtml(body)),
       category,
       category_slug,
       image_url: imageUrl,
@@ -220,12 +438,20 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
       source_name: item.source_name,
       source_published_at: item.source_published_at,
       source_links: sourceLinks,
+      review_score: review.score,
+      review_note: needsHuman
+        ? `דורש אישור אנושי (ציון ${review.score}/10). ${review.note ?? ""}`.trim()
+        : review.note,
     })
     .select("id")
     .single();
 
   if (insertErr) return { ok: false, error: `שמירת הכתבה נכשלה: ${insertErr.message}` };
-  return { ok: true, articleId: inserted.id, title: article.title };
+  return {
+    ok: true,
+    articleId: inserted.id,
+    title: needsHuman ? `${article.title} (ממתין לאישור — ציון ${review.score}/10)` : article.title,
+  };
 }
 
 serve(async (req) => {
@@ -263,19 +489,8 @@ serve(async (req) => {
     Math.floor((18 * 60) / Math.max(1, stats.dailyTarget * stats.categoryCount)),
   );
 
-  if (budgetByBucket.size === 0) {
-    return json({
-      ok: true,
-      created: [],
-      skipped: "היעד היומי הושלם בכל הקטגוריות",
-      publishedToday: stats.publishedToday,
-      dailyTarget: stats.dailyTarget,
-      remaining: stats.queued,
-      notes: [],
-      durationMs: Date.now() - startedAt,
-    });
-  }
-
+  // Even with every category at quota the loop still runs: update items
+  // (bucket is null) ride on existing articles and spend no daily budget.
   let processedAny = false;
 
   for (let n = 0; n < max; n++) {
@@ -283,8 +498,6 @@ serve(async (req) => {
       notes.push("נעצר בגלל מגבלת זמן ריצה");
       break;
     }
-    if (budgetByBucket.size === 0) break;
-
     const { data: item, error: claimErr } = await supabase.rpc("claim_ingest_item", {
       _buckets: [...budgetByBucket.keys()],
     });

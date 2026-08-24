@@ -500,6 +500,45 @@
   line-height: 1.8;
 }
 
+/* The branded closing section every AI article ends with. */
+.article-content .why-it-matters {
+  margin-top: 2rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid hsl(var(--primary) / 0.3);
+  border-right: 4px solid hsl(var(--primary));
+  border-radius: 0.75rem;
+  background: hsl(var(--primary) / 0.06);
+}
+.article-content .why-it-matters h2 {
+  margin-top: 0;
+  border-bottom: 0;
+  padding-bottom: 0;
+  font-size: 1.25rem;
+  color: hsl(var(--primary));
+}
+.article-content .why-it-matters h2::before {
+  content: "💡 ";
+}
+.article-content .why-it-matters p:last-child {
+  margin-bottom: 0;
+}
+
+/* An update block appended to a rolling story. */
+.article-content .article-update {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid hsl(var(--border));
+  border-right: 4px solid hsl(var(--accent, var(--primary)));
+  border-radius: 0.75rem;
+  background: hsl(var(--muted) / 0.4);
+}
+.article-content .article-update h2 {
+  margin-top: 0;
+  border-bottom: 0;
+  padding-bottom: 0;
+  font-size: 1.1rem;
+}
+
 .article-content p {
   margin-bottom: 1rem;
   color: hsl(var(--foreground) / 0.85);

@@ -72,6 +72,7 @@ const AdminGlobalIngestTab = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [lastScan, setLastScan] = useState<IngestScanResult | null>(null);
   const [targetDraft, setTargetDraft] = useState<string>("");
+  const [weekendDraft, setWeekendDraft] = useState<string>("");
   const [savingTarget, setSavingTarget] = useState(false);
   const [addingSource, setAddingSource] = useState(false);
   const [newSource, setNewSource] = useState<{
@@ -171,17 +172,19 @@ const AdminGlobalIngestTab = () => {
   };
 
   const saveTarget = async () => {
-    const value = Number(targetDraft);
-    if (!Number.isInteger(value) || value < 1 || value > 50) {
-      toast({ title: "ערך לא תקין", description: "יעד יומי חייב להיות מספר שלם בין 1 ל-50.", variant: "destructive" });
+    const value = targetDraft ? Number(targetDraft) : (stats?.dailyTarget ?? 3);
+    const weekend = weekendDraft ? Number(weekendDraft) : (stats?.weekendTarget ?? 1);
+    if (!Number.isInteger(value) || value < 1 || value > 50 || !Number.isInteger(weekend) || weekend < 0 || weekend > 50) {
+      toast({ title: "ערך לא תקין", description: "יעד יומי בין 1 ל-50, יעד סוף שבוע בין 0 ל-50.", variant: "destructive" });
       return;
     }
     setSavingTarget(true);
     try {
-      await updateDailyTarget(value);
+      await updateDailyTarget(value, weekend);
       setTargetDraft("");
+      setWeekendDraft("");
       refresh();
-      toast({ title: "היעד עודכן", description: `הסוכן יפיק מעכשיו ${value} כתבות ביום לכל קטגוריה.` });
+      toast({ title: "היעד עודכן", description: `${value} כתבות ביום לקטגוריה בימי חול, ${weekend} בשישי-שבת.` });
     } catch (error) {
       toast({
         title: "העדכון נכשל",
@@ -398,8 +401,8 @@ const AdminGlobalIngestTab = () => {
             <Target className="w-4 h-4 text-primary shrink-0" />
             <div className="flex-1 min-w-[16rem]">
               <p className="text-sm font-medium">
-                יעד יומי: {stats?.dailyTarget ?? 10} כתבות לכל קטגוריה
-                {stats?.categoryCount ? ` (${totalTarget} סה"כ)` : ""}
+                יעד יומי: {stats?.dailyTarget ?? 10} כתבות לכל קטגוריה בימי חול
+                {stats?.categoryCount ? ` (${totalTarget} סה"כ)` : ""} · {stats?.weekendTarget ?? 1} בשישי-שבת
               </p>
               <p className="text-xs text-muted-foreground">
                 כל קטגוריה מקבלת מכסה משלה. כל סריקה משלימה את התור למה שחסר מהיעד בכל קטגוריה, ועוד{" "}
@@ -407,17 +410,29 @@ const AdminGlobalIngestTab = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">חול</label>
               <Input
                 type="number"
                 min={1}
                 max={50}
                 inputMode="numeric"
-                placeholder={String(stats?.dailyTarget ?? 10)}
+                placeholder={String(stats?.dailyTarget ?? 3)}
                 value={targetDraft}
                 onChange={(e) => setTargetDraft(e.target.value)}
-                className="w-24 text-center"
+                className="w-20 text-center"
               />
-              <Button variant="outline" size="sm" onClick={saveTarget} disabled={savingTarget || !targetDraft}>
+              <label className="text-xs text-muted-foreground">שישי-שבת</label>
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                inputMode="numeric"
+                placeholder={String(stats?.weekendTarget ?? 1)}
+                value={weekendDraft}
+                onChange={(e) => setWeekendDraft(e.target.value)}
+                className="w-20 text-center"
+              />
+              <Button variant="outline" size="sm" onClick={saveTarget} disabled={savingTarget || (!targetDraft && !weekendDraft)}>
                 {savingTarget ? <Loader2 className="w-4 h-4 animate-spin" /> : "שמור"}
               </Button>
             </div>
