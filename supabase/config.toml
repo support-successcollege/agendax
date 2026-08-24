@@ -88,3 +88,12 @@ verify_jwt = false
 # authorizes cron-or-admin.
 [functions.team-digest]
 verify_jwt = false
+
+# Daily conference-calendar scrape; cron carries the shared secret, the
+# function authorizes cron-or-admin.
+[functions.industry-events]
+verify_jwt = false
+
+# The morning brief + deal extraction cron; cron-or-admin authorized.
+[functions.morning-brief]
+verify_jwt = false

@@ -5,6 +5,10 @@ import FeaturedArticle from "@/components/FeaturedArticle";
 import ArticleGrid from "@/components/ArticleGrid";
 import Sidebar from "@/components/Sidebar";
 import Footer from "@/components/Footer";
+import MorningBrief from "@/components/MorningBrief";
+import CategoryStrips from "@/components/CategoryStrips";
+import IndustryEvents from "@/components/IndustryEvents";
+import FundingDeals from "@/components/FundingDeals";
 
 import WidgetBanner from "@/components/WidgetBanner";
 import WidgetPopup from "@/components/WidgetPopup";
@@ -53,6 +57,9 @@ const Index = () => {
             </div>
           )}
 
+          {/* The daily five-bullet brief */}
+          <MorningBrief />
+
           {/* Banner Ad Widget(s) - rotating */}
           {bannerWidgets.length > 0 && (
             <div className="mb-8">
@@ -69,6 +76,16 @@ const Index = () => {
               title="כתבות אחרונות"
             />
 
+            {/* Deals + industry conferences */}
+            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FundingDeals />
+              <IndustryEvents />
+            </div>
+
+            {/* A strip of the freshest stories per category */}
+            <div className="mt-10">
+              <CategoryStrips articles={publishedArticles} categories={categories} />
+            </div>
             </div>
 
             {/* Sidebar */}

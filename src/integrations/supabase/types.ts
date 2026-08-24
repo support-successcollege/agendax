@@ -1326,6 +1326,24 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_briefs: {
+        Row: {
+          brief_date: string
+          created_at: string
+          items: Json
+        }
+        Insert: {
+          brief_date: string
+          created_at?: string
+          items?: Json
+        }
+        Update: {
+          brief_date?: string
+          created_at?: string
+          items?: Json
+        }
+        Relationships: []
+      }
       event_registrations: {
         Row: {
           attendance_status: string
@@ -1430,6 +1448,50 @@ export type Database = {
         }
         Relationships: []
       }
+      funding_deals: {
+        Row: {
+          amount_label: string | null
+          announced_on: string
+          article_id: string | null
+          company: string
+          created_at: string
+          id: string
+          investors: string | null
+          kind: string
+          round: string | null
+        }
+        Insert: {
+          amount_label?: string | null
+          announced_on?: string
+          article_id?: string | null
+          company: string
+          created_at?: string
+          id?: string
+          investors?: string | null
+          kind: string
+          round?: string | null
+        }
+        Update: {
+          amount_label?: string | null
+          announced_on?: string
+          article_id?: string | null
+          company?: string
+          created_at?: string
+          id?: string
+          investors?: string | null
+          kind?: string
+          round?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_deals_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hero_rotation: {
         Row: {
           article_id: string
@@ -1455,6 +1517,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      industry_events: {
+        Row: {
+          created_at: string
+          event_date: string
+          id: string
+          is_active: boolean
+          location: string | null
+          organizer: string | null
+          source: string
+          time_label: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_date: string
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          organizer?: string | null
+          source: string
+          time_label?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_date?: string
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          organizer?: string | null
+          source?: string
+          time_label?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
       }
       ingest_config: {
         Row: {
