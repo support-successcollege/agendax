@@ -491,6 +491,31 @@ export async function fetchWithRetry(
   return resp!;
 }
 
+/**
+ * callModel, falling back to the lite model when the main one is out of
+ * quota — Gemini's free-tier quotas are per model, so the lite bucket is
+ * usually still open when flash is exhausted.
+ */
+export async function callModelWithFallback(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const fallbacks = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"];
+  try {
+    return await callModel(body);
+  } catch (e) {
+    if (!String((e as Error)?.message || "").includes("ממכסת הבקשות")) throw e;
+  }
+  let lastErr: unknown = null;
+  for (const model of fallbacks) {
+    try {
+      return await callModel({ ...body, model });
+    } catch (e) {
+      lastErr = e;
+      const msg = String((e as Error)?.message || "");
+      if (!msg.includes("ממכסת הבקשות") && !msg.includes("404")) throw e;
+    }
+  }
+  throw lastErr;
+}
+
 export async function callModel(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY חסר");

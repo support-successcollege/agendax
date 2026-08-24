@@ -6,7 +6,7 @@
 // Authority sits behind Cloudflare and only sometimes lets a server in) is
 // skipped without failing the run.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { authorize, callModel, corsHeaders, htmlToText, json, toolArgs } from "../_shared/ingest.ts";
+import { authorize, callModelWithFallback, corsHeaders, htmlToText, json, toolArgs } from "../_shared/ingest.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       .map((s) => `=== מקור: ${s.key} — ${s.label} (${s.url}) ===\n${s.text}`)
       .join("\n\n");
 
-    const response = await callModel({
+    const response = await callModelWithFallback({
       messages: [
         {
           role: "system",

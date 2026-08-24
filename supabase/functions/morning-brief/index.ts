@@ -5,9 +5,11 @@
 //      the last day's articles, each linking to its article.
 //   2. funding_deals — the גיוסים-ואקזיטים table: any funding round, exit,
 //      M&A or IPO mentioned in those articles, as a structured row.
-// Body: { date?: "YYYY-MM-DD" } (defaults to today, Israel).
+// Body: { date?: "YYYY-MM-DD", hours?: number, dealsOnly?: boolean } —
+// date defaults to today (Israel); hours widens the article window (default
+// 26, for deal backfills); dealsOnly skips the brief.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { authorize, callModel, corsHeaders, htmlToText, json, toolArgs } from "../_shared/ingest.ts";
+import { authorize, callModelWithFallback, corsHeaders, htmlToText, json, toolArgs } from "../_shared/ingest.ts";
 
 const TZ = "Asia/Jerusalem";
 
@@ -28,7 +30,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const day = typeof body?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : israelDate(new Date());
 
-    const since = new Date(Date.now() - 26 * 3600_000).toISOString();
+    const hours = Math.min(Math.max(Number(body?.hours) || 26, 6), 24 * 21);
+    const dealsOnly = !!body?.dealsOnly || hours > 40;
+    const since = new Date(Date.now() - hours * 3600_000).toISOString();
     const { data } = await supabase
       .from("articles")
       .select("id, slug, title, excerpt, content, category")
@@ -36,7 +40,7 @@ Deno.serve(async (req) => {
       .neq("category_slug", "marketing")
       .gte("published_at", since)
       .order("published_at", { ascending: false })
-      .limit(14);
+      .limit(hours > 40 ? 60 : 14);
     const articles = (data ?? []) as ArticleRow[];
     if (articles.length === 0) return json({ ok: true, skipped: "אין כתבות מהיממה האחרונה" });
 
@@ -45,7 +49,10 @@ Deno.serve(async (req) => {
       .join("\n\n---\n\n");
 
     // ---- 1. The five-bullet brief -----------------------------------------
-    const briefResp = await callModel({
+    let briefSaved = false;
+    let briefCount = 0;
+    if (!dealsOnly) {
+    const briefResp = await callModelWithFallback({
       messages: [
         {
           role: "system",
@@ -101,17 +108,20 @@ Deno.serve(async (req) => {
         return { text: String(it.text).slice(0, 300), article_id: a?.id ?? null, slug: a?.slug ?? null };
       });
 
-    let briefSaved = false;
     if (briefItems.length >= 3) {
       const { error } = await supabase
         .from("daily_briefs")
         .upsert({ brief_date: day, items: briefItems, created_at: new Date().toISOString() }, { onConflict: "brief_date" });
       if (error) console.error("daily_briefs upsert failed", error.message);
-      else briefSaved = true;
+      else {
+        briefSaved = true;
+        briefCount = briefItems.length;
+      }
+    }
     }
 
     // ---- 2. Deals ----------------------------------------------------------
-    const dealsResp = await callModel({
+    const dealsResp = await callModelWithFallback({
       messages: [
         {
           role: "system",
@@ -185,7 +195,7 @@ Deno.serve(async (req) => {
       else dealsSaved = count ?? dealRows.length;
     }
 
-    return json({ ok: true, day, articles: articles.length, brief: briefSaved ? briefItems.length : 0, deals: dealsSaved });
+    return json({ ok: true, day, articles: articles.length, brief: briefSaved ? briefCount : 0, deals: dealsSaved });
   } catch (e: any) {
     console.error("morning-brief error", e);
     return json({ error: e?.message || "שגיאה לא ידועה" }, 500);
