@@ -9,7 +9,6 @@ import {
   useNewsSources,
   useRefreshIngest,
   updateDailyTarget,
-  type IngestBucket,
   type IngestItem,
   type NewsSource,
 } from "@/hooks/useGlobalIngest";
@@ -19,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useCategories } from "@/hooks/useCategories";
 import {
   Globe,
   Loader2,
@@ -60,7 +58,6 @@ const relativeTime = (iso: string | null) => {
 
 const AdminGlobalIngestTab = () => {
   const { toast } = useToast();
-  const { categories } = useCategories();
   const refresh = useRefreshIngest();
 
   const { data: sources = [], isLoading: loadingSources } = useNewsSources();
@@ -80,9 +77,8 @@ const AdminGlobalIngestTab = () => {
   const [newSource, setNewSource] = useState<{
     name: string;
     feedUrl: string;
-    bucket: IngestBucket;
     weight: number;
-  }>({ name: "", feedUrl: "", bucket: "", weight: 5 });
+  }>({ name: "", feedUrl: "", weight: 5 });
 
   const queue = useMemo(() => items.filter((i) => i.status === "pending" || i.status === "processing"), [items]);
   const done = useMemo(() => items.filter((i) => i.status === "published"), [items]);
@@ -107,33 +103,12 @@ const AdminGlobalIngestTab = () => {
 
   const totalTarget = (stats?.dailyTarget ?? 10) * (stats?.categoryCount ?? 1);
 
-  // Sources group under the site's own categories; labels and order come from
-  // the live categories table, and unknown buckets (renamed slugs, old rows)
-  // trail at the end under their raw slug instead of disappearing.
-  const liveCategories = useMemo(
-    () => categories.filter((c) => c.slug !== "home" && c.isActive),
-    [categories],
+  // Sources are one flat pool: the ranker files each picked story under a
+  // category by itself, so a source has no category of its own.
+  const sortedSources = useMemo(
+    () => [...sources].sort((a, b) => a.name.localeCompare(b.name, "he")),
+    [sources],
   );
-  const categoryName = (slug: string) =>
-    liveCategories.find((c) => c.slug === slug)?.name ?? slug;
-
-  const byBucket = useMemo(() => {
-    const groups = new Map<IngestBucket, NewsSource[]>();
-    for (const s of sources) {
-      const list = groups.get(s.bucket) ?? [];
-      list.push(s);
-      groups.set(s.bucket, list);
-    }
-    const order = liveCategories.map((c) => c.slug);
-    return [...groups.entries()].sort(
-      (a, b) =>
-        (order.indexOf(a[0]) + 1 || order.length + 1) -
-        (order.indexOf(b[0]) + 1 || order.length + 1),
-    );
-  }, [sources, liveCategories]);
-
-  // Optional bucket filter: scan a single category's feeds toward its quota.
-  const [scanBucket, setScanBucket] = useState<string>("");
 
   const handleScan = async (dryRun: boolean) => {
     const setBusy = dryRun ? setIsTesting : setIsScanning;
@@ -142,7 +117,7 @@ const AdminGlobalIngestTab = () => {
       // No explicit limit: the scanner tops up each category toward its own
       // daily quota, so the pacing lives server-side.
       const result = await scanGlobalTech({
-        data: { dryRun, ...(scanBucket && !dryRun ? { buckets: [scanBucket] } : {}) },
+        data: { dryRun },
       });
       setLastScan(result);
       refresh();
@@ -233,10 +208,6 @@ const AdminGlobalIngestTab = () => {
   const addSource = async () => {
     const name = newSource.name.trim();
     const feedUrl = newSource.feedUrl.trim();
-    if (!newSource.bucket) {
-      toast({ title: "בחר קטגוריה למקור", variant: "destructive" });
-      return;
-    }
     if (!name || !feedUrl) {
       toast({ title: "חסר שם או כתובת פיד", variant: "destructive" });
       return;
@@ -251,7 +222,6 @@ const AdminGlobalIngestTab = () => {
     const { error } = await supabase.from("news_sources").insert({
       name,
       feed_url: feedUrl,
-      bucket: newSource.bucket,
       weight: newSource.weight,
     });
     setAddingSource(false);
@@ -262,7 +232,7 @@ const AdminGlobalIngestTab = () => {
       toast({ title: "ההוספה נכשלה", description, variant: "destructive" });
       return;
     }
-    setNewSource({ name: "", feedUrl: "", bucket: "", weight: 5 });
+    setNewSource({ name: "", feedUrl: "", weight: 5 });
     toast({ title: "המקור נוסף", description: `${name} ייכלל בסריקה הבאה.` });
     refresh();
   };
@@ -275,21 +245,6 @@ const AdminGlobalIngestTab = () => {
       return;
     }
     toast({ title: "כל המקורות כובו" });
-    refresh();
-  };
-
-  const deleteCategorySources = async (bucket: string) => {
-    const name = categoryName(bucket);
-    if (!window.confirm(`למחוק את כל המקורות של "${name}" לצמיתות? כתבות שכבר נוצרו יישארו.`)) return;
-    const { error, count } = await supabase
-      .from("news_sources")
-      .delete({ count: "exact" })
-      .eq("bucket", bucket);
-    if (error) {
-      toast({ title: "המחיקה נכשלה", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: `נמחקו ${count ?? 0} מקורות`, description: name });
     refresh();
   };
 
@@ -378,26 +333,10 @@ const AdminGlobalIngestTab = () => {
               {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rss className="w-4 h-4" />}
               בדוק מקורות
             </Button>
-            <div className="flex items-center">
-              <select
-                className="h-9 rounded-r-md border border-l-0 border-input bg-background px-2 text-sm"
-                value={scanBucket}
-                onChange={(e) => setScanBucket(e.target.value)}
-                aria-label="קטגוריה לסריקה"
-                title="סרוק הכל או קטגוריה אחת בלבד"
-              >
-                <option value="">כל הקטגוריות</option>
-                {liveCategories.map((c) => (
-                  <option key={c.slug} value={c.slug}>
-                    רק {c.name}
-                  </option>
-                ))}
-              </select>
-              <Button onClick={() => handleScan(false)} disabled={isScanning} className="gap-2 rounded-r-none">
-                {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                השלם חסרות
-              </Button>
-            </div>
+            <Button onClick={() => handleScan(false)} disabled={isScanning} className="gap-2">
+              {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              השלם חסרות
+            </Button>
             <Button
               onClick={handleWork}
               disabled={isWorking}
@@ -632,25 +571,15 @@ const AdminGlobalIngestTab = () => {
             <p className="text-muted-foreground text-sm">טוען...</p>
           ) : (
             <div className="space-y-6">
-              {byBucket.map(([bucket, list]) => (
-                <div key={bucket}>
+              <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-medium text-sm">{categoryName(bucket)}</h4>
+                    <h4 className="font-medium text-sm">כל המקורות</h4>
                     <span className="text-xs text-muted-foreground">
-                      ({list.filter((s) => s.is_active).length}/{list.length} פעילים)
+                      ({sortedSources.filter((s) => s.is_active).length}/{sortedSources.length} פעילים) · הסיווג לקטגוריה נעשה אוטומטית לכל ידיעה
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive mr-auto"
-                      onClick={() => deleteCategorySources(bucket)}
-                    >
-                      <Trash2 className="w-3 h-3 ml-1" />
-                      מחק את כל הקטגוריה
-                    </Button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {list.map((source) => (
+                    {sortedSources.map((source) => (
                       <div key={source.id} className="flex items-center gap-3 p-3 border rounded-lg">
                         <Switch checked={source.is_active} onCheckedChange={() => toggleSource(source)} />
                         <div className="flex-1 min-w-0">
@@ -686,13 +615,12 @@ const AdminGlobalIngestTab = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-              ))}
+              </div>
 
               {/* Add a source */}
               <div className="border-t pt-4">
                 <h4 className="font-medium text-sm mb-3">הוספת מקור חדש</h4>
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto_auto] gap-2 items-center">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-2 items-center">
                   <Input
                     placeholder="שם המקור (למשל TechCrunch)"
                     value={newSource.name}
@@ -704,23 +632,6 @@ const AdminGlobalIngestTab = () => {
                     value={newSource.feedUrl}
                     onChange={(e) => setNewSource((s) => ({ ...s, feedUrl: e.target.value }))}
                   />
-                  <select
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    value={newSource.bucket}
-                    onChange={(e) =>
-                      setNewSource((s) => ({ ...s, bucket: e.target.value as IngestBucket }))
-                    }
-                    aria-label="קטגוריית מקור"
-                  >
-                    <option value="" disabled>
-                      קטגוריה...
-                    </option>
-                    {liveCategories.map((c) => (
-                      <option key={c.slug} value={c.slug}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
                   <select
                     className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                     value={newSource.weight}
@@ -746,7 +657,7 @@ const AdminGlobalIngestTab = () => {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  המקור ייסרק אוטומטית בסריקה הבאה. המשקל (1–10) קובע כמה הדירוג סומך עליו.
+                  המקור ייסרק אוטומטית בסריקה הבאה. המשקל (1–10) קובע כמה הדירוג סומך עליו. אין צורך בקטגוריה — הניתוח משייך כל ידיעה לקטגוריה המתאימה בעצמו.
                 </p>
               </div>
             </div>

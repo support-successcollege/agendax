@@ -25,14 +25,12 @@ type Source = {
   id: string;
   name: string;
   feed_url: string;
-  bucket: string;
   weight: number;
 };
 
 type Candidate = FeedItem & {
   key: string;
   sourceName: string;
-  bucket: string;
   weight: number;
 };
 
@@ -58,7 +56,6 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const dryRun = body?.dryRun === true;
-    const buckets: string[] | null = Array.isArray(body?.buckets) && body.buckets.length ? body.buckets : null;
 
     // --- 0. How much is still missing from each category's target ----------
     // The daily target lives in ingest_config, not in this file, so it can be
@@ -116,26 +113,24 @@ serve(async (req) => {
       if (israelHour >= 17 && onHand < stats.dailyTarget) escalation.set(cat.bucket, 2);
       else if (israelHour >= 13 && onHand < Math.ceil(stats.dailyTarget / 2)) escalation.set(cat.bucket, 1);
     }
-    const lookbackFor = (bucket: string) => {
-      const level = escalation.get(bucket);
-      if (level === 2) return Math.max(lookbackHours, 72);
-      if (level === 1) return Math.max(lookbackHours, 48);
-      return lookbackHours;
-    };
+    // Sources carry no category anymore, so the feed window is shared: the
+    // deepest escalated category widens it for the whole scan.
+    const feedLookback = Math.max(
+      lookbackHours,
+      ...[...escalation.values()].map((level) => (level === 2 ? 72 : 48)),
+      0,
+    );
     for (const [bucket, level] of escalation) {
-      notes.push(`השלמת מכסה: ${bucket} בפיגור — רמה ${level}, ${lookbackFor(bucket)} שעות אחורה`);
+      notes.push(`השלמת מכסה: ${bucket} בפיגור — רמה ${level}, ${feedLookback} שעות אחורה`);
     }
 
     // --- 1. Active sources -------------------------------------------------
-    // A real scan only reads feeds of categories that still have budget today;
-    // a dry run (the "test sources" button) always reads everything.
-    let sourceQuery = supabase
+    // Sources are one flat pool — every active feed is read, and the ranker
+    // files each picked story under a category by itself.
+    const { data: sources, error: srcErr } = await supabase
       .from("news_sources")
-      .select("id, name, feed_url, bucket, weight")
+      .select("id, name, feed_url, weight")
       .eq("is_active", true);
-    const bucketFilter = buckets ?? (dryRun ? null : [...wantedByBucket.keys()]);
-    if (bucketFilter) sourceQuery = sourceQuery.in("bucket", bucketFilter);
-    const { data: sources, error: srcErr } = await sourceQuery;
     if (srcErr) throw new Error(`טעינת מקורות נכשלה: ${srcErr.message}`);
     if (!sources?.length) return json({ error: "אין מקורות פעילים" }, 400);
 
@@ -163,9 +158,9 @@ serve(async (req) => {
       sourcesOk++;
       // A feed with no dates at all still gets in — its items are simply
       // treated as "now" and the URL ledger keeps them from repeating.
-      // The window widens per category when it is behind quota (see 0b).
+      // The window widens for the whole scan when a category is behind quota.
       const fresh = result.items.filter(
-        (it) => !it.publishedAt || hoursAgo(it.publishedAt) <= lookbackFor(source.bucket),
+        (it) => !it.publishedAt || hoursAgo(it.publishedAt) <= feedLookback,
       );
       perSource.push({ name: source.name, ok: true, items: fresh.length });
       await supabase
@@ -178,7 +173,6 @@ serve(async (req) => {
           ...it,
           key: urlKey(it.link),
           sourceName: source.name,
-          bucket: source.bucket,
           weight: source.weight,
         });
       }
@@ -212,7 +206,7 @@ serve(async (req) => {
       }
     }
     const fresh = unique.filter(
-      (c) => !blocked.has(c.key) && (!seenOnly.has(c.key) || escalation.has(c.bucket)),
+      (c) => !blocked.has(c.key) && (!seenOnly.has(c.key) || escalation.size > 0),
     );
 
     if (dryRun) {
@@ -258,27 +252,30 @@ serve(async (req) => {
     const listing = shortlist
       .map(
         (c, i) =>
-          `[${i}] (${c.sourceName} · ${c.bucket}${c.publishedAt ? ` · לפני ${hoursAgo(c.publishedAt).toFixed(1)} שעות` : ""})\n` +
+          `[${i}] (${c.sourceName}${c.publishedAt ? ` · לפני ${hoursAgo(c.publishedAt).toFixed(1)} שעות` : ""})\n` +
           `כותרת: ${c.title}\n` +
           `תקציר: ${(c.summary || "—").slice(0, 300)}`,
       )
       .join("\n\n");
 
-    // The ranker sees each category's remaining budget. Every candidate line
-    // already carries its category (the bucket after the source name).
+    // Sources carry no category — the ranker files each pick itself, and it
+    // sees each category's live name and remaining budget.
     const budgetLines = categoryStats
       .filter((c) => wantedByBucket.has(c.bucket))
       .map((c) => {
-        const base = `- ${c.bucket}: עד ${wantedByBucket.get(c.bucket)} ידיעות`;
+        const base = `- ${c.name}: עד ${wantedByBucket.get(c.bucket)} ידיעות`;
         return escalation.has(c.bucket)
           ? `${base} — מצב השלמת מכסה: היום מתקרב לסופו והקטגוריה בפיגור. מלא את המכסה גם בידיעות בסדר גודל בינוני; פסול רק תוכן שיווקי או זבל של ממש.`
           : base;
       })
       .join("\n");
+    const categoryNamesList = categoryStats.map((c) => c.name).join(", ");
 
     const rankerSystem = `אתה עורך חדשות ראשי של אתר הייטק ישראלי בעברית. קיבלת רשימת כתבות שפורסמו היום באתרי הטכנולוגיה הגדולים בעולם. בחר את הידיעות **הכי חשובות ורלוונטיות לקהל הישראלי** לפרסום.
 
-מכסה לכל קטגוריה (הקטגוריה של ידיעה מופיעה בסוגריים אחרי שם המקור):
+אתה גם המסווג: לכל ידיעה שנבחרה קבע בעצמך את הקטגוריה המתאימה ביותר באתר, לפי תוכן הידיעה בלבד.
+
+מכסה לכל קטגוריה:
 ${budgetLines}
 
 קריטריונים לבחירה:
@@ -297,7 +294,7 @@ ${budgetLines}
 עבור כל בחירה החזר גם:
 - priority: 1-10, כמה חשוב לפרסם את זה (10 = ידיעה מובילה).
 - angle: משפט אחד בעברית — הזווית שבה כדאי לכתוב את הכתבה לקורא הישראלי.
-- category: אחת מ: טכנולוגיה, כלכלה, חדשות, שוק ההון, אקטואליה.
+- category: הקטגוריה שבחרת לידיעה — אחת מ: ${categoryNamesList}.
 
 אם בקטגוריה מסוימת אין מספיק ידיעות ראויות — החזר פחות ממכסתה. עדיף לא לפרסם מאשר לפרסם זבל.`;
 
@@ -347,31 +344,38 @@ ${budgetLines}
     const picks: { index: number; priority: number; angle: string; category: string }[] =
       (toolArgs(ranked).picks as any[]) || [];
 
-    // Enforce the per-category budgets in code: the strongest picks win their
-    // category's slots, and whatever the ranker over-picked is dropped.
-    const chosen = new Map<number, { priority: number; angle: string; category: string }>();
+    // Enforce the per-category budgets in code: the ranker's own category
+    // choice decides which budget a pick spends; the strongest picks win
+    // their category's slots and whatever was over-picked is dropped. A
+    // category name the model invented falls back to any category that still
+    // has budget — better than dropping a good story.
+    const bucketByName = new Map(categoryStats.map((c) => [c.name, c.bucket]));
+    const chosen = new Map<number, { priority: number; angle: string; category: string; bucket: string }>();
     const usedByBucket = new Map<string, number>();
+    const hasRoom = (b: string) => (usedByBucket.get(b) ?? 0) < (wantedByBucket.get(b) ?? 0);
     const validPicks = picks
       .filter((p) => Number.isInteger(p.index) && p.index >= 0 && p.index < shortlist.length)
       .sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0));
     for (const p of validPicks) {
       if (chosen.size >= limit) break;
-      const bucket = shortlist[p.index].bucket;
-      const allowed = wantedByBucket.get(bucket) ?? 0;
-      const used = usedByBucket.get(bucket) ?? 0;
-      if (used >= allowed) continue;
-      usedByBucket.set(bucket, used + 1);
+      const pickedName = String(p.category || "").trim();
+      let bucket = bucketByName.get(pickedName);
+      if (!bucket) bucket = [...wantedByBucket.keys()].find((b) => hasRoom(b));
+      if (!bucket || !hasRoom(bucket)) continue;
+      usedByBucket.set(bucket, (usedByBucket.get(bucket) ?? 0) + 1);
+      const stat = categoryStats.find((c) => c.bucket === bucket);
       chosen.set(p.index, {
         priority: Math.min(Math.max(Number(p.priority) || 5, 1), 10),
         angle: String(p.angle || "").slice(0, 500),
-        category: String(p.category || "טכנולוגיה").slice(0, 40),
+        category: (stat?.name || pickedName || "הייטק").slice(0, 40),
+        bucket,
       });
     }
 
     // --- 5. Write the ledger ------------------------------------------------
     // Every new URL is recorded, picked or not. That is the whole dedupe
     // guarantee: a story the ranker passed on is never offered again.
-    const pickByKey = new Map<string, { priority: number; angle: string; category: string }>();
+    const pickByKey = new Map<string, { priority: number; angle: string; category: string; bucket: string }>();
     for (const [idx, pick] of chosen) pickByKey.set(shortlist[idx].key, pick);
 
     const rows = fresh.map((c) => {
@@ -384,7 +388,9 @@ ${budgetLines}
         source_summary: (c.summary || "").slice(0, 1000),
         source_image_url: c.image,
         source_published_at: c.publishedAt,
-        bucket: c.bucket,
+        // The ranker's category, so the per-category quota machinery keeps
+        // counting; unpicked rows stay uncategorized.
+        bucket: pick?.bucket ?? null,
         status: pick ? "pending" : "seen",
         priority: pick?.priority ?? 0,
         angle: pick?.angle ?? null,

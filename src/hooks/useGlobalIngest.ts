@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // A source's bucket is a site category slug (news_sources.bucket references
 // categories.slug), so grouping labels come from the live categories table.
-export type IngestBucket = string;
+export type IngestBucket = string | null;
 
 export interface NewsSource {
   id: string;

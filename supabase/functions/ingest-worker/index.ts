@@ -184,28 +184,12 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     FALLBACK_IMAGE;
 
   // --- 6. Save as draft ----------------------------------------------------
-  // The source's category wins: the editor filed the feed under a category on
-  // purpose, and that intent beats the model's guess. Model/ranker suggestions
-  // only decide when the item somehow has no source category.
-  let category: string;
-  let category_slug: string;
-  const { data: sourceCategory } = item.bucket
-    ? await supabase
-        .from("categories")
-        .select("name, slug")
-        .eq("slug", item.bucket)
-        .eq("is_active", true)
-        .maybeSingle()
-    : { data: null };
-  if (sourceCategory) {
-    category = sourceCategory.name;
-    category_slug = sourceCategory.slug;
-  } else {
-    ({ category, category_slug } = await resolveCategory(
-      supabase,
-      article.category || item.category_hint,
-    ));
-  }
+  // Sources carry no category: the writer, who read the full article, files
+  // it; the ranker's pick-time hint is the fallback.
+  const { category, category_slug } = await resolveCategory(
+    supabase,
+    article.category || item.category_hint,
+  );
   const excerpt = (article.subtitle || (article.key_facts || []).slice(0, 2).join(" ")).slice(0, 400);
 
   // Auto-scheduling: the draft takes the next free slot in the publishing

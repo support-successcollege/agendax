@@ -1541,7 +1541,7 @@ export type Database = {
       }
       news_sources: {
         Row: {
-          bucket: string
+          bucket: string | null
           created_at: string
           feed_url: string
           homepage: string | null
@@ -1555,7 +1555,7 @@ export type Database = {
           weight: number
         }
         Insert: {
-          bucket?: string
+          bucket?: string | null
           created_at?: string
           feed_url: string
           homepage?: string | null
@@ -1569,7 +1569,7 @@ export type Database = {
           weight?: number
         }
         Update: {
-          bucket?: string
+          bucket?: string | null
           created_at?: string
           feed_url?: string
           homepage?: string | null
@@ -1583,13 +1583,6 @@ export type Database = {
           weight?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "news_sources_bucket_fkey"
-            columns: ["bucket"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["slug"]
-          },
         ]
       }
       newsletter_sends: {
