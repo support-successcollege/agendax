@@ -30,6 +30,8 @@ interface GeneratedArticle {
   content: string;
   category: string;
   imageUrl?: string;
+  /** Pasted links the server could not read (paywall, bot block). */
+  unreadableUrls?: string[];
 }
 
 interface FactCheck {
@@ -90,6 +92,7 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
   const generateArticleFn = generateArticle;
   const verifyArticleFn = verifyArticle;
   const [topic, setTopic] = useState("");
+  const [sourceLinks, setSourceLinks] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [generatedArticle, setGeneratedArticle] = useState<GeneratedArticle | null>(null);
@@ -97,11 +100,18 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
   const [viewMode, setViewMode] = useState<"edit" | "preview">("preview");
   const { toast } = useToast();
 
+  // One link per line; blank lines and stray text are dropped.
+  const parsedLinks = sourceLinks
+    .split(/[\s,]+/)
+    .map((l) => l.trim())
+    .filter((l) => /^https?:\/\/\S+$/i.test(l))
+    .slice(0, 6);
+
   const handleGenerate = async () => {
-    if (!topic.trim()) {
+    if (!topic.trim() && parsedLinks.length === 0) {
       toast({
         title: "שגיאה",
-        description: "יש להזין נושא לכתבה",
+        description: "יש להזין נושא לכתבה, קישורים למקורות, או שניהם",
         variant: "destructive",
       });
       return;
@@ -112,12 +122,20 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
     setVerificationResult(null);
 
     try {
-      const data = await generateArticleFn({ data: { topic: topic.trim() } });
+      const data = await generateArticleFn({
+        data: {
+          topic: topic.trim() || undefined,
+          sourceUrls: parsedLinks.length ? parsedLinks : undefined,
+        },
+      });
 
       setGeneratedArticle(data);
+      const unread = data.unreadableUrls?.length ?? 0;
       toast({
         title: "הכתבה נוצרה בהצלחה",
-        description: "בדוק את הכתבה ואשר אם היא מתאימה, או הפעל בדיקת אמינות",
+        description: unread
+          ? `${unread} קישורים לא נקראו (מנוי או חסימה) — הכתבה נכתבה מהשאר.`
+          : "בדוק את הכתבה ואשר אם היא מתאימה, או הפעל בדיקת אמינות",
       });
     } catch (error) {
       console.error("Error generating article:", error);
@@ -248,24 +266,43 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
             מחולל כתבות AI
           </DialogTitle>
           <DialogDescription>
-            הזן נושא אקטואלי והמערכת תייצר עבורך כתבה מקצועית עם אפשרות לבדיקת אמינות
+            הזן נושא, הדבק קישורים לכתבות בנושא, או שניהם — המערכת תסרוק, תחקור ותנסח כתבה מקורית
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Topic Input */}
           <div className="space-y-2">
-            <Label htmlFor="topic">נושא הכתבה</Label>
-            <div className="flex gap-2">
-              <Input
-                id="topic"
-                placeholder="לדוגמה: השפעת הבינה המלאכותית על שוק העבודה בישראל"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                disabled={isGenerating}
-                className="flex-1"
-              />
-              <Button onClick={handleGenerate} disabled={isGenerating || !topic.trim()}>
+            <Label htmlFor="topic">נושא הכתבה <span className="text-muted-foreground font-normal">(אפשר להשאיר ריק אם הדבקת קישורים)</span></Label>
+            <Input
+              id="topic"
+              placeholder="לדוגמה: השפעת הבינה המלאכותית על שוק העבודה בישראל"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              disabled={isGenerating}
+            />
+
+            <Label htmlFor="sourceLinks" className="pt-2 block">
+              קישורים למקורות <span className="text-muted-foreground font-normal">(אופציונלי, עד 6 — כתובת בכל שורה)</span>
+            </Label>
+            <Textarea
+              id="sourceLinks"
+              dir="ltr"
+              rows={3}
+              placeholder={"https://www.calcalist.co.il/...\nhttps://techcrunch.com/..."}
+              value={sourceLinks}
+              onChange={(e) => setSourceLinks(e.target.value)}
+              disabled={isGenerating}
+              className="font-mono text-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              {parsedLinks.length > 0
+                ? `${parsedLinks.length} קישורים יקראו במלואם וישמשו כחומר המרכזי לכתבה.`
+                : "המערכת קוראת כל קישור במלואו וכותבת כתבה מקורית על בסיסו — בלי להעתיק ובלי לאזכר את המקור בגוף הכתבה."}
+            </p>
+
+            <div className="flex justify-end pt-1">
+              <Button onClick={handleGenerate} disabled={isGenerating || (!topic.trim() && parsedLinks.length === 0)}>
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 ml-2 animate-spin" />
@@ -295,6 +332,16 @@ const AIArticleGenerator = ({ open, onOpenChange, onArticleGenerated }: AIArticl
               so what the editor approves is what readers will see. */}
           {generatedArticle && (
             <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+              {(generatedArticle.unreadableUrls?.length ?? 0) > 0 && (
+                <div className="text-xs rounded-md border border-amber-500/40 bg-amber-500/10 p-3 space-y-1">
+                  <p className="font-medium">קישורים שלא נקראו — הכתבה נכתבה בלעדיהם:</p>
+                  <ul className="list-disc pr-4 space-y-0.5" dir="ltr">
+                    {generatedArticle.unreadableUrls!.map((u) => (
+                      <li key={u} className="truncate">{u}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex gap-1">
                   <Button

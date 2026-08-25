@@ -6,7 +6,12 @@
 // `{ data }` call shape is kept so component call sites stay unchanged.
 import { invokeEdge } from "@/lib/edge";
 
-export type GenerateArticleInput = { topic: string };
+export type GenerateArticleInput = {
+  /** Free-text brief. Optional when sourceUrls are given. */
+  topic?: string;
+  /** Links the editor pasted; read in full and used as the primary material. */
+  sourceUrls?: string[];
+};
 
 export type GeneratedArticle = {
   title: string;
@@ -16,6 +21,8 @@ export type GeneratedArticle = {
   imageUrl: string;
   author: string;
   sources?: { title: string; url: string }[];
+  /** Pasted links the server could not read (paywall, bot block). */
+  unreadableUrls?: string[];
 };
 
 export const generateArticle = ({ data }: { data: GenerateArticleInput }) =>

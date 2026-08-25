@@ -87,6 +87,9 @@ function stripTags(s: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#0?39;|&apos;/g, "'")
+    // Numeric entities the named list above misses (&#8217;, &#x27;).
+    .replace(/&#x([0-9a-f]+);/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCodePoint(Number(d)))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
@@ -227,6 +230,9 @@ export function htmlToText(html: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#0?39;|&apos;/g, "'")
+    // Numeric entities the named list above misses (&#8217;, &#x27;).
+    .replace(/&#x([0-9a-f]+);/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCodePoint(Number(d)))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")

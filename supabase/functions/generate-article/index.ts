@@ -18,13 +18,20 @@ function htmlToText(html: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    // Numeric entities the named list above misses (&#039;, &#8217;, &#x27;).
+    .replace(/&#x([0-9a-f]+);/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCodePoint(Number(d)))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-async function resolveAndFetch(url: string, timeoutMs = 12000): Promise<{ url: string; text: string } | null> {
+async function resolveAndFetch(
+  url: string,
+  timeoutMs = 12000,
+  maxChars = 8000,
+): Promise<{ url: string; text: string; title: string } | null> {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -40,9 +47,13 @@ async function resolveAndFetch(url: string, timeoutMs = 12000): Promise<{ url: s
     clearTimeout(t);
     if (!resp.ok) return null;
     const html = await resp.text();
-    const text = htmlToText(html).slice(0, 8000);
+    const text = htmlToText(html).slice(0, maxChars);
     if (text.length < 200) return null;
-    return { url: resp.url || url, text };
+    const titleMatch =
+      html.match(/<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const title = titleMatch ? htmlToText(titleMatch[1]).slice(0, 200) : "";
+    return { url: resp.url || url, text, title };
   } catch (e) {
     console.error("resolveAndFetch failed", url, (e as Error).message);
     return null;
@@ -165,15 +176,57 @@ serve(async (req) => {
   if (authError) return authError;
 
   try {
-    const { topic } = await req.json();
-    if (!topic || typeof topic !== "string" || topic.trim().length < 3) {
-      return json({ error: "יש לספק נושא או ידיעה" }, 400);
+    const reqBody = await req.json().catch(() => ({}));
+    const topic = typeof reqBody?.topic === "string" ? reqBody.topic.trim() : "";
+    // Links the editor pasted. They are the authoritative material when
+    // present: the automatic web research only fills in context around them.
+    const sourceUrls: string[] = [
+      ...new Set<string>(
+        (Array.isArray(reqBody?.sourceUrls) ? reqBody.sourceUrls : [])
+          .map((u: unknown) => String(u ?? "").trim())
+          .filter((u: string) => /^https?:\/\/\S+$/i.test(u)),
+      ),
+    ].slice(0, 6);
+
+    if (topic.length < 3 && sourceUrls.length === 0) {
+      return json({ error: "יש לספק נושא לכתבה, קישורים למקורות, או שניהם" }, 400);
     }
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY חסר" }, 500);
 
     const today = new Date().toISOString().slice(0, 10);
+
+    // === Step 0: The links the editor pasted ===
+    // Read in full and placed at the top of the research, so the model builds
+    // the article on them rather than on whatever the search happens to find.
+    const editorSources: { title: string; url: string }[] = [];
+    const editorBlocks: string[] = [];
+    const unreadableUrls: string[] = [];
+    if (sourceUrls.length > 0) {
+      const fetched = await Promise.all(
+        sourceUrls.map(async (u) => ({ requested: u, page: await resolveAndFetch(u, 15000, 14000) })),
+      );
+      for (const { requested, page } of fetched) {
+        if (!page) {
+          unreadableUrls.push(requested);
+          continue;
+        }
+        const title = page.title || requested;
+        editorSources.push({ title, url: page.url });
+        editorBlocks.push(`### ${title}\nכתובת: ${page.url}\n\n${page.text}`);
+      }
+      if (editorBlocks.length === 0) {
+        return json(
+          {
+            error:
+              `לא הצלחנו לקרוא אף אחד מ-${unreadableUrls.length} הקישורים שסופקו. ` +
+              `ייתכן שהם מאחורי מנוי או חוסמים קריאה אוטומטית — נסו קישורים אחרים או הוסיפו נושא.`,
+          },
+          422,
+        );
+      }
+    }
 
     // === Step 1a: Extract Hebrew search query from topic ===
     const queryResp = await fetchWithRetry(AI_URL, {
@@ -220,9 +273,12 @@ serve(async (req) => {
     console.log("classification:", classification);
 
     // === Step 1c: Google News RSS ===
-    const rssMain = await fetchRss(
-      `https://news.google.com/rss/search?q=${encodeURIComponent(query + " when:7d")}&hl=he&gl=IL&ceid=IL:he`
-    );
+    // With no topic the pasted links are the whole brief — no search runs.
+    const rssMain = topic
+      ? await fetchRss(
+          `https://news.google.com/rss/search?q=${encodeURIComponent(query + " when:7d")}&hl=he&gl=IL&ceid=IL:he`,
+        )
+      : [];
     let parsed = rssMain;
 
     if (classification.isFinancial && classification.company) {
@@ -235,13 +291,21 @@ serve(async (req) => {
       parsed = [...mayaRss.slice(0, 4), ...irRss.slice(0, 4), ...rssMain].slice(0, 14);
     }
 
-    let sources: { title: string; url: string }[] = parsed.slice(0, 8).map((p) => ({ title: p.title, url: p.link }));
+    let sources: { title: string; url: string }[] = [
+      ...editorSources,
+      ...parsed.slice(0, 8).map((p) => ({ title: p.title, url: p.link })),
+    ];
     let researchText = parsed
       .map((p, i) => `[${i + 1}] ${p.title}\nתאריך: ${p.pubDate}\nתקציר: ${p.desc}\nקישור: ${p.link}`)
       .join("\n\n");
+    if (editorBlocks.length > 0) {
+      researchText =
+        `=== מקורות שהעורך סיפק (החומר המרכזי לכתבה) ===\n\n${editorBlocks.join("\n\n---\n\n")}` +
+        (researchText ? `\n\n=== חומר רקע נוסף מהרשת ===\n\n${researchText}` : "");
+    }
 
     // === Step 1d: Deep fetch full content of top sources ===
-    const toFetch = parsed.slice(0, classification.isFinancial ? 4 : 2);
+    const toFetch = editorBlocks.length > 0 ? [] : parsed.slice(0, classification.isFinancial ? 4 : 2);
     const fullTexts = await Promise.all(toFetch.map((p) => resolveAndFetch(p.link)));
     const deepBlocks = fullTexts
       .map((r, i) => (r ? `### מקור מלא ${i + 1}: ${toFetch[i].title}\nכתובת: ${r.url}\n\n${r.text}` : null))
@@ -253,7 +317,7 @@ serve(async (req) => {
 
     // No verified material — refuse rather than write fiction. A model with an
     // empty research block will happily invent outlets, dates and numbers.
-    if (parsed.length === 0 && deepBlocks.length === 0) {
+    if (parsed.length === 0 && deepBlocks.length === 0 && editorBlocks.length === 0) {
       return json(
         { error: "לא נמצא מידע עדכני מאומת על הנושא. נסו לנסח את הנושא אחרת או להוסיף פרטים (שם חברה, אירוע)." },
         422,
@@ -290,7 +354,13 @@ serve(async (req) => {
 
 בנוסף, החזר שדה category בעברית מתוך הרשימה: חדשות, טכנולוגיה, כלכלה, פוליטיקה, אקטואליה, שוק ההון.
 
-החזר רק דרך הכלי write_article.`;
+החזר רק דרך הכלי write_article.${
+      editorBlocks.length > 0
+        ? `
+
+**מקורות שהעורך סיפק:** הבלוקים תחת "מקורות שהעורך סיפק" הם החומר המרכזי — בנה עליהם את הכתבה, וכסה את כל מה שנאמר בהם. חומר הרקע מהרשת משמש להשלמה והקשר בלבד, ואינו גובר עליהם. אם המקורות שסופקו סותרים זה את זה, ציין את שתי הגרסאות במקום לבחור אחת.`
+        : ""
+    }`;
 
     let articleData: any;
     try {
@@ -299,7 +369,9 @@ serve(async (req) => {
           { role: "system", content: researchSystem },
           {
             role: "user",
-            content: `הידיעה המקורית:\n${topic}\n\n---\n\nתוצאות מחקר עדכניות מהרשת:\n${researchText}`,
+            content: topic
+              ? `הידיעה המקורית:\n${topic}\n\n---\n\nחומר המחקר:\n${researchText}`
+              : `כתוב כתבה על בסיס המקורות הבאים:\n\n${researchText}`,
           },
         ],
         tools: [
@@ -432,6 +504,7 @@ serve(async (req) => {
       imageUrl: imageUrl ?? "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&h=450&fit=crop",
       sources,
       key_facts: article.key_facts ?? [],
+      unreadableUrls,
     });
   } catch (e: any) {
     console.error("generate-article error", e);
