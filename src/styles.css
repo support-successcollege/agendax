@@ -54,6 +54,8 @@
   --color-brand-blue: hsl(var(--brand-blue));
   --color-brand-cyan: hsl(var(--brand-cyan));
 
+  --color-breaking: hsl(var(--breaking));
+
   --color-surface-deep: hsl(var(--surface-deep));
   --color-surface-1: hsl(var(--surface-1));
   --color-surface-2: hsl(var(--surface-2));
@@ -130,10 +132,12 @@
   --accent: 221 100% 43%;
   --accent-foreground: 0 0% 100%;
 
+  --breaking: 4 84% 60%;
+
   --destructive: 4 90% 68%;
   --destructive-foreground: 356 100% 15%;
 
-  --border: 217 28% 20%;
+  --border: 216 26% 24%;
   --input: 217 28% 20%;
   --ring: 190 100% 49%;
 
@@ -225,6 +229,14 @@
 /* The blue-to-cyan hairline under the header — the logo's X, unrolled. */
 @utility bg-gradient-brand {
   background-image: var(--gradient-brand);
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @utility shadow-card {

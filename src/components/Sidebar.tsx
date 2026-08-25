@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebarWidgets, SidebarWidget } from "@/hooks/useSidebarWidgets";
 import WidgetRotating from "@/components/WidgetRotating";
-import HotArticlesTable from "@/components/HotArticlesTable";
+import MostRead from "@/components/news/MostRead";
 import { sendAdminNotification } from "@/lib/admin.functions";
 
 interface SidebarProps {
@@ -93,24 +93,23 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
 
   return (
     <aside className="space-y-8">
-      {/* Live hot-articles list, compact */}
-      {articles.length > 0 && <HotArticlesTable articles={articles} compact />}
+      {articles.length > 0 && <MostRead articles={articles} />}
 
       {/* Newsletter */}
-      <div className="glass-panel rounded-xl p-5">
-        <h3 className="font-bold text-lg mb-2 text-white">הרשמו לניוזלטר</h3>
-        <p className="text-sm text-white/80 mb-4">
-          קבלו את החדשות החמות ביותר ישירות לתיבת המייל
+      <div className="border-r-[3px] border-primary bg-card p-4">
+        <h3 className="font-black text-[17px] mb-1 text-foreground">הניוזלטר של Agendax</h3>
+        <p className="text-[13px] text-muted-foreground mb-3 leading-snug">
+          סיכום החדשות של עולם ההייטק, ה-AI והשוק — ישירות למייל.
         </p>
         {isSubscribed ? (
-          <div className="flex items-center gap-2 text-white">
+          <div className="flex items-center gap-2 text-primary">
             <CheckCircle className="w-5 h-5" />
             <span>תודה שנרשמת!</span>
           </div>
         ) : !showDetails ? (
           <button
             onClick={() => setShowDetails(true)}
-            className="w-full bg-accent text-white py-2.5 rounded-lg font-medium hover:bg-accent/90 transition-colors text-sm flex items-center justify-center gap-2"
+            className="w-full bg-primary text-primary-foreground py-2.5 font-bold hover:bg-primary/90 transition-colors text-sm flex items-center justify-center gap-2"
           >
             <Mail className="w-4 h-4" />
             הצטרפו עכשיו
@@ -123,7 +122,7 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="שם מלא *"
-              className="w-full px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 placeholder:text-white/60 text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-white/30"
+              className="w-full px-3 py-2 bg-background border border-border placeholder:text-muted-foreground text-foreground text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
               disabled={isLoading}
               maxLength={100}
             />
@@ -134,7 +133,7 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="אימייל *"
               dir="ltr"
-              className="w-full px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 placeholder:text-white/60 text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-white/30"
+              className="w-full px-3 py-2 bg-background border border-border placeholder:text-muted-foreground text-foreground text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
               disabled={isLoading}
             />
             <input
@@ -144,14 +143,14 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="טלפון (לא חובה)"
               dir="ltr"
-              className="w-full px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 placeholder:text-white/60 text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-white/30"
+              className="w-full px-3 py-2 bg-background border border-border placeholder:text-muted-foreground text-foreground text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
               disabled={isLoading}
               maxLength={20}
             />
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-accent text-white py-2 rounded-lg font-medium hover:bg-accent/90 transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-primary text-primary-foreground py-2 font-bold hover:bg-primary/90 transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>

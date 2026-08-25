@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays, MapPin, ExternalLink } from "lucide-react";
+import { MapPin, ExternalLink } from "lucide-react";
+import SectionHeader from "@/components/news/SectionHeader";
 
 type EventRow = {
   id: string;
@@ -37,12 +38,9 @@ const IndustryEvents = () => {
   if (events.length === 0) return null;
 
   return (
-    <section aria-label="כנסים ואירועים" className="rounded-xl border bg-card p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <CalendarDays className="w-5 h-5 text-primary" />
-        <h2 className="font-bold text-lg text-foreground">כנסים ואירועים בתעשייה</h2>
-      </div>
-      <ul className="space-y-3">
+    <section aria-label="כנסים ואירועים">
+      <SectionHeader title="כנסים ואירועים" />
+      <ul className="divide-y divide-border border-b border-border">
         {events.map((ev) => {
           const d = new Date(`${ev.event_date}T12:00:00`);
           return (
@@ -51,14 +49,14 @@ const IndustryEvents = () => {
                 href={ev.url ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="flex items-center gap-3 group"
+                className="flex items-center gap-3 py-2.5 group"
               >
-                <span className="shrink-0 w-12 h-12 rounded-lg bg-primary/10 border border-primary/20 flex flex-col items-center justify-center leading-none">
-                  <span className="text-lg font-extrabold text-primary">{d.getDate()}</span>
-                  <span className="text-[10px] text-primary/80 mt-0.5">{MONTHS[d.getMonth()]}</span>
+                <span className="shrink-0 w-11 h-11 border border-border bg-surface-2 flex flex-col items-center justify-center leading-none">
+                  <span className="text-[17px] font-black text-primary tabular-nums">{d.getDate()}</span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">{MONTHS[d.getMonth()]}</span>
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                  <span className="block text-[13.5px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                     {ev.title}
                   </span>
                   <span className="block text-xs text-muted-foreground truncate">

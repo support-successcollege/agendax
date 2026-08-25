@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { Sunrise } from "lucide-react";
+import SectionHeader from "@/components/news/SectionHeader";
 
 type BriefItem = { text: string; article_id: string | null; slug: string | null };
 
@@ -43,20 +44,16 @@ const MorningBrief = () => {
   };
 
   return (
-    <section aria-label="תקציר הבוקר" className="mb-8 rounded-xl border border-primary/25 bg-primary/5 p-5 md:p-6">
-      <div className="flex items-center gap-2 mb-3">
-        <Sunrise className="w-5 h-5 text-primary" />
-        <h2 className="font-bold text-lg text-foreground">5 דברים שצריך לדעת הבוקר</h2>
-        <span className="text-xs text-muted-foreground mr-auto">{dateLabel}</span>
-      </div>
-      <ol className="space-y-2.5">
+    <section aria-label="תקציר הבוקר">
+      <SectionHeader title="5 דברים שצריך לדעת הבוקר" note={dateLabel} />
+      <ol className="divide-y divide-border border-b border-border">
         {items.map((item, i) => {
           const inner = (
             <>
-              <span className="shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center mt-0.5">
+              <span className="shrink-0 w-6 text-center text-[15px] font-black tabular-nums text-primary">
                 {i + 1}
               </span>
-              <span className="text-sm md:text-[15px] leading-relaxed text-foreground/85">{renderText(item.text)}</span>
+              <span className="text-[14.5px] leading-relaxed text-foreground/85">{renderText(item.text)}</span>
             </>
           );
           return (
@@ -64,12 +61,12 @@ const MorningBrief = () => {
               {item.slug || item.article_id ? (
                 <Link
                   to={`/article/${encodeURIComponent(item.slug || item.article_id!)}`}
-                  className="flex items-start gap-3 group"
+                  className="flex items-start gap-3 py-2.5 group"
                 >
                   <span className="contents group-hover:[&_span:last-child]:text-primary">{inner}</span>
                 </Link>
               ) : (
-                <span className="flex items-start gap-3">{inner}</span>
+                <span className="flex items-start gap-3 py-2.5">{inner}</span>
               )}
             </li>
           );

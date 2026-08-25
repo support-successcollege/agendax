@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import Header from "@/components/Header";
-import BreakingNews from "@/components/BreakingNews";
+import NewsTicker from "@/components/news/NewsTicker";
+import StoryCard from "@/components/news/StoryCard";
 import ArticleGrid from "@/components/ArticleGrid";
 import Sidebar from "@/components/Sidebar";
 import Footer from "@/components/Footer";
@@ -40,12 +41,13 @@ const CategoryPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <BreakingNews articles={publishedArticles} />
+      <NewsTicker articles={publishedArticles} />
 
-      <main className="container py-8" id="main-content">
-        <header className="mb-8">
-          <h1 className="type-headline text-foreground">{title}</h1>
-          <div className="mt-3 h-0.5 w-16 bg-gradient-brand rounded-full" aria-hidden="true" />
+      <main className="container py-6" id="main-content">
+        <header className="mb-6 flex items-baseline gap-3 border-b-2 border-border pb-2">
+          <span className="h-[22px] w-[5px] shrink-0 self-center bg-primary" aria-hidden="true" />
+          <h1 className="text-[26px] md:text-[30px] font-black leading-none text-foreground">{title}</h1>
+          <span className="text-[12px] text-muted-foreground">{categoryArticles.length} כתבות</span>
         </header>
 
         {bannerWidgets.length > 0 && (
@@ -54,17 +56,33 @@ const CategoryPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-x-8 gap-y-8">
+          <div className="min-w-0">
             {categoryArticles.length > 0 ? (
-              <ArticleGrid articles={categoryArticles} title="" />
+              <>
+                <div className="pb-5 border-b border-border">
+                  <StoryCard article={categoryArticles[0]} variant="lead" priority />
+                </div>
+                {categoryArticles.length > 1 && (
+                  <div className="grid gap-x-6 sm:grid-cols-2 pt-1">
+                    {categoryArticles.slice(1).map((article) => (
+                      <StoryCard
+                        key={article.id}
+                        article={article}
+                        variant="list"
+                        className="border-b border-border"
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-muted-foreground py-12 text-center">
                 אין עדיין כתבות בקטגוריה הזו.
               </p>
             )}
           </div>
-          <div className="lg:col-span-1">
+          <div className="min-w-0 lg:border-r lg:border-border lg:pr-8">
             <Sidebar articles={publishedArticles} rotatingWidgets={sidebarWidgets} />
           </div>
         </div>

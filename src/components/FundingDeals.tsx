@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp } from "lucide-react";
+import SectionHeader from "@/components/news/SectionHeader";
 
 type DealRow = {
   id: string;
@@ -44,19 +44,15 @@ const FundingDeals = () => {
   if (deals.length === 0) return null;
 
   return (
-    <section aria-label="גיוסים ואקזיטים" className="rounded-xl border bg-card p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-5 h-5 text-primary" />
-        <h2 className="font-bold text-lg text-foreground">גיוסים ואקזיטים</h2>
-        <span className="text-xs text-muted-foreground mr-auto">שבועיים אחרונים</span>
-      </div>
-      <ul className="divide-y divide-border">
+    <section aria-label="גיוסים ואקזיטים">
+      <SectionHeader title="גיוסים ואקזיטים" note="שבועיים אחרונים" />
+      <ul className="divide-y divide-border border-b border-border">
         {deals.map((deal) => {
           const kind = KIND_LABEL[deal.kind];
           const details = [deal.round && `סבב ${deal.round}`, deal.investors].filter(Boolean).join(" · ");
           const row = (
             <div className="flex items-center gap-3 py-2.5">
-              <span className={`shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${kind.className}`}>
+              <span className={`shrink-0 text-[11px] font-bold px-1.5 py-[2px] ${kind.className}`}>
                 {kind.text}
               </span>
               <span className="min-w-0 flex-1">
@@ -71,7 +67,7 @@ const FundingDeals = () => {
           return (
             <li key={deal.id}>
               {deal.article_id ? (
-                <Link to={`/article/${deal.article_id}`} className="block hover:bg-muted/40 -mx-2 px-2 rounded-md transition-colors">
+                <Link to={`/article/${deal.article_id}`} className="block -mx-2 px-2 hover:bg-white/[0.03] transition-colors">
                   {row}
                 </Link>
               ) : (

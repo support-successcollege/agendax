@@ -9,7 +9,10 @@ import WidgetBanner from "@/components/WidgetBanner";
 import RichHtmlContent from "@/components/RichHtmlContent";
 import { Calendar, User, ArrowRight, Tag } from "lucide-react";
 import { motion } from "framer-motion";
-import ArticleCard from "@/components/ArticleCard";
+import StoryCard from "@/components/news/StoryCard";
+import SectionHeader from "@/components/news/SectionHeader";
+import { CategoryTag } from "@/components/news/StoryCard";
+import { timeLabel } from "@/lib/newsTime";
 import OptimizedImage from "@/components/OptimizedImage";
 import ArticleReactions from "@/components/ArticleReactions";
 import ArticleComments from "@/components/ArticleComments";
@@ -81,82 +84,70 @@ const Article = () => {
       <ReadingProgress />
 
       <main className="flex-1" id="main-content">
-        {/* Hero Image */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="relative h-[40vh] md:h-[50vh]"
-        >
+        {/* The headline block: category, headline, standfirst and byline sit
+            above the photo, the way a section front reads. */}
+        <div className="container pt-6">
+          <div className="max-w-4xl mx-auto">
+            <nav className="flex items-center gap-2 text-[12px] text-muted-foreground mb-3">
+              <Link to="/" className="hover:text-primary transition-colors">ראשי</Link>
+              <span aria-hidden="true">›</span>
+              <Link
+                to={`/category/${encodeURIComponent(article.categorySlug || "")}`}
+                className="hover:text-primary transition-colors"
+              >
+                {article.category}
+              </Link>
+            </nav>
+
+            <CategoryTag article={article} className="mb-3" />
+
+            <h1 className="text-[28px] md:text-[42px] font-black leading-[1.1] text-foreground text-balance">
+              {article.title}
+            </h1>
+
+            <p className="mt-4 text-[17px] md:text-[19px] leading-relaxed text-muted-foreground max-w-[68ch]">
+              {article.excerpt}
+            </p>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-border py-2.5 text-[12.5px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="font-semibold text-foreground/80">{article.author}</span>
+                <span className="tabular-nums">
+                  {new Date(article.publishedAt || article.date).toLocaleDateString("he-IL", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+                <span className="tabular-nums">{timeLabel(article.publishedAt || article.date)}</span>
+              </div>
+              <ArticleReader title={article.title} excerpt={article.excerpt} content={article.content} />
+            </div>
+          </div>
+        </div>
+
+        <div className="container mt-5">
           <OptimizedImage
             src={article.imageUrl}
             alt={article.title}
             priority
-            wrapperClassName="w-full h-full"
+            fetchPriority="high"
+            width={1200}
+            aspectRatio={16 / 9}
+            quality={82}
+            wrapperClassName="max-w-4xl mx-auto w-full aspect-video overflow-hidden bg-surface-2"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-        </motion.div>
+        </div>
 
         {/* Article Content */}
-        <div className="container mx-auto px-4 -mt-32 relative z-10">
-          <motion.article
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="max-w-4xl mx-auto bg-card rounded-2xl shadow-hover p-6 md:p-10"
-          >
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-              <Link to="/" className="hover:text-primary transition-colors">
-                ראשי
-              </Link>
-              <ArrowRight className="w-4 h-4 rotate-180" />
-              <span className="text-primary">{article.category}</span>
-            </nav>
-
-            {/* Category Badge */}
-            <div className="flex items-center gap-2 mb-4">
-              <span className="px-3 py-1 bg-primary/10 text-primary text-sm font-semibold rounded-full flex items-center gap-1">
-                <Tag className="w-3 h-3" />
-                {article.category}
-              </span>
-            </div>
-
-            {/* Title */}
-            <h1 className="text-2xl md:text-4xl font-black text-foreground mb-6 leading-tight">
-              {article.title}
-            </h1>
-
-            {/* Meta Info */}
-            <div className="flex flex-wrap items-center justify-between gap-4 text-muted-foreground text-sm mb-8 pb-8 border-b border-border">
-              <div className="flex flex-wrap items-center gap-6">
-                <span className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  {article.author}
-                </span>
-                <span className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  {new Date(article.date).toLocaleDateString("he-IL", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-              <ArticleReader title={article.title} excerpt={article.excerpt} content={article.content} />
-            </div>
-
+        <div className="container">
+          <article className="max-w-4xl mx-auto pt-8">
             {/* Reading column: 65-75 characters per line is where reading is
                 comfortable; the card is wider than that, so the text gets its
                 own measure inside it. */}
             <div className="mx-auto max-w-[70ch]">
-            {/* Excerpt */}
-            <p className="text-lg md:text-xl text-foreground/80 font-medium mb-8 leading-relaxed">
-              {article.excerpt}
-            </p>
-
             {/* Content */}
             {article.content.includes('<') ? (
               // HTML content from rich text editor
@@ -280,33 +271,31 @@ const Article = () => {
             {/* Newsletter Signup */}
             <ArticleNewsletterCard category={article.category} />
             </div>
-          </motion.article>
+          </article>
 
           {/* Related Articles */}
           {relatedArticles.length > 0 && (
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="max-w-6xl mx-auto mt-12"
-            >
-              <h2 className="text-2xl font-bold text-foreground mb-6">כתבות נוספות בקטגוריה</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {relatedArticles.map((relatedArticle, index) => (
-                  <ArticleCard key={relatedArticle.id} article={relatedArticle} index={index} />
+            <section className="max-w-4xl mx-auto mt-12">
+              <SectionHeader
+                title={`עוד ב${article.category}`}
+                href={`/category/${encodeURIComponent(article.categorySlug || "")}`}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
+                {relatedArticles.map((relatedArticle) => (
+                  <StoryCard key={relatedArticle.id} article={relatedArticle} variant="card" />
                 ))}
               </div>
-            </motion.section>
+            </section>
           )}
 
           {/* Back to Home */}
-          <div className="max-w-6xl mx-auto mt-8 mb-16 flex justify-center">
+          <div className="max-w-4xl mx-auto mt-10 mb-16">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-2 border border-border px-5 py-2.5 text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
             >
               <ArrowRight className="w-4 h-4" />
-              חזרה לדף הבית לכתבות נוספות
+              חזרה לדף הבית
             </Link>
           </div>
         </div>

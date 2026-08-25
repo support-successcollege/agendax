@@ -81,7 +81,7 @@ const ArticleNewsletterCard = ({ category }: ArticleNewsletterCardProps) => {
   }
 
   return (
-    <Card className="mt-8 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+    <Card className="mt-8 rounded-none border-x-0 border-b-0 border-t-2 border-primary bg-card shadow-none">
       <CardContent className="py-8">
         <div className="flex flex-col items-center text-center gap-4">
           <Mail className="w-10 h-10 text-primary" />

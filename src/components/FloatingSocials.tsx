@@ -29,7 +29,7 @@ const socials = [
 
 const FloatingSocials = () => {
   return (
-    <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3">
+    <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 hidden xl:flex flex-col gap-3">
       {socials.map((s) => (
         <a
           key={s.label}

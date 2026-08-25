@@ -1,8 +1,8 @@
-import { Link } from "@/lib/router-compat";
-import { ChevronLeft } from "lucide-react";
 import type { Article } from "@/hooks/useArticles";
 import type { Category } from "@/hooks/useCategories";
-import ArticleCard from "@/components/ArticleCard";
+import StoryCard from "@/components/news/StoryCard";
+import SectionHeader from "@/components/news/SectionHeader";
+import { categoryColor } from "@/lib/categoryColor";
 
 interface CategoryStripsProps {
   articles: Article[];
@@ -10,9 +10,9 @@ interface CategoryStripsProps {
 }
 
 /**
- * One strip per active category: its four freshest articles and a link to the
- * full category page. Deepens the homepage and feeds internal links to the
- * category SEO surfaces.
+ * One block per active category, set the way a section front is: the newest
+ * story large, the next three as rows beside it. Deepens the homepage and
+ * feeds internal links to the category SEO surfaces.
  */
 const CategoryStrips = ({ articles, categories }: CategoryStripsProps) => {
   const strips = categories
@@ -20,36 +20,36 @@ const CategoryStrips = ({ articles, categories }: CategoryStripsProps) => {
     .sort((a, b) => a.displayOrder - b.displayOrder)
     .map((category) => ({
       category,
-      items: articles.filter((a) => a.categorySlug === category.slug).slice(0, 4),
+      items: articles.filter((a) => a.categorySlug === category.slug).slice(0, 5),
     }))
     .filter((s) => s.items.length > 0);
 
   if (strips.length === 0) return null;
 
   return (
-    <div className="space-y-10">
-      {strips.map(({ category, items }) => (
-        <section key={category.id} aria-label={category.name}>
-          <div className="flex items-center justify-between mb-4 border-b-2 border-primary/20 pb-2">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <span className="w-1.5 h-6 rounded-full bg-primary inline-block" />
-              {category.name}
-            </h2>
-            <Link
-              to={`/category/${category.slug}`}
-              className="text-sm text-primary font-medium flex items-center gap-1 hover:gap-2 transition-all"
-            >
-              לכל הכתבות
-              <ChevronLeft className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {items.map((article, index) => (
-              <ArticleCard key={article.id} article={article} index={index} />
-            ))}
-          </div>
-        </section>
-      ))}
+    <div className="grid gap-x-10 gap-y-9 lg:grid-cols-2">
+      {strips.map(({ category, items }) => {
+        const [lead, ...rest] = items;
+        return (
+          <section key={category.id} aria-label={category.name}>
+            <SectionHeader
+              title={category.name}
+              href={`/category/${category.slug}`}
+              color={categoryColor(category.slug)}
+            />
+            <div className="grid gap-x-6 gap-y-4 md:grid-cols-[1.15fr_1fr]">
+              <StoryCard article={lead} variant="card" />
+              {rest.length > 0 && (
+                <div className="divide-y divide-border border-t border-border md:border-t-0">
+                  {rest.slice(0, 4).map((article) => (
+                    <StoryCard key={article.id} article={article} variant="list" />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 };
