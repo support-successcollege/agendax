@@ -11,7 +11,7 @@
 // platform, hashtags } — text plus everything needed to actually publish.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { authorize, callModel, corsHeaders, json } from "../_shared/ingest.ts";
+import { authorize, callModelWithFallback, corsHeaders, json } from "../_shared/ingest.ts";
 
 const SITE_URL = "https://agendax.co.il";
 
@@ -81,7 +81,7 @@ ${wantHashtags ? "- אחרי הלינק, בשורה נפרדת אחרונה: ל�
 קטגוריה: ${category}
 תוכן: ${plainContent || "לא סופק"}`;
 
-    const data = await callModel({
+    const data = await callModelWithFallback({
       messages: [{ role: "user", content: prompt }],
       max_tokens: 800,
     });

@@ -11,7 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   adminClient,
   authorize,
-  callModel,
+  callModelWithFallback,
   corsHeaders,
   FALLBACK_IMAGE,
   fetchArticleText,
@@ -120,7 +120,7 @@ async function reviewDraft(
   sourceMaterial: string,
 ): Promise<{ score: number | null; note: string | null }> {
   try {
-    const response = await callModel({
+    const response = await callModelWithFallback({
       messages: [
         {
           role: "system",
@@ -197,7 +197,7 @@ async function processUpdate(supabase: any, item: Item): Promise<{ ok: true; art
   }
 
   const existingText = htmlToText(target.content || "").slice(0, 7000);
-  const response = await callModel({
+  const response = await callModelWithFallback({
     messages: [
       { role: "system", content: UPDATER_SYSTEM },
       {
@@ -322,7 +322,7 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     relatedBlock;
 
   const headlineBlock = await headlinePerformanceBlock(supabase);
-  const response = await callModel({
+  const response = await callModelWithFallback({
     messages: [
       { role: "system", content: WRITER_SYSTEM(today, categoryNames, headlineBlock) },
       { role: "user", content: userContent },

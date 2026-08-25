@@ -1,6 +1,6 @@
 // Shared social-publishing plumbing: per-platform post styles, AI text
 // generation, and the actual publishers that talk to each network's API.
-import { callModel, toolArgs } from "./ingest.ts";
+import { callModelWithFallback, toolArgs } from "./ingest.ts";
 
 export const SITE_URL = "https://agendax.co.il";
 
@@ -47,7 +47,7 @@ ${wantHashtags ? "- שורה אחרונה: לפחות 4 האשטגים בעבר�
   // Forced tool call, not free text: two live tweets went out with leaked
   // meta ("char count for Draft 1:", a post starting mid-word) when the model
   // narrated around its answer. A structured field cannot carry narration.
-  const data = await callModel({
+  const data = await callModelWithFallback({
     messages: [{ role: "user", content: prompt }],
     tools: [
       {

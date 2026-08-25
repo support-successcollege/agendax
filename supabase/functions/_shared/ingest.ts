@@ -8,6 +8,8 @@ import { marked } from "https://esm.sh/marked@12.0.2";
 
 export const AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 export const TEXT_MODEL = "gemini-3.6-flash";
+export const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
+export const CLAUDE_MODEL = "claude-sonnet-5";
 // Overridable without a redeploy: the image-model id churned three times in
 // one evening, so it lives in a secret rather than in code.
 //   supabase secrets set GEMINI_IMAGE_MODEL=gemini-3-pro-image
@@ -471,7 +473,8 @@ export function topUpCount(
 // Gemini returns 503 ("model overloaded") and the occasional 500/502/504 as
 // transient conditions — a retry after a short pause almost always succeeds.
 // 429 also qualifies: the per-minute window resets within seconds.
-const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+// 529 is Anthropic's "overloaded", the same idea on the Claude side.
+const RETRYABLE = new Set([429, 500, 502, 503, 504, 529]);
 
 export async function fetchWithRetry(
   url: string,
@@ -496,24 +499,126 @@ export async function fetchWithRetry(
  * quota — Gemini's free-tier quotas are per model, so the lite bucket is
  * usually still open when flash is exhausted.
  */
-export async function callModelWithFallback(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const fallbacks = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"];
-  try {
-    return await callModel(body);
-  } catch (e) {
-    if (!String((e as Error)?.message || "").includes("ממכסת הבקשות")) throw e;
+/**
+ * Claude, speaking the same request/response shape as callModel above, so a
+ * caller can swap providers without touching its prompt or its tool schema.
+ * Anthropic's Messages API differs in three places, all handled here:
+ * the system prompt is a top-level field rather than a message, a tool is
+ * {name, description, input_schema} rather than {type, function}, and the
+ * answer comes back as a tool_use block rather than a tool_calls array.
+ */
+const SEP = String.fromCharCode(10, 10);
+export async function callClaude(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) throw new Error("ANTHROPIC_API_KEY חסר");
+
+  const messages = (body.messages as { role: string; content: string }[]) || [];
+  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join(SEP);
+  const rest = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
+
+  const tools = ((body.tools as any[]) || []).map((t) => ({
+    name: t?.function?.name,
+    description: t?.function?.description ?? "",
+    input_schema: t?.function?.parameters,
+  })).filter((t) => t.name && t.input_schema);
+
+  const wanted = (body.tool_choice as any)?.function?.name;
+  const payload: Record<string, unknown> = {
+    model: Deno.env.get("CLAUDE_MODEL") || CLAUDE_MODEL,
+    max_tokens: Number(body.max_tokens) || 8192,
+    messages: rest,
+  };
+  if (system) payload.system = system;
+  if (tools.length) payload.tools = tools;
+  if (wanted && tools.some((t) => t.name === wanted)) payload.tool_choice = { type: "tool", name: wanted };
+  else if (tools.length) payload.tool_choice = { type: "any" };
+
+  const resp = await fetchWithRetry(CLAUDE_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    if (resp.status === 429) throw new Error("חריגה ממכסת הבקשות של Claude");
+    if (resp.status === 401) throw new Error("מפתח ה-API של Claude נדחה (401)");
+    throw new Error(`Claude ${resp.status}: ${text.slice(0, 300)}`);
   }
-  let lastErr: unknown = null;
-  for (const model of fallbacks) {
+  const data = await resp.json() as {
+    content?: { type: string; name?: string; input?: unknown; text?: string }[];
+    stop_reason?: string;
+  };
+
+  // Re-shape into the OpenAI envelope that toolArgs() and the plain-text
+  // callers already know how to read.
+  const block = (data.content || []).find((c) => c.type === "tool_use");
+  if (block) {
+    if (data.stop_reason === "max_tokens") throw new Error("התשובה של Claude נקטעה (max_tokens)");
+    return {
+      choices: [{
+        message: {
+          content: null,
+          tool_calls: [{
+            id: "claude_tool_call",
+            type: "function",
+            function: { name: block.name, arguments: JSON.stringify(block.input ?? {}) },
+          }],
+        },
+      }],
+    };
+  }
+  const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+  if (!text) throw new Error("Claude לא החזיר תשובה");
+  return { choices: [{ message: { content: text } }] };
+}
+
+/**
+ * The resilient path every article-producing call goes through.
+ *
+ * Order: the main Gemini model → the lighter Gemini models (their free-tier
+ * quotas are separate buckets, so one being empty says nothing about the
+ * others) → Claude, which is a different vendor entirely and therefore
+ * survives a Google-wide outage or a burnt daily quota.
+ *
+ * Set AI_PRIMARY=claude to put Claude first and Gemini second — one env var
+ * to flip the whole system over on a bad Gemini day.
+ */
+export async function callModelWithFallback(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const claudeFirst = (Deno.env.get("AI_PRIMARY") || "").toLowerCase() === "claude";
+  const geminiChain: (() => Promise<Record<string, unknown>>)[] = [
+    () => callModel(body),
+    ...["gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"].map(
+      (model) => () => callModel({ ...body, model }),
+    ),
+  ];
+  const attempts = claudeFirst
+    ? [{ name: "claude", run: () => callClaude(body) }, ...geminiChain.map((run, i) => ({ name: `gemini#${i}`, run }))]
+    : [...geminiChain.map((run, i) => ({ name: `gemini#${i}`, run })), { name: "claude", run: () => callClaude(body) }];
+
+  const failures: string[] = [];
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i];
     try {
-      return await callModel({ ...body, model });
+      const result = await attempt.run();
+      if (failures.length) console.log(`ספק גיבוי הצליח: ${attempt.name} (אחרי ${failures.join(" | ")})`);
+      return result;
     } catch (e) {
-      lastErr = e;
-      const msg = String((e as Error)?.message || "");
-      if (!msg.includes("ממכסת הבקשות") && !msg.includes("404")) throw e;
+      const msg = String((e as Error)?.message || e);
+      failures.push(`${attempt.name}: ${msg.slice(0, 120)}`);
+      // A malformed request is our bug — no other Gemini model will accept it
+      // either. Skip the rest of the Gemini chain and let the other vendor try.
+      if (attempt.name.startsWith("gemini") && msg.includes("Gemini 400")) {
+        while (i + 1 < attempts.length && attempts[i + 1].name.startsWith("gemini")) i++;
+      }
     }
   }
-  throw lastErr;
+  throw new Error(`כל ספקי ה-AI נכשלו — ${failures.join(" | ")}`);
 }
 
 export async function callModel(body: Record<string, unknown>): Promise<Record<string, unknown>> {

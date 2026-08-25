@@ -5,7 +5,7 @@
 // title/excerpt/body are simply replaced.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { authorize, callModel, corsHeaders, json, mdToArticleHtml, toolArgs } from "../_shared/ingest.ts";
+import { authorize, callModelWithFallback, corsHeaders, json, mdToArticleHtml, toolArgs } from "../_shared/ingest.ts";
 
 const stripHtml = (html: string) =>
   html
@@ -57,7 +57,7 @@ ${instructions ? `\nהנחיות נוספות מהעורך: ${instructions}` : "
 
 החזר רק דרך הכלי rewrite_article.`;
 
-    const response = await callModel({
+    const response = await callModelWithFallback({
       messages: [
         { role: "system", content: system },
         {

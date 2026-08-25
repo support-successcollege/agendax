@@ -8,7 +8,7 @@ import {
   FALLBACK_IMAGE,
   adminClient,
   authorize,
-  callModel,
+  callModelWithFallback,
   corsHeaders,
   generateImage,
   htmlToText,
@@ -124,7 +124,7 @@ serve(async (req) => {
 
 החזר רק דרך הכלי write_article.`;
 
-    const data = await callModel({
+    const data = await callModelWithFallback({
       messages: [
         { role: "system", content: system },
         { role: "user", content: `כתובת האתר: ${siteUrl}\n\n=== תוכן האתר ===\n\n${research}` },

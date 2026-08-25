@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { marked } from "https://esm.sh/marked@12.0.2";
+import { callModelWithFallback } from "../_shared/ingest.ts";
 
 function htmlToText(html: string): string {
   return html
@@ -291,14 +292,9 @@ serve(async (req) => {
 
 החזר רק דרך הכלי write_article.`;
 
-    const articleResp = await fetchWithRetry(AI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-3.6-flash",
+    let articleData: any;
+    try {
+      articleData = await callModelWithFallback({
         messages: [
           { role: "system", content: researchSystem },
           {
@@ -337,21 +333,13 @@ serve(async (req) => {
           },
         ],
         tool_choice: { type: "function", function: { name: "write_article" } },
-      }),
-    });
-
-    if (!articleResp.ok) {
-      const t = await articleResp.text();
-      console.error("AI article error", articleResp.status, t);
-      if (articleResp.status === 429) return json({ error: "חריגה ממכסת הבקשות, נסה שוב בעוד רגע" }, 429);
-      if (articleResp.status === 402) return json({ error: "חריגה ממכסת ה-API של Gemini, נסו שוב מאוחר יותר" }, 402);
-      if (articleResp.status === 503) {
-        return json({ error: "השרתים של Gemini עמוסים כרגע (503). ניסינו שלוש פעמים — נסו שוב בעוד דקה-שתיים." }, 503);
-      }
-      return json({ error: `שגיאה בניסוח הכתבה (Gemini ${articleResp.status}): ${t.slice(0, 300)}` }, 500);
+      });
+    } catch (e) {
+      const message = (e as Error)?.message || String(e);
+      console.error("AI article error", message);
+      return json({ error: `שגיאה בניסוח הכתבה: ${message.slice(0, 300)}` }, 502);
     }
 
-    const articleData = await articleResp.json();
     const toolCall = articleData.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) {
       console.error("No tool call", JSON.stringify(articleData));

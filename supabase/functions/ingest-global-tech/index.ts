@@ -9,7 +9,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   adminClient,
   authorize,
-  callModel,
+  callModelWithFallback,
   corsHeaders,
   fetchFeed,
   json,
@@ -318,7 +318,7 @@ ${budgetLines}
 
 אם בקטגוריה מסוימת אין מספיק ידיעות ראויות — החזר פחות ממכסתה. עדיף לא לפרסם מאשר לפרסם זבל.`;
 
-    const ranked = await callModel({
+    const ranked = await callModelWithFallback({
       messages: [
         { role: "system", content: rankerSystem },
         {
