@@ -1,23 +1,11 @@
-import { Facebook, Instagram, Linkedin, Twitter, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import wordmark from "@/assets/agendax-wordmark-light.png";
+import { useVisibleSocialLinks } from "@/hooks/useSocialLinks";
 
-const SOCIALS = [
-  {
-    href: "https://www.linkedin.com/in/agendax-80012a42b",
-    label: "LinkedIn",
-    Icon: Linkedin,
-  },
-  { href: "https://www.instagram.com/agendax.co.il", label: "Instagram", Icon: Instagram },
-  {
-    href: "https://www.facebook.com/profile.php?id=61593402242220",
-    label: "Facebook",
-    Icon: Facebook,
-  },
-  { href: "https://x.com/agendaxcoil", label: "X (טוויטר)", Icon: Twitter },
-];
-
-const Footer = () => (
+const Footer = () => {
+  const socials = useVisibleSocialLinks();
+  return (
   <footer className="bg-surface-deep text-foreground mt-16 border-t border-border" role="contentinfo">
     {/* Mirrors the hairline under the header, closing the page with the same mark. */}
     <div className="h-0.5 bg-gradient-brand" aria-hidden="true" />
@@ -31,10 +19,10 @@ const Footer = () => (
             שמובילות את השוק. סיקור שוטף, ניתוח מעמיק, וההקשר שמאחורי הכותרת.
           </p>
           <div className="flex items-center gap-3">
-            {SOCIALS.map(({ href, label, Icon }) => (
+            {socials.map(({ key, url, label, Icon }) => (
               <a
-                key={label}
-                href={href}
+                key={key}
+                href={url}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={label}
@@ -86,6 +74,7 @@ const Footer = () => (
       </div>
     </div>
   </footer>
-);
+  );
+};
 
 export default Footer;

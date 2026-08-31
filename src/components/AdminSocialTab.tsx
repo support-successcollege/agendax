@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import AdminSocialScheduler from "@/components/AdminSocialScheduler";
+import AdminSocialLinksCard from "@/components/AdminSocialLinksCard";
 import {
   Share2,
   Loader2,
@@ -219,6 +220,10 @@ const AdminSocialTab = () => {
 
   return (
     <div className="space-y-6">
+      {/* Where the site's own buttons point — separate from the publishing
+          credentials below, which are about posting rather than linking. */}
+      <AdminSocialLinksCard />
+
       {/* Accounts */}
       <Card>
         <CardHeader>
