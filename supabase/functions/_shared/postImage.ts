@@ -81,15 +81,37 @@ async function fetchImage(url: string): Promise<{ mime: string; bytes: Uint8Arra
 }
 
 async function toDataUrl(url: string): Promise<string> {
-  let { mime, bytes } = await fetchImage(url);
+  // Own-bucket images always take the transform endpoint — not only the ones
+  // in a format satori cannot read. The transform caps the pixel size on the
+  // way out, and a full-resolution source photo (a 900 KB JPEG is routine in
+  // the ingest bucket) exhausts the render worker's memory long before satori
+  // sees the bytes. That surfaces as a bare 546 WORKER_RESOURCE_LIMIT with no
+  // error of its own, which is what made it hard to place.
+  const transformed = transcodeUrl(url);
+
+  let mime: string;
+  let bytes: Uint8Array;
+  if (transformed) {
+    try {
+      ({ mime, bytes } = await fetchImage(transformed));
+    } catch {
+      // Transform unavailable for this object: the original is still better
+      // than no image at all.
+      ({ mime, bytes } = await fetchImage(url));
+    }
+  } else {
+    ({ mime, bytes } = await fetchImage(url));
+  }
 
   // AVIF and WebP reach satori as undecodable bytes and fail deep inside it,
-  // with an error that says nothing about the image. Convert instead.
+  // with an error that says nothing about the image. The transform re-encodes
+  // to JPEG, so this only bites on images that could not be routed through it.
   if (!SATORI_SAFE.has(mime)) {
-    const alternative = transcodeUrl(url);
-    if (!alternative) throw new Error(`תמונת המקור בפורמט ${mime} שאי אפשר לרנדר`);
-    ({ mime, bytes } = await fetchImage(alternative));
-    if (!SATORI_SAFE.has(mime)) throw new Error(`המרת התמונה מ-${mime} נכשלה`);
+    throw new Error(
+      transformed
+        ? `המרת התמונה מ-${mime} נכשלה`
+        : `תמונת המקור בפורמט ${mime} שאי אפשר לרנדר`,
+    );
   }
 
   return `data:${mime};base64,${toBase64(bytes)}`;

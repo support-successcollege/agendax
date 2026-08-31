@@ -183,7 +183,18 @@ async function publishOne(
   };
 
   try {
-    const text = await generatePostText(forPost, account.platform);
+    // Copy an editor already approved for this article (a marketing placement
+    // prepares it up front) wins over writing a fresh one.
+    const { data: prepared } = await supabase
+      .from("social_posts")
+      .select("post_text")
+      .eq("article_id", article.id)
+      .eq("platform", account.platform)
+      .eq("status", "pending")
+      .maybeSingle();
+    const text = prepared?.post_text?.trim()
+      ? String(prepared.post_text)
+      : await generatePostText(forPost, account.platform);
     let externalId = "";
     switch (account.platform) {
       case "facebook": {
