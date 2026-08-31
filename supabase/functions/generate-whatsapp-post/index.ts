@@ -8,6 +8,24 @@
 // tell an empty string apart from never having generated anything.
 import { authorize, callClaude, callModelWithFallback, corsHeaders, json } from "../_shared/ingest.ts";
 
+/**
+ * Cuts a string to length without splitting a surrogate pair. Slicing between
+ * the halves of an emoji leaves a lone surrogate, which encodes to U+FFFD —
+ * the replacement character that shows up as a black diamond.
+ */
+function safeSlice(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const last = cut.charCodeAt(cut.length - 1);
+  // A high surrogate at the very end lost its partner to the cut.
+  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;
+}
+
+/** Drops any unpaired surrogate, wherever it came from. */
+function stripLoneSurrogates(text: string): string {
+  return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -33,11 +51,13 @@ Deno.serve(async (req) => {
     const excerpt = String(body?.excerpt || "");
     const category = String(body?.category || "");
     // The body arrives as article HTML; the model only needs the prose.
-    const content = String(body?.content || "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 2000);
+    const content = safeSlice(
+      String(body?.content || "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+      2000,
+    );
 
     const prompt = `אתה כותב הודעות עבור ערוץ הוואטסאפ של Agendax, אתר ישראלי המסקר הייטק, בינה מלאכותית, שוקי הון וחברות.
 צור הודעה קצרה, ממוקדת ומסקרנת על הכתבה הבאה.
@@ -96,7 +116,7 @@ Deno.serve(async (req) => {
 
     const withLink = url ? `${cleaned}\n\n📰 לכתבה המלאה:\n${url}` : cleaned;
 
-    return json({ post: withLink });
+    return json({ post: stripLoneSurrogates(withLink) });
   } catch (e: any) {
     console.error("generate-whatsapp-post error", e);
     return json({ error: e?.message || "שגיאה לא ידועה" }, 500);
