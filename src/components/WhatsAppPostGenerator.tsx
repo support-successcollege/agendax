@@ -75,8 +75,12 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
   };
 
   const handleOpenWhatsApp = () => {
+    // web.whatsapp.com, not wa.me: on Windows wa.me hands the text to the
+    // whatsapp:// protocol handler, which passes it to the desktop app through
+    // a path that drops four-byte characters — Hebrew arrives, emoji arrive as
+    // black diamonds. Staying on the web client keeps the message intact.
     const encoded = encodeURIComponent(generatedPost);
-    window.open(`https://wa.me/?text=${encoded}`, "_blank", "noopener,noreferrer");
+    window.open(`https://web.whatsapp.com/send?text=${encoded}`, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -123,20 +127,24 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
                 dir="rtl"
               />
               <div className="flex flex-col gap-2">
-                <Button onClick={handleOpenWhatsApp} className="gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white">
-                  <ExternalLink className="w-4 h-4" />
-                  פתח בוואטסאפ
+                <Button onClick={handleCopy} className="gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white">
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? "הועתק — הדביקו בערוץ" : "העתק הודעה"}
                 </Button>
                 <div className="flex gap-2">
-                  <Button onClick={handleCopy} variant="outline" className="gap-2 flex-1">
-                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    {copied ? "הועתק!" : "העתק"}
+                  <Button onClick={handleOpenWhatsApp} variant="outline" className="gap-2 flex-1">
+                    <ExternalLink className="w-4 h-4" />
+                    פתח בוואטסאפ ווב
                   </Button>
                   <Button onClick={handleGenerate} variant="secondary" className="gap-2 flex-1" disabled={isGenerating}>
                     <Loader2 className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
                     צור מחדש
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  העתקה שומרת את האימוג'ים במדויק. שליחה דרך אפליקציית וואטסאפ לדסקטופ בווינדוס
+                  עלולה לאבד אותם — לכן הכפתור פותח את וואטסאפ ווב.
+                </p>
               </div>
             </>
           )}
