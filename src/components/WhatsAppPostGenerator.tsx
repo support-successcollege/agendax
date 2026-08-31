@@ -28,7 +28,9 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const articleUrl = article ? `${PUBLISHED_BASE_URL}/article/${encodeURIComponent(article.slug || article.id)}` : "";
+  // WhatsApp linkifies a raw Hebrew URL and shows it as written; escaping it
+  // turns the address into unreadable %-noise in the message body.
+  const articleUrl = article ? `${PUBLISHED_BASE_URL}/article/${article.slug || article.id}` : "";
 
   const handleGenerate = async () => {
     if (!article) return;

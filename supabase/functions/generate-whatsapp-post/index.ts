@@ -17,7 +17,17 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const title = String(body?.title || "").trim();
-    const url = String(body?.url || "").trim();
+    // Readable, not escaped: a Hebrew slug arrives from some callers already
+    // percent-encoded, which reaches the channel as an unreadable wall of
+    // %D7%9E. decodeURI leaves the reserved characters (:/?#) alone, so the
+    // address stays valid while the Hebrew becomes Hebrew again.
+    const url = ((raw: string) => {
+      try {
+        return decodeURI(raw);
+      } catch {
+        return raw;
+      }
+    })(String(body?.url || "").trim());
     if (!title) return json({ error: "חסרה כותרת הכתבה" }, 400);
 
     const excerpt = String(body?.excerpt || "");
