@@ -1,10 +1,12 @@
 // deno-lint-ignore-file no-explicit-any
-// Writes the WhatsApp-channel message for one article — the sibling of
-// generate-social-post, and now built the same way: the shared authorizer,
-// the shared provider chain (Gemini's models, then Claude), and a real error
-// when nothing usable comes back instead of an empty string the panel cannot
-// tell apart from success.
-import { authorize, callModelWithFallback, corsHeaders, json } from "../_shared/ingest.ts";
+// Writes the WhatsApp-channel message for one article.
+//
+// Claude writes this one: the channel's copy is short, tonal and read by
+// people rather than crawlers, and it reads better for it. Gemini stays
+// behind it as the fallback, so a bad Anthropic minute costs a retry rather
+// than the button. An empty answer is an error either way — the panel cannot
+// tell an empty string apart from never having generated anything.
+import { authorize, callClaude, callModelWithFallback, corsHeaders, json } from "../_shared/ingest.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -55,10 +57,14 @@ Deno.serve(async (req) => {
     // Hebrew costs roughly two tokens a word here, and the old 500-token cap
     // truncated longer messages mid-sentence — which reached the panel as a
     // half-written post nobody could use.
-    const data = await callModelWithFallback({
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 1200,
-    });
+    const request = { messages: [{ role: "user", content: prompt }], max_tokens: 1200 };
+    let data: Record<string, unknown>;
+    try {
+      data = await callClaude(request);
+    } catch (e) {
+      console.error("Claude failed, falling back to Gemini:", (e as Error)?.message);
+      data = await callModelWithFallback(request);
+    }
 
     const post = String(
       (data as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? "",
