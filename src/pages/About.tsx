@@ -1,6 +1,5 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import PartnersCarousel from "@/components/PartnersCarousel";
 
 
 const About = () => {
@@ -58,8 +57,6 @@ const About = () => {
               </section>
             </div>
           </div>
-
-          <PartnersCarousel />
 
         </main>
 
