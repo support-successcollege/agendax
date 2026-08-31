@@ -1,68 +1,41 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-async function requireAdmin(req: Request): Promise<Response | null> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const token = authHeader.replace("Bearer ", "");
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
-  const { data, error } = await supabase.auth.getClaims(token);
-  if (error || !data?.claims) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const { data: isAdmin } = await supabase.rpc("has_role", {
-    _user_id: data.claims.sub, _role: "admin",
-  });
-  if (!isAdmin) {
-    return new Response(JSON.stringify({ error: "Forbidden: admin role required" }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  return null;
-}
+// deno-lint-ignore-file no-explicit-any
+// Writes the WhatsApp-channel message for one article — the sibling of
+// generate-social-post, and now built the same way: the shared authorizer,
+// the shared provider chain (Gemini's models, then Claude), and a real error
+// when nothing usable comes back instead of an empty string the panel cannot
+// tell apart from success.
+import { authorize, callModelWithFallback, corsHeaders, json } from "../_shared/ingest.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const authError = await requireAdmin(req);
-  if (authError) return authError;
+  const auth = await authorize(req);
+  if (auth instanceof Response) return auth;
 
   try {
-    const { title, excerpt, category, url, content } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const title = String(body?.title || "").trim();
+    const url = String(body?.url || "").trim();
+    if (!title) return json({ error: "חסרה כותרת הכתבה" }, 400);
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("Missing GEMINI_API_KEY");
-    }
+    const excerpt = String(body?.excerpt || "");
+    const category = String(body?.category || "");
+    // The body arrives as article HTML; the model only needs the prose.
+    const content = String(body?.content || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2000);
 
-    const truncatedContent = content ? content.substring(0, 2000) : "לא סופק";
-
-    const prompt = `אתה כותב הודעות עבור ערוץ וואטסאפ של Agendax, אתר ישראלי המסקר הייטק, בינה מלאכותית, שוקי הון וחברות.
-צור הודעה קצרה, ממוקדת ומסקרנת לערוץ וואטסאפ על הכתבה הבאה.
+    const prompt = `אתה כותב הודעות עבור ערוץ הוואטסאפ של Agendax, אתר ישראלי המסקר הייטק, בינה מלאכותית, שוקי הון וחברות.
+צור הודעה קצרה, ממוקדת ומסקרנת על הכתבה הבאה.
 
 ההודעה צריכה להיות:
-- קצרה ותמציתית (מתאימה לוואטסאפ - לא פוסט ארוך)
+- קצרה ותמציתית (הודעת וואטסאפ, לא פוסט ארוך)
 - כותרת מודגשת בפורמט וואטסאפ: *הכותרת בכוכביות*
 - 2-3 שורות תקציר מסקרנות שגורמות לרצות לקרוא עוד
 - 1-2 אמוג'ים רלוונטיים (לא להגזים)
-- שורה ריקה ואז קריאה לפעולה קצרה עם הלינק
+- **אל תכתוב קישור ואל תכתוב שורת "לכתבה המלאה"** — המערכת מוסיפה אותם בעצמה
 - ללא האשטגים (לא רלוונטיים בוואטסאפ)
 - אל תתייחס לתמונת הכתבה
 
@@ -71,46 +44,45 @@ Deno.serve(async (req) => {
 
 תקציר קצר ומסקרן בשורה-שתיים שמסביר על מה הכתבה ולמה כדאי לקרוא.
 
-📰 לכתבה המלאה:
-${url}
-
 פרטי הכתבה:
 כותרת: ${title}
 תקציר: ${excerpt}
 קטגוריה: ${category}
-תוכן: ${truncatedContent}
+תוכן: ${content || "לא סופק"}
 
-כתוב בעברית. החזר רק את ההודעה עצמה ללא הסברים.`;
+כתוב בעברית. **החזר אך ורק את ההודעה עצמה** — בלי הסברים, בלי כותרות עזר, בלי ציטוט. כל תו שתחזיר יישלח לערוץ כלשונו.`;
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-3.6-flash",
-        messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-        max_tokens: 500,
-      }),
+    // Hebrew costs roughly two tokens a word here, and the old 500-token cap
+    // truncated longer messages mid-sentence — which reached the panel as a
+    // half-written post nobody could use.
+    const data = await callModelWithFallback({
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 1200,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`AI API error: ${response.status} ${errorText}`);
-    }
+    const post = String(
+      (data as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? "",
+    ).trim();
 
-    const data = await response.json();
-    const post = data.choices?.[0]?.message?.content || "";
+    // An empty answer is a failure, not a result. Saying so lets the panel
+    // show why instead of silently resetting its button.
+    if (!post) return json({ error: "המודל לא החזיר הודעה — נסו שוב" }, 502);
 
-    return new Response(JSON.stringify({ post }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    console.error("Error generating whatsapp post:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // The call to action is assembled here, never by the model. Asked for a
+    // link, it writes the Hebrew slug from memory and truncates it — a message
+    // that looks right and leads to a 404. Anything link-shaped is stripped
+    // from the answer and the real URL is appended exactly once.
+    const cleaned = post
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/^.*(?:לכתבה המלאה|לקריאה המלאה|לכתבה באתר).*$/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    const withLink = url ? `${cleaned}\n\n📰 לכתבה המלאה:\n${url}` : cleaned;
+
+    return json({ post: withLink });
+  } catch (e: any) {
+    console.error("generate-whatsapp-post error", e);
+    return json({ error: e?.message || "שגיאה לא ידועה" }, 500);
   }
 });

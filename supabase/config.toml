@@ -97,3 +97,8 @@ verify_jwt = false
 # The morning brief + deal extraction cron; cron-or-admin authorized.
 [functions.morning-brief]
 verify_jwt = false
+
+# The panel's WhatsApp-message writer. Authorizes cron-or-admin internally,
+# the same as its sibling generate-social-post.
+[functions.generate-whatsapp-post]
+verify_jwt = false

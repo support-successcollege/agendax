@@ -26,6 +26,7 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
   const [generatedPost, setGeneratedPost] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const articleUrl = article ? `${PUBLISHED_BASE_URL}/article/${encodeURIComponent(article.slug || article.id)}` : "";
 
@@ -33,6 +34,7 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
     if (!article) return;
     setIsGenerating(true);
     setGeneratedPost("");
+    setError(null);
 
     try {
       const data = await generateWhatsappPostFn({
@@ -44,10 +46,16 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
           content: article.content,
         },
       });
-      setGeneratedPost(data.post || "");
-    } catch (error) {
-      console.error("Error generating whatsapp post:", error);
-      toast.error("שגיאה ביצירת ההודעה, נסו שוב");
+      const post = (data.post || "").trim();
+      // An empty answer used to reset the dialog to its opening state, which
+      // read as the button simply not working. Say what happened instead.
+      if (!post) throw new Error("לא התקבלה הודעה מהמודל");
+      setGeneratedPost(post);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "שגיאה בלתי צפויה";
+      console.error("Error generating whatsapp post:", e);
+      setError(message);
+      toast.error(`יצירת ההודעה נכשלה: ${message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -70,7 +78,7 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setGeneratedPost(""); setCopied(false); } }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setGeneratedPost(""); setCopied(false); setError(null); } }}>
       <DialogContent dir="rtl" className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -84,10 +92,17 @@ const WhatsAppPostGenerator = ({ article, open, onOpenChange }: WhatsAppPostGene
 
         <div className="space-y-4 py-2">
           {!generatedPost && !isGenerating && (
-            <Button onClick={handleGenerate} className="w-full gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white">
-              <MessageCircle className="w-4 h-4" />
-              צור הודעה לוואטסאפ
-            </Button>
+            <>
+              {error && (
+                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+                  {error}
+                </p>
+              )}
+              <Button onClick={handleGenerate} className="w-full gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white">
+                <MessageCircle className="w-4 h-4" />
+                {error ? "נסה שוב" : "צור הודעה לוואטסאפ"}
+              </Button>
+            </>
           )}
 
           {isGenerating && (
