@@ -47,17 +47,52 @@ const ensureFonts = () =>
     }),
   ));
 
-async function toDataUrl(url: string): Promise<string> {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`image fetch failed: ${url.slice(0, 100)} ${resp.status}`);
-  const mime = (resp.headers.get("content-type") || "image/jpeg").split(";")[0];
-  const bytes = new Uint8Array(await resp.arrayBuffer());
+/** What satori's image decoder actually understands. */
+const SATORI_SAFE = new Set(["image/png", "image/jpeg", "image/jpg", "image/gif", "image/svg+xml"]);
+
+/**
+ * Storage's transform endpoint re-encodes on the way out, so the same object
+ * comes back as JPEG. Only objects in our own bucket can take this route.
+ */
+function transcodeUrl(url: string): string | null {
+  const marker = "/storage/v1/object/public/";
+  const at = url.indexOf(marker);
+  if (at < 0) return null;
+  const base = url.slice(0, at) + "/storage/v1/render/image/public/" + url.slice(at + marker.length);
+  return `${base}${base.includes("?") ? "&" : "?"}width=1200&quality=82&resize=contain`;
+}
+
+function toBase64(bytes: Uint8Array): string {
   let bin = "";
   const chunk = 8192;
   for (let i = 0; i < bytes.length; i += chunk) {
     bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
-  return `data:${mime};base64,${btoa(bin)}`;
+  return btoa(bin);
+}
+
+async function fetchImage(url: string): Promise<{ mime: string; bytes: Uint8Array }> {
+  const resp = await fetch(url, { headers: { Accept: "image/jpeg,image/png,image/*;q=0.8" } });
+  if (!resp.ok) throw new Error(`image fetch failed: ${url.slice(0, 100)} ${resp.status}`);
+  return {
+    mime: (resp.headers.get("content-type") || "image/jpeg").split(";")[0].trim().toLowerCase(),
+    bytes: new Uint8Array(await resp.arrayBuffer()),
+  };
+}
+
+async function toDataUrl(url: string): Promise<string> {
+  let { mime, bytes } = await fetchImage(url);
+
+  // AVIF and WebP reach satori as undecodable bytes and fail deep inside it,
+  // with an error that says nothing about the image. Convert instead.
+  if (!SATORI_SAFE.has(mime)) {
+    const alternative = transcodeUrl(url);
+    if (!alternative) throw new Error(`תמונת המקור בפורמט ${mime} שאי אפשר לרנדר`);
+    ({ mime, bytes } = await fetchImage(alternative));
+    if (!SATORI_SAFE.has(mime)) throw new Error(`המרת התמונה מ-${mime} נכשלה`);
+  }
+
+  return `data:${mime};base64,${toBase64(bytes)}`;
 }
 
 const ensureWordmark = () => (wordmarkReady ??= toDataUrl(WORDMARK_URL));

@@ -68,9 +68,18 @@ async function renderedImageUrl(supabase: any, article: ArticleRow, variant: "po
   return null;
 }
 
-/** Post image, with the raw article photo as the fallback — a plain photo beats no post. */
+/**
+ * Post image, with the raw article photo as the fallback — a plain photo beats
+ * no post. The fallback is logged loudly: a post going out with the unbranded
+ * photo used to be invisible until someone noticed it on the feed.
+ */
 async function brandedImageUrl(supabase: any, article: ArticleRow): Promise<string> {
-  return (await renderedImageUrl(supabase, article, "post")) ?? article.image_url;
+  const branded = await renderedImageUrl(supabase, article, "post");
+  if (branded) return branded;
+  console.error(
+    `FALLBACK IMAGE: הכתבה "${article.title.slice(0, 60)}" (${article.id}) מתפרסמת עם התמונה הגולמית — רינדור התמונה המעוצבת נכשל`,
+  );
+  return article.image_url;
 }
 
 /** Story image; null when rendering failed (the story is then skipped). */
