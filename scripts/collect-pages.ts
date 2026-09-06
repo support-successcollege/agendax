@@ -20,6 +20,11 @@ type PageEntry = {
 const STATIC_PAGES: PageEntry[] = [
   { path: "/", sitemap: { priority: 1.0, changefreq: "hourly" } },
   { path: "/about", sitemap: { priority: 0.5, changefreq: "monthly" } },
+  // The newsroom and the AI policy are what a reader (and a reviewer) reaches
+  // for when deciding whether to trust a machine-written site, so they are
+  // indexed pages rather than a footnote.
+  { path: "/newsroom", sitemap: { priority: 0.6, changefreq: "monthly" } },
+  { path: "/ai-policy", sitemap: { priority: 0.5, changefreq: "monthly" } },
   { path: "/jobs", sitemap: { priority: 0.7, changefreq: "daily" } },
   { path: "/toolbox", sitemap: { priority: 0.6, changefreq: "weekly" } },
   { path: "/courses", sitemap: { priority: 0.7, changefreq: "weekly" } },
@@ -59,7 +64,7 @@ async function selectRows<T>(
 export async function collectPrerenderPages(
   env: Record<string, string>,
 ): Promise<PageEntry[]> {
-  const [articles, courses, events, jobs, categories] = await Promise.all([
+  const [articles, courses, events, jobs, categories, authors] = await Promise.all([
     selectRows<{ slug: string | null; id: string; date: string; title: string; content_updated_at: string | null; published_at: string | null }>(
       env,
       "articles",
@@ -75,6 +80,11 @@ export async function collectPrerenderPages(
     selectRows<{ slug: string }>(
       env,
       "categories",
+      "select=slug&is_active=eq.true&limit=100",
+    ),
+    selectRows<{ slug: string }>(
+      env,
+      "authors",
       "select=slug&is_active=eq.true&limit=100",
     ),
   ]);
@@ -123,12 +133,16 @@ export async function collectPrerenderPages(
       path: `/jobs/${job.id}`,
       sitemap: { priority: 0.6, changefreq: "daily" as const },
     })),
+    ...authors.map((author) => ({
+      path: `/author/${author.slug}`,
+      sitemap: { priority: 0.5, changefreq: "daily" as const },
+    })),
   ];
 
   console.log(
     `[collect-pages] ${pages.length} routes (${articlePages.length} articles, ` +
       `${categories.length - 1} categories, ${courses.length} courses, ` +
-      `${events.length} events, ${jobs.length} jobs)`,
+      `${events.length} events, ${jobs.length} jobs, ${authors.length} authors)`,
   );
   return pages;
 }

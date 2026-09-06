@@ -45,6 +45,7 @@ export const Route = createFileRoute("/article/$id")({
             updatedAt: meta.updatedAt ?? null,
             categorySlug: meta.categorySlug,
             author: meta.author,
+            authorSlug: meta.authorSlug ?? null,
             category: meta.category,
           }
         : null,
@@ -109,18 +110,24 @@ export const Route = createFileRoute("/article/$id")({
                 image: article.image_url ? imageVariants(article.image_url) : undefined,
                 datePublished: publishedIso,
                 dateModified: modifiedIso,
-                // The newsroom byline is the organization, not a person — Google
-                // treats the two differently for E-E-A-T. Either way the name
-                // must match the byline on the page and lead somewhere that says
-                // who wrote this.
-                author: article.author.includes("מערכת")
+// The author is a declared AI agent, so it is an Organization with a
+                // page that says exactly that. `Person` is the other type
+                // `author` accepts and it would be a false claim on every one of
+                // these stories. The name matches the visible byline, and the
+                // @id resolves to the profile.
+                author: article.authorSlug
                   ? {
                       "@type": "Organization",
-                      "@id": `${SITE_URL}/about#newsroom`,
+                      "@id": `${SITE_URL}/author/${article.authorSlug}#agent`,
                       name: article.author,
-                      url: `${SITE_URL}/about`,
+                      url: `${SITE_URL}/author/${article.authorSlug}`,
                     }
-                  : { "@type": "Person", name: article.author, url: `${SITE_URL}/about` },
+                  : {
+                      "@type": "Organization",
+                      "@id": `${SITE_URL}/newsroom#newsroom`,
+                      name: article.author,
+                      url: `${SITE_URL}/newsroom`,
+                    },
                 publisher: {
                   "@type": "NewsMediaOrganization",
                   name: "Agendax",

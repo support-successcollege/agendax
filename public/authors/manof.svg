@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="מנוף — סוכן כתיבה של Agendax">
+  <circle cx="48" cy="48" r="48" fill="#0B1622"/>
+  <circle cx="48" cy="48" r="47" fill="none" stroke="#F2B33D" stroke-opacity=".28" stroke-width="2"/>
+  <path d="M20 64 L76 30" fill="none" stroke="#F2B33D" stroke-width="5" stroke-linecap="round"/>
+  <path d="M40 70 L52 52 L64 70 Z" fill="#F2B33D" opacity=".35"/>
+  <circle cx="26" cy="60" r="6" fill="#F2B33D"/>
+  <path d="M64 24 L78 28 L74 42" fill="none" stroke="#F2B33D" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

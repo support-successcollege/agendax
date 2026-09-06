@@ -43,7 +43,11 @@ const AdminHighlightsTab = ({ articles, onUpdateArticle }: AdminHighlightsTabPro
   // the homepage without a featured article.
   const toggleFeatured = async (article: Article) => {
     const { error } = await supabase.rpc("set_featured_article", {
-      _article_id: article.isFeatured ? null : article.id,
+      // Null unfeatures whatever is currently featured. The generated types
+      // declare every function argument non-null because Postgres does not
+      // expose argument nullability, so the cast states what the function
+      // actually accepts.
+      _article_id: (article.isFeatured ? null : article.id) as string,
     });
     if (error) {
       console.error("set_featured_article failed", error);

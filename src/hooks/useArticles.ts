@@ -19,6 +19,12 @@ export interface Article {
   date: string;
   imageUrl: string;
   author: string;
+  /**
+   * Links the byline to its profile. Null for the plain newsroom byline, and
+   * optional so the editor's own create/import forms need not carry it — the
+   * pipeline fills it in from the story's beat.
+   */
+  authorSlug?: string | null;
   isBreaking?: boolean;
   isFeatured?: boolean;
   isDraft?: boolean;
@@ -39,6 +45,7 @@ interface DbArticle {
   date: string;
   image_url: string;
   author: string;
+  author_slug: string | null;
   is_breaking: boolean | null;
   is_featured: boolean | null;
   is_draft: boolean | null;
@@ -58,6 +65,7 @@ const mapDbToArticle = (db: Partial<DbArticle> & { id: string; title: string; ex
   date: db.date,
   imageUrl: db.image_url,
   author: db.author,
+  authorSlug: db.author_slug ?? null,
   isBreaking: db.is_breaking ?? false,
   isFeatured: db.is_featured ?? false,
   isDraft: db.is_draft ?? false,
@@ -75,6 +83,7 @@ const mapArticleToDb = (article: Omit<Article, "id">) => ({
   date: article.date,
   image_url: article.imageUrl,
   author: article.author,
+  author_slug: article.authorSlug ?? null,
   is_breaking: article.isBreaking ?? false,
   is_featured: article.isFeatured ?? false,
   is_draft: article.isDraft ?? false,

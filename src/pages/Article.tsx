@@ -111,7 +111,27 @@ const Article = () => {
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-border py-2.5 text-[12.5px] text-muted-foreground">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="font-semibold text-foreground/80">{article.author}</span>
+                {article.authorSlug ? (
+                  <span className="flex items-center gap-1.5">
+                    <Link
+                      to={`/author/${article.authorSlug}`}
+                      className="font-semibold text-foreground/80 hover:text-primary transition-colors"
+                    >
+                      {article.author}
+                    </Link>
+                    {/* Said on the article itself, not only on the profile: a
+                        reader who never clicks through still knows. */}
+                    <Link
+                      to="/ai-policy"
+                      className="rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-[1px] text-[10.5px] font-bold text-primary hover:bg-primary/20 transition-colors"
+                      title="נכתב על ידי סוכן AI, בפיקוח עורך אנושי"
+                    >
+                      סוכן AI
+                    </Link>
+                  </span>
+                ) : (
+                  <span className="font-semibold text-foreground/80">{article.author}</span>
+                )}
                 <span className="tabular-nums">
                   {new Date(article.publishedAt || article.date).toLocaleDateString("he-IL", {
                     weekday: "long",

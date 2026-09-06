@@ -420,6 +420,18 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     : await supabase.rpc("next_publish_slot", { _step_minutes: slotStepMinutes });
   if (slotErr) console.error("next_publish_slot failed", slotErr);
 
+  // Whoever covers this beat signs it. Falling back to the newsroom byline is
+  // deliberate: a story outside the four beats must not be attributed to an
+  // agent that does not cover it.
+  const { data: beatAuthor } = await supabase
+    .from("authors")
+    .select("slug, name")
+    .eq("is_active", true)
+    .contains("category_slugs", [category_slug])
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
   const { data: inserted, error: insertErr } = await supabase
     .from("articles")
     .insert({
@@ -429,7 +441,8 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
       category,
       category_slug,
       image_url: imageUrl,
-      author: "מערכת Agendax",
+      author: beatAuthor?.name ?? "מערכת Agendax",
+      author_slug: beatAuthor?.slug ?? null,
       is_draft: true,
       scheduled_at: slot ?? null,
       is_breaking: false,

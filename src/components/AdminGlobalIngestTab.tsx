@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import AdminAuthorsCard from "@/components/AdminAuthorsCard";
 import {
   Globe,
   Loader2,
@@ -327,8 +328,8 @@ const AdminGlobalIngestTab = () => {
               סוכן חדשות הייטק עולמי
             </CardTitle>
             <CardDescription>
-              סורק את אתרי הטכנולוגיה הגדולים בעולם, בוחר את הידיעות החשובות, כותב אותן מחדש בעברית ושומר כטיוטה לאישורך.
-              רץ אוטומטית שש פעמים ביום ומשלים את היעד היומי.
+              סורק כ-950 מקורות חדשות בעולם ובישראל, בוחר את הידיעות החשובות, כותב אותן מחדש בעברית ושומר כטיוטה לאישורך.
+              רץ אוטומטית כל שעה על הידיעות שפורסמו בשעה האחרונה, ומשלים את היעד היומי לכל קטגוריה.
             </CardDescription>
           </div>
           <div className="flex gap-2 flex-wrap items-center">
@@ -749,6 +750,8 @@ const AdminGlobalIngestTab = () => {
           )}
         </CardContent>
       </Card>
+
+      <AdminAuthorsCard />
     </div>
   );
 };

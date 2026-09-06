@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccessibilityRouteImport } from './routes/accessibility'
+import { Route as AiPolicyRouteImport } from './routes/ai-policy'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as NewsroomRouteImport } from './routes/newsroom'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TermsRouteImport } from './routes/terms'
@@ -20,6 +22,7 @@ import { Route as ToolboxRouteImport } from './routes/toolbox'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ArticleIdRouteImport } from './routes/article.$id'
+import { Route as AuthorSlugRouteImport } from './routes/author.$slug'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as CoursesIndexRouteImport } from './routes/courses.index'
 import { Route as CoursesSlugRouteImport } from './routes/courses.$slug'
@@ -44,9 +47,19 @@ const AccessibilityRoute = AccessibilityRouteImport.update({
   path: '/accessibility',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiPolicyRoute = AiPolicyRouteImport.update({
+  id: '/ai-policy',
+  path: '/ai-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewsroomRoute = NewsroomRouteImport.update({
+  id: '/newsroom',
+  path: '/newsroom',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -82,6 +95,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const ArticleIdRoute = ArticleIdRouteImport.update({
   id: '/article/$id',
   path: '/article/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthorSlugRoute = AuthorSlugRouteImport.update({
+  id: '/author/$slug',
+  path: '/author/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
@@ -129,13 +147,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
+  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
+  '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/article/$id': typeof ArticleIdRoute
+  '/author/$slug': typeof AuthorSlugRoute
   '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
   '/courses/account': typeof CoursesAccountRoute
@@ -150,13 +171,16 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
+  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
+  '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/article/$id': typeof ArticleIdRoute
+  '/author/$slug': typeof AuthorSlugRoute
   '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
   '/courses/account': typeof CoursesAccountRoute
@@ -172,13 +196,16 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
+  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
+  '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/article/$id': typeof ArticleIdRoute
+  '/author/$slug': typeof AuthorSlugRoute
   '/category/$slug': typeof CategorySlugRoute
   '/courses/$slug': typeof CoursesSlugRoute
   '/courses/account': typeof CoursesAccountRoute
@@ -195,13 +222,16 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/accessibility'
+    | '/ai-policy'
     | '/auth'
+    | '/newsroom'
     | '/privacy'
     | '/reset-password'
     | '/terms'
     | '/toolbox'
     | '/unsubscribe'
     | '/article/$id'
+    | '/author/$slug'
     | '/category/$slug'
     | '/courses/$slug'
     | '/courses/account'
@@ -216,13 +246,16 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/accessibility'
+    | '/ai-policy'
     | '/auth'
+    | '/newsroom'
     | '/privacy'
     | '/reset-password'
     | '/terms'
     | '/toolbox'
     | '/unsubscribe'
     | '/article/$id'
+    | '/author/$slug'
     | '/category/$slug'
     | '/courses/$slug'
     | '/courses/account'
@@ -237,13 +270,16 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/accessibility'
+    | '/ai-policy'
     | '/auth'
+    | '/newsroom'
     | '/privacy'
     | '/reset-password'
     | '/terms'
     | '/toolbox'
     | '/unsubscribe'
     | '/article/$id'
+    | '/author/$slug'
     | '/category/$slug'
     | '/courses/$slug'
     | '/courses/account'
@@ -259,13 +295,16 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AccessibilityRoute: typeof AccessibilityRoute
+  AiPolicyRoute: typeof AiPolicyRoute
   AuthRoute: typeof AuthRoute
+  NewsroomRoute: typeof NewsroomRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolboxRoute: typeof ToolboxRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   ArticleIdRoute: typeof ArticleIdRoute
+  AuthorSlugRoute: typeof AuthorSlugRoute
   CategorySlugRoute: typeof CategorySlugRoute
   CoursesSlugRoute: typeof CoursesSlugRoute
   CoursesAccountRoute: typeof CoursesAccountRoute
@@ -300,11 +339,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccessibilityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-policy': {
+      id: '/ai-policy'
+      path: '/ai-policy'
+      fullPath: '/ai-policy'
+      preLoaderRoute: typeof AiPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/newsroom': {
+      id: '/newsroom'
+      path: '/newsroom'
+      fullPath: '/newsroom'
+      preLoaderRoute: typeof NewsroomRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -354,6 +407,13 @@ declare module '@tanstack/react-router' {
       path: '/article/$id'
       fullPath: '/article/$id'
       preLoaderRoute: typeof ArticleIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/author/$slug': {
+      id: '/author/$slug'
+      path: '/author/$slug'
+      fullPath: '/author/$slug'
+      preLoaderRoute: typeof AuthorSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/category/$slug': {
@@ -419,13 +479,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AccessibilityRoute: AccessibilityRoute,
+  AiPolicyRoute: AiPolicyRoute,
   AuthRoute: AuthRoute,
+  NewsroomRoute: NewsroomRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolboxRoute: ToolboxRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   ArticleIdRoute: ArticleIdRoute,
+  AuthorSlugRoute: AuthorSlugRoute,
   CategorySlugRoute: CategorySlugRoute,
   CoursesSlugRoute: CoursesSlugRoute,
   CoursesAccountRoute: CoursesAccountRoute,

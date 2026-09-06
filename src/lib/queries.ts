@@ -9,12 +9,13 @@ import type { Article } from "@/hooks/useArticles";
 import type { Course } from "@/hooks/useCourses";
 import type { EventItem } from "@/hooks/useEvents";
 import type { Job } from "@/hooks/useJobs";
+import { fetchAuthor, fetchAuthors, type Author } from "@/hooks/useAuthors";
 
 const db: any = supabase;
 
 // Columns needed for article list views (excludes heavy `content` field).
 export const ARTICLE_LIST_COLUMNS =
-  "id, slug, title, excerpt, category, category_slug, date, image_url, author, is_breaking, is_featured, is_draft, scheduled_at, published_at, created_at, content_updated_at";
+  "id, slug, title, excerpt, category, category_slug, date, image_url, author, is_breaking, is_featured, is_draft, scheduled_at, published_at, created_at, content_updated_at, author_slug";
 
 /** True for a UUID-shaped article identifier (legacy /article/<uuid> links). */
 export const isUuid = (value: string) =>
@@ -35,6 +36,7 @@ export const mapDbToArticle = (dbRow: any): Article => ({
   date: dbRow.date,
   imageUrl: dbRow.image_url,
   author: dbRow.author,
+  authorSlug: dbRow.author_slug ?? null,
   isBreaking: dbRow.is_breaking ?? false,
   isFeatured: dbRow.is_featured ?? false,
   isDraft: dbRow.is_draft ?? false,
@@ -195,4 +197,21 @@ export const categoriesQueryOptions = () =>
       }));
     },
     staleTime: 5 * 60_000,
+  });
+
+// --- Newsroom ---------------------------------------------------------------
+// The byline is on every article, so the roster is primed once and shared.
+
+export const authorsQueryOptions = () =>
+  queryOptions({
+    queryKey: ["authors"],
+    queryFn: (): Promise<Author[]> => fetchAuthors(),
+    staleTime: 300_000,
+  });
+
+export const authorQueryOptions = (slug: string) =>
+  queryOptions({
+    queryKey: ["author", slug],
+    queryFn: (): Promise<Author | null> => fetchAuthor(slug),
+    staleTime: 300_000,
   });

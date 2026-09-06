@@ -38,6 +38,8 @@ const Footer = () => {
           <h4 className="font-bold mb-4 text-sm">קישורים</h4>
           <ul className="space-y-2.5 text-muted-foreground text-sm">
             <li><Link to="/about" className="hover:text-foreground transition-colors">אודות</Link></li>
+            <li><Link to="/newsroom" className="hover:text-foreground transition-colors">חדר החדשות</Link></li>
+            <li><Link to="/ai-policy" className="hover:text-foreground transition-colors">מדיניות AI</Link></li>
             <li><Link to="/privacy" className="hover:text-foreground transition-colors">מדיניות פרטיות</Link></li>
             <li><Link to="/terms" className="hover:text-foreground transition-colors">תנאי שימוש</Link></li>
             <li><Link to="/accessibility" className="hover:text-foreground transition-colors">הצהרת נגישות</Link></li>
