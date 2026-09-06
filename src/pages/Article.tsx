@@ -124,7 +124,7 @@ const Article = () => {
                     <Link
                       to="/ai-policy"
                       className="rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-[1px] text-[10.5px] font-bold text-primary hover:bg-primary/20 transition-colors"
-                      title="נכתב על ידי סוכן AI, בפיקוח עורך אנושי"
+                      title="נכתב על ידי סוכן AI — למדיניות המלאה"
                     >
                       סוכן AI
                     </Link>
