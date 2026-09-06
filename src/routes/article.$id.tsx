@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import Article from "@/pages/Article";
+import { imageVariants } from "@/lib/imageUtils";
 import {
   articleQueryOptions,
   articlesQueryOptions,
@@ -40,6 +41,9 @@ export const Route = createFileRoute("/article/$id")({
             excerpt: meta.excerpt,
             image_url: meta.imageUrl,
             date: meta.date,
+            publishedAt: meta.publishedAt ?? null,
+            updatedAt: meta.updatedAt ?? null,
+            categorySlug: meta.categorySlug,
             author: meta.author,
             category: meta.category,
           }
@@ -51,6 +55,12 @@ export const Route = createFileRoute("/article/$id")({
     const title = article ? `${article.title} | Agendax` : FALLBACK_TITLE;
     const description = article?.excerpt?.slice(0, 155) || FALLBACK_DESC;
     const image = article?.image_url;
+    // Published and modified are different facts. Saying they are the same
+    // tells Google a rolling story never moved.
+    const publishedIso = article ? new Date(article.publishedAt || article.date).toISOString() : "";
+    const modifiedIso = article
+      ? new Date(article.updatedAt || article.publishedAt || article.date).toISOString()
+      : "";
     const url = `${SITE_URL}/article/${encodeURIComponent(article?.id ?? decodeURIComponent(params.id))}`;
 
     return {
@@ -70,8 +80,8 @@ export const Route = createFileRoute("/article/$id")({
         { property: "og:site_name", content: "Agendax" },
         ...(article
           ? [
-              { property: "article:published_time", content: new Date(article.date).toISOString() },
-              { property: "article:modified_time", content: new Date(article.date).toISOString() },
+              { property: "article:published_time", content: publishedIso },
+              { property: "article:modified_time", content: modifiedIso },
               { property: "article:section", content: article.category },
               { property: "article:author", content: article.author },
             ]
@@ -94,14 +104,23 @@ export const Route = createFileRoute("/article/$id")({
                 "@type": "NewsArticle",
                 headline: article.title,
                 description: article.excerpt,
-                image: article.image_url ? [article.image_url] : undefined,
-                datePublished: new Date(article.date).toISOString(),
-                dateModified: new Date(article.date).toISOString(),
-                // The newsroom byline is the organization, not a person —
-                // Google treats the two differently for E-E-A-T.
+                // Google asks for the same picture at several aspect ratios;
+                // the transform endpoint crops them on demand from the one file.
+                image: article.image_url ? imageVariants(article.image_url) : undefined,
+                datePublished: publishedIso,
+                dateModified: modifiedIso,
+                // The newsroom byline is the organization, not a person — Google
+                // treats the two differently for E-E-A-T. Either way the name
+                // must match the byline on the page and lead somewhere that says
+                // who wrote this.
                 author: article.author.includes("מערכת")
-                  ? { "@type": "Organization", name: "Agendax", url: SITE_URL }
-                  : { "@type": "Person", name: article.author },
+                  ? {
+                      "@type": "Organization",
+                      "@id": `${SITE_URL}/about#newsroom`,
+                      name: article.author,
+                      url: `${SITE_URL}/about`,
+                    }
+                  : { "@type": "Person", name: article.author, url: `${SITE_URL}/about` },
                 publisher: {
                   "@type": "NewsMediaOrganization",
                   name: "Agendax",
@@ -116,6 +135,32 @@ export const Route = createFileRoute("/article/$id")({
                 mainEntityOfPage: { "@type": "WebPage", "@id": url },
                 articleSection: article.category,
                 inLanguage: "he-IL",
+                isAccessibleForFree: true,
+              }),
+            },
+            {
+              type: "application/ld+json",
+              children: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                "@id": `${url}#breadcrumb`,
+                itemListElement: [
+                  { "@type": "ListItem", position: 1, name: "ראשי", item: `${SITE_URL}/` },
+                  ...(article.categorySlug
+                    ? [{
+                        "@type": "ListItem",
+                        position: 2,
+                        name: article.category,
+                        item: `${SITE_URL}/category/${encodeURIComponent(article.categorySlug)}`,
+                      }]
+                    : []),
+                  {
+                    "@type": "ListItem",
+                    position: article.categorySlug ? 3 : 2,
+                    name: article.title,
+                    item: url,
+                  },
+                ],
               }),
             },
           ]

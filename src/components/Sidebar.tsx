@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebarWidgets, SidebarWidget } from "@/hooks/useSidebarWidgets";
 import WidgetRotating from "@/components/WidgetRotating";
-import MostRead from "@/components/news/MostRead";
+import EditorsPicks from "@/components/news/EditorsPicks";
 import { sendAdminNotification } from "@/lib/admin.functions";
 
 interface SidebarProps {
@@ -93,7 +93,7 @@ const Sidebar = ({ articles, rotatingWidgets }: SidebarProps) => {
 
   return (
     <aside className="space-y-8">
-      {articles.length > 0 && <MostRead articles={articles} />}
+      {articles.length > 0 && <EditorsPicks articles={articles} />}
 
       {/* Newsletter */}
       <div className="border-r-[3px] border-primary bg-card p-4">

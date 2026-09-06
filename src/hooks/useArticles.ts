@@ -24,6 +24,8 @@ export interface Article {
   isDraft?: boolean;
   scheduledAt?: string | null;
   publishedAt?: string | null;
+  /** Last change a reader would notice — drives lastmod and dateModified. */
+  updatedAt?: string | null;
 }
 
 interface DbArticle {
@@ -42,6 +44,7 @@ interface DbArticle {
   is_draft: boolean | null;
   scheduled_at: string | null;
   published_at: string | null;
+  content_updated_at?: string | null;
 }
 
 const mapDbToArticle = (db: Partial<DbArticle> & { id: string; title: string; excerpt: string; category: string; category_slug: string; date: string; image_url: string; author: string }): Article => ({
@@ -60,6 +63,7 @@ const mapDbToArticle = (db: Partial<DbArticle> & { id: string; title: string; ex
   isDraft: db.is_draft ?? false,
   scheduledAt: db.scheduled_at,
   publishedAt: db.published_at,
+  updatedAt: db.content_updated_at ?? null,
 });
 
 const mapArticleToDb = (article: Omit<Article, "id">) => ({

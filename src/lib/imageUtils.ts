@@ -37,3 +37,23 @@ export function getOptimizedImageUrl(
   return `${transformedBase}?${params.toString()}`;
 }
 
+
+/**
+ * The same photograph at the three aspect ratios Google asks a NewsArticle to
+ * offer. The transform endpoint crops each one on demand from the single
+ * stored file, so this costs no extra storage and no extra upload.
+ */
+export function imageVariants(url: string | undefined | null): string[] {
+  if (!url) return [];
+  const ratios: [number, number][] = [
+    [1200, 675], // 16:9
+    [1200, 900], // 4:3
+    [1200, 1200], // 1:1
+  ];
+  const variants = ratios.map(([width, height]) =>
+    getOptimizedImageUrl(url, { width, height, quality: 82, resize: "cover" }),
+  );
+  // A non-Supabase URL comes back untransformed and identical three times;
+  // offering the same address as three variants says nothing.
+  return [...new Set(variants)];
+}

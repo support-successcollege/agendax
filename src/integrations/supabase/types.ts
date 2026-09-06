@@ -1448,6 +1448,41 @@ export type Database = {
         }
         Relationships: []
       }
+      editors_picks: {
+        Row: {
+          article_id: string
+          created_at: string
+          id: string
+          note: string | null
+          pick_date: string
+          rank: number
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          pick_date?: string
+          rank: number
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          pick_date?: string
+          rank?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "editors_picks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funding_deals: {
         Row: {
           amount_label: string | null

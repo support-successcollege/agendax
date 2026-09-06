@@ -60,10 +60,10 @@ export async function collectPrerenderPages(
   env: Record<string, string>,
 ): Promise<PageEntry[]> {
   const [articles, courses, events, jobs, categories] = await Promise.all([
-    selectRows<{ slug: string | null; id: string; date: string; title: string }>(
+    selectRows<{ slug: string | null; id: string; date: string; title: string; content_updated_at: string | null; published_at: string | null }>(
       env,
       "articles",
-      "select=slug,id,date,title&is_draft=eq.false&order=date.desc&limit=5000",
+      "select=slug,id,date,title,content_updated_at,published_at&is_draft=eq.false&order=date.desc&limit=5000",
     ),
     selectRows<{ slug: string }>(
       env,
@@ -82,7 +82,12 @@ export async function collectPrerenderPages(
   const now = Date.now();
 
   const articlePages: PageEntry[] = articles.map((article) => {
-    const publishedAt = new Date(article.date);
+    const publishedAt = new Date(article.published_at || article.date);
+    // lastmod means "when the text changed", not "when we last built" and not
+    // "when any column was written". content_updated_at moves only when a
+    // reader would see a difference, so a story that genuinely developed gets a
+    // fresh signal while pinning or unpinning one changes nothing.
+    const lastModified = new Date(article.content_updated_at || article.published_at || article.date);
     const isFresh = now - publishedAt.getTime() < NEWS_WINDOW_MS;
     return {
       // The slug is used raw: TanStack encodes it when requesting the page, and
@@ -91,7 +96,7 @@ export async function collectPrerenderPages(
       sitemap: {
         priority: isFresh ? 0.9 : 0.6,
         changefreq: isFresh ? "hourly" : "monthly",
-        lastmod: publishedAt.toISOString(),
+        lastmod: lastModified.toISOString(),
       },
     };
   });

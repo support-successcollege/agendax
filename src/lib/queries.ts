@@ -14,7 +14,7 @@ const db: any = supabase;
 
 // Columns needed for article list views (excludes heavy `content` field).
 export const ARTICLE_LIST_COLUMNS =
-  "id, slug, title, excerpt, category, category_slug, date, image_url, author, is_breaking, is_featured, is_draft, scheduled_at, published_at, created_at";
+  "id, slug, title, excerpt, category, category_slug, date, image_url, author, is_breaking, is_featured, is_draft, scheduled_at, published_at, created_at, content_updated_at";
 
 /** True for a UUID-shaped article identifier (legacy /article/<uuid> links). */
 export const isUuid = (value: string) =>
@@ -40,6 +40,7 @@ export const mapDbToArticle = (dbRow: any): Article => ({
   isDraft: dbRow.is_draft ?? false,
   scheduledAt: dbRow.scheduled_at ?? null,
   publishedAt: dbRow.published_at ?? null,
+  updatedAt: dbRow.content_updated_at ?? null,
 });
 
 export const articlesQueryOptions = (includeContent = false) =>
