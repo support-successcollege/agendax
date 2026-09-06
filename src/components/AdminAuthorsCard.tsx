@@ -17,8 +17,7 @@ import {
  * Edits the newsroom roster.
  *
  * Everything here is public text on a page a reader may use to decide whether
- * the site is trustworthy, so it is worth writing carefully — particularly the
- * method, which is the only field that says what the agent will NOT do.
+ * the site is trustworthy, so it is worth writing carefully.
  *
  * The slug is not editable: it is the profile's URL and the key every article
  * row points at.
@@ -40,7 +39,6 @@ const AdminAuthorsCard = () => {
         role: author.role,
         beat: author.beat,
         bio: author.bio,
-        method: author.method,
         modelNote: author.modelNote,
         isActive: author.isActive,
       };
@@ -83,8 +81,7 @@ const AdminAuthorsCard = () => {
         </CardTitle>
         <CardDescription>
           כל כתבה נחתמת בשם הסוכן שמסקר את הקטגוריה שלה, ומקושרת לעמוד הפרופיל שלו.
-          הטקסטים כאן מוצגים לקוראים — במיוחד "שיטת העבודה", שהוא המקום היחיד שאומר
-          מה הסוכן לא עושה.
+          הטקסטים כאן מוצגים לקוראים בעמוד הפרופיל.
         </CardDescription>
       </CardHeader>
 
@@ -153,17 +150,8 @@ const AdminAuthorsCard = () => {
 
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">
-                  שיטת העבודה — כולל מה הסוכן לא עושה
+                  שורת הסיום בפרופיל
                 </label>
-                <Textarea
-                  rows={4}
-                  value={draft.method}
-                  onChange={(e) => setField(author.slug, { method: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-muted-foreground">הטכנולוגיה</label>
                 <Textarea
                   rows={2}
                   value={draft.modelNote}

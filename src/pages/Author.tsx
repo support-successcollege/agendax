@@ -9,11 +9,11 @@ import { CategorySkeleton } from "@/components/PageSkeleton";
 /**
  * The page behind a byline.
  *
- * Its job is disclosure, not personality. A reader arriving from an article
- * should learn three things before anything else: this was written by a
- * machine, here is what that machine is allowed to do, and here is a person's
- * process standing behind it. Everything visual on the page is subordinate to
- * that — including the avatar, which is a mark rather than a face.
+ * Its job is disclosure, not personality: a reader arriving from an article
+ * should learn that a machine wrote it, which beat that machine covers, and who
+ * answers for what it publishes. How it works is deliberately not here.
+ * Everything visual on the page is subordinate to that — including the avatar,
+ * which is a mark rather than a face.
  */
 const AuthorPage = () => {
   const { slug = "" } = useParams<{ slug: string }>();
@@ -114,26 +114,16 @@ const AuthorPage = () => {
               <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">{author.bio}</p>
             </section>
 
-            {author.method && (
-              <section className="mt-4 rounded-md border border-border bg-surface-1 p-5">
-                <h2 className="text-[15px] font-black text-foreground">שיטת העבודה</h2>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
-                  {author.method}
-                </p>
-              </section>
-            )}
-
             {author.modelNote && (
               <section className="mt-4 rounded-md border border-border bg-surface-1 p-5">
-                <h2 className="text-[15px] font-black text-foreground">הטכנולוגיה</h2>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
+                <p className="text-[13.5px] leading-relaxed text-muted-foreground">
                   {author.modelNote}
                 </p>
                 <Link
                   to="/ai-policy"
                   className="mt-3 inline-block text-[13px] font-semibold text-primary hover:underline"
                 >
-                  מדיניות ה-AI המלאה שלנו
+                  מדיניות ה-AI שלנו
                 </Link>
               </section>
             )}

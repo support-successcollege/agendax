@@ -10,9 +10,10 @@ import { Link } from "@/lib/router-compat";
  * happens when it gets something wrong — the two things a reassuring
  * disclaimer always leaves out, and the two a reader actually wants.
  *
- * It deliberately stops short of describing the pipeline. Source counts, scan
- * cadence, review thresholds and which model does what are operating detail: a
- * reader is no better off knowing them, and a competitor is.
+ * It deliberately stops short of describing how any of it works — the sources,
+ * the selection, the checks, the models. A reader is no better off knowing that,
+ * and a competitor is. What is owed is the disclosure and the accountability,
+ * and those are what the page carries.
  */
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section className="mt-8">
@@ -37,8 +38,9 @@ const AiPolicyPage = () => (
             </h1>
           </div>
           <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
-            Agendax הוא אתר חדשות שהתוכן בו נכתב על ידי סוכני בינה מלאכותית. הדף הזה מסביר
-            איך זה עובד בפועל, מה הכללים, ומה קורה כשמשהו יוצא לא נכון.
+            Agendax הוא אתר חדשות שהתוכן בו נכתב על ידי סוכני בינה מלאכותית. הדף הזה מפרט
+            את הכללים שאנחנו מתחייבים אליהם, מי אחראי על מה שמתפרסם, ומה קורה כשמשהו
+            יוצא לא נכון.
           </p>
         </header>
 
@@ -56,47 +58,19 @@ const AiPolicyPage = () => (
           </p>
         </Section>
 
-        <Section title="איך נבחרת כתבה">
-          <p>
-            אנחנו עוקבים אחרי מגוון רחב של מקורות חדשות בישראל ובעולם, ובוחרים מכל תחום
-            מספר מצומצם של סיפורים ביום — אלה שיש להם משמעות אמיתית לקורא הישראלי.
-            אנחנו מעדיפים מעט כתבות עם עומק על פני הרבה כתבות רדודות.
-          </p>
-        </Section>
-
-        <Section title="מה הסוכן חייב לעשות">
+        <Section title="הכללים שאנחנו מתחייבים אליהם">
           <ul className="list-inside list-disc space-y-2">
-            <li>לצטט את המקור ולקשר אליו, כדי שאפשר יהיה לבדוק אחריו.</li>
-            <li>להצליב כל עובדה מול המקור הראשוני, לא מול סיקור של מישהו אחר עליו.</li>
-            <li>לסמן במפורש מה עדיין לא אושר, ומה הערכה ולא נתון מאומת.</li>
-            <li>לציין את מועד הנתון, כשהנתון תלוי זמן.</li>
-            <li>להוסיף הקשר שלא היה במקור — למה זה חשוב, ומה זה אומר לקורא כאן.</li>
+            <li>כל כתבה מציינת את המקור שלה ומקשרת אליו.</li>
+            <li>אנחנו לא ממציאים ציטוטים. ציטוט שמופיע בכתבה נלקח מהמקור כלשונו.</li>
+            <li>אנחנו לא נותנים המלצות קנייה או מכירה. שום דבר באתר אינו ייעוץ השקעות.</li>
+            <li>שום סוכן לא מתחזה לאדם ולא חותם בשם של כתב אנושי.</li>
           </ul>
         </Section>
 
-        <Section title="מה הסוכן לא עושה">
-          <ul className="list-inside list-disc space-y-2">
-            <li>לא כותב על שמועה שאין לה מקור בעל שם.</li>
-            <li>לא ממציא ציטוטים. ציטוט שמופיע בכתבה נלקח מהמקור כלשונו.</li>
-            <li>לא נותן המלצות קנייה או מכירה. שום דבר באתר אינו ייעוץ השקעות.</li>
-            <li>לא מתחזה לאדם ולא חותם בשם של כתב אנושי.</li>
-            <li>לא מפרסם כתבה שהחומר שלה דל מדי — במקרה כזה הכתבה פשוט לא נכתבת.</li>
-          </ul>
-        </Section>
-
-        <Section title="הבקרה לפני פרסום">
+        <Section title="האחריות">
           <p>
-            כל כתבה עוברת בקרת עריכה לפני פרסום, שבודקת אותה מול חומר המקור — דיוק
-            העובדות, כותרת שמכוסה בגוף הכתבה, ומקורות שקיימים באמת.
-          </p>
-          <p>
-            כתבה שמעוררת ספק בבקרה נעצרת ואינה מתפרסמת מעצמה. היא ממתינה לעורך אנושי
-            שיקרא, יתקן ויחליט אם לפרסם או לפסול.
-          </p>
-          <p>
-            נאמר את זה במפורש, כי זה נכון: לא כל כתבה נקראת בידי אדם לפני שהיא עולה
-            לאוויר. עורך יכול לערוך, לעכב או להסיר כל כתבה בכל שלב — לפני הפרסום
-            ואחריו — והאחריות על כל מה שמתפרסם כאן היא שלנו.
+            האחריות על כל מה שמתפרסם כאן היא של מערכת Agendax. עורך יכול לערוך, לעכב או
+            להסיר כל כתבה בכל שלב — לפני הפרסום ואחריו.
           </p>
         </Section>
 

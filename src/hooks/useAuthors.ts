@@ -17,9 +17,9 @@ export type Author = {
   role: string;
   beat: string | null;
   bio: string;
-  /** How this agent works, and what it refuses to do. */
+  /** Retained from an earlier draft of the profiles; nothing renders it. */
   method: string;
-  /** Which models write it — "AI" on its own tells a reader nothing. */
+  /** The one line under the bio, linking on to the AI policy. */
   modelNote: string;
   avatarUrl: string | null;
   categorySlugs: string[];
@@ -78,7 +78,7 @@ export const useAuthor = (slug: string | undefined) =>
 /** Editable fields. The slug is the identity and never changes: it is the URL. */
 export type AuthorDraft = Pick<
   Author,
-  "name" | "role" | "beat" | "bio" | "method" | "modelNote"
+  "name" | "role" | "beat" | "bio" | "modelNote"
 > & { isActive: boolean };
 
 export const saveAuthor = async (slug: string, draft: AuthorDraft) => {
@@ -89,7 +89,6 @@ export const saveAuthor = async (slug: string, draft: AuthorDraft) => {
       role: draft.role.trim(),
       beat: draft.beat?.trim() || null,
       bio: draft.bio.trim(),
-      method: draft.method.trim(),
       model_note: draft.modelNote.trim(),
       is_active: draft.isActive,
       updated_at: new Date().toISOString(),
