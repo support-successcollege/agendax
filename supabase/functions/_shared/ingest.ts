@@ -192,6 +192,32 @@ const BROWSER_HEADERS = {
   "Accept-Language": "en,he;q=0.8",
 };
 
+/** Reads at most `limit` bytes, then closes the stream — a capped feed still
+ *  parses, because every item that matters sits at the top of the document. */
+async function readCappedText(resp: Response, limit: number): Promise<string> {
+  if (!resp.body) return "";
+  const reader = resp.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (total < limit) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    merged.set(c, offset);
+    offset += c.length;
+  }
+  return new TextDecoder("utf-8", { fatal: false }).decode(merged);
+}
+
 export async function fetchFeed(
   feedUrl: string,
   timeoutMs = 12000,
@@ -201,14 +227,89 @@ export async function fetchFeed(
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     const resp = await fetch(feedUrl, { redirect: "follow", signal: ctrl.signal, headers: BROWSER_HEADERS });
     clearTimeout(timer);
-    if (!resp.ok) return { ok: false, error: `HTTP ${resp.status}` };
-    const xml = await resp.text();
+    if (!resp.ok) {
+      await resp.body?.cancel();
+      return { ok: false, error: `HTTP ${resp.status}` };
+    }
+    // Feeds that inline the full article body run to several megabytes, and
+    // with dozens in flight that is what exhausts the worker. The newest items
+    // come first in every feed format worth reading, so the tail is no loss.
+    const xml = await readCappedText(resp, 600_000);
     const items = parseFeed(xml);
     if (items.length === 0) return { ok: false, error: "no items parsed" };
-    return { ok: true, items };
+    // One source may not flood the ranker either.
+    return { ok: true, items: items.slice(0, 40) };
   } catch (e) {
     return { ok: false, error: (e as Error).message || "fetch failed" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Scan window
+// ---------------------------------------------------------------------------
+
+/**
+ * How far back a scan may look, and which categories are behind quota.
+ *
+ * Shared because the shard workers and the ranker must agree: the shards
+ * buffer whatever falls inside the window, and the ranker reads the buffer on
+ * the same terms. The base window comes from `ingest_config` so the panel can
+ * change it, and widens on its own for a category running out of day.
+ */
+export async function scanWindow(
+  supabase: SupabaseClient,
+  overrideHours?: number,
+): Promise<{
+  stats: Awaited<ReturnType<typeof loadStats>>;
+  categoryStats: Awaited<ReturnType<typeof loadCategoryStats>>;
+  wantedByBucket: Map<string, number>;
+  escalation: Map<string, 1 | 2>;
+  feedLookback: number;
+}> {
+  const stats = await loadStats(supabase);
+  const categoryStats = await loadCategoryStats(supabase);
+  // Floor of one hour: the scan runs hourly, so an hour of news is the whole
+  // window by design, not a degenerate case.
+  const lookbackHours = Math.min(
+    Math.max(Number(overrideHours) || stats.lookbackHours || 24, 1),
+    96,
+  );
+
+  const wantedByBucket = new Map<string, number>();
+  for (const cat of categoryStats) {
+    const want = topUpCount(cat, stats.dailyTarget, stats.queueBuffer);
+    if (want > 0) wantedByBucket.set(cat.bucket, want);
+  }
+
+  // A category falling behind its daily quota gets more aggressive treatment as
+  // the (Israel-local) day runs out, so the day ends full on its own:
+  //   level 1 — afternoon, under half quota: look 48h back, ranker less picky
+  //   level 2 — evening, quota still unmet:  look 72h back, and stories earlier
+  //             scans passed on come back to the table.
+  const israelHour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Jerusalem",
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date()),
+  );
+  const escalation = new Map<string, 1 | 2>();
+  for (const cat of categoryStats) {
+    if (!wantedByBucket.has(cat.bucket)) continue;
+    const onHand = cat.publishedToday + cat.queued;
+    if (israelHour >= 17 && onHand < stats.dailyTarget) escalation.set(cat.bucket, 2);
+    else if (israelHour >= 13 && onHand < Math.ceil(stats.dailyTarget / 2)) escalation.set(cat.bucket, 1);
+  }
+
+  // Sources carry no category, so the feed window is shared: the deepest
+  // escalated category widens it for the whole scan.
+  const feedLookback = Math.max(
+    lookbackHours,
+    ...[...escalation.values()].map((level) => (level === 2 ? 72 : 48)),
+    0,
+  );
+
+  return { stats, categoryStats, wantedByBucket, escalation, feedLookback };
 }
 
 // ---------------------------------------------------------------------------

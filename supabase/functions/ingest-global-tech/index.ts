@@ -1,8 +1,13 @@
 // deno-lint-ignore-file no-explicit-any
 //
-// Phase 1 of the global hi-tech pipeline: scan → dedupe → rank → enqueue.
+// Phase 2 of the global hi-tech pipeline: dedupe → rank → enqueue.
 //
-// Deliberately does no writing of articles. It finishes in seconds and leaves a
+// The feed reading is no longer here. `ingest-scan-shard` runs several workers
+// in parallel a few minutes earlier and leaves what they found in
+// `ingest_scan_buffer`; a thousand feeds is more fetching and parsing than one
+// invocation may spend, and the ranking has to happen exactly once anyway.
+//
+// Still deliberately writes no articles. It finishes in seconds and leaves a
 // short queue behind, which `ingest-worker` drains one story at a time. Doing
 // both here would blow the function's wall-clock limit on the third article.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -11,22 +16,23 @@ import {
   authorize,
   callModelWithFallback,
   corsHeaders,
-  fetchFeed,
   json,
-  loadCategoryStats,
-  loadStats,
+  scanWindow,
   toolArgs,
-  topUpCount,
-  urlKey,
   type FeedItem,
 } from "../_shared/ingest.ts";
 
-type Source = {
-  id: string;
-  name: string;
-  feed_url: string;
+/** A row the shard workers left behind, in the shape the ranker wants. */
+type BufferRow = {
+  url_key: string;
+  url: string;
+  title: string;
+  summary: string;
+  image_url: string | null;
+  source_name: string;
   weight: number;
-  first_failed_at: string | null;
+  item_published_at: string | null;
+  scanned_at: string;
 };
 
 type Candidate = FeedItem & {
@@ -35,9 +41,16 @@ type Candidate = FeedItem & {
   weight: number;
 };
 
-const DEFAULT_LOOKBACK_HOURS = 24;
 /** How many stories the ranker is shown. Keeps the prompt inside a sane budget. */
 const MAX_RANKED = 60;
+/**
+ * How far back in the buffer to read. The shards run at :02 and this at :08,
+ * so ninety minutes covers a late shard and a scan that was triggered by hand,
+ * without dragging in the previous hour's leftovers.
+ */
+const BUFFER_WINDOW_MINUTES = 90;
+/** Buffered rows older than this are swept: the ledger remembers, the buffer need not. */
+const BUFFER_RETENTION_HOURS = 6;
 
 function hoursAgo(iso: string | null): number {
   if (!iso) return 0;
@@ -63,17 +76,12 @@ serve(async (req) => {
     // changed from the admin panel without a redeploy. It is a PER-CATEGORY
     // number: every active category is topped up toward its own quota, so one
     // busy category can never starve the others.
-    const stats = await loadStats(supabase);
-    const categoryStats = await loadCategoryStats(supabase);
-    const lookbackHours = Math.min(
-      Math.max(Number(body?.lookbackHours) || stats.lookbackHours || DEFAULT_LOOKBACK_HOURS, 2),
-      96,
+    // The same helper the shard workers use, so the window they buffered and
+    // the window this reconsiders can never drift apart.
+    const { stats, categoryStats, wantedByBucket, escalation, feedLookback } = await scanWindow(
+      supabase,
+      Number(body?.lookbackHours) || undefined,
     );
-    const wantedByBucket = new Map<string, number>();
-    for (const cat of categoryStats) {
-      const want = topUpCount(cat, stats.dailyTarget, stats.queueBuffer);
-      if (want > 0) wantedByBucket.set(cat.bucket, want);
-    }
     // An explicit limit (an old caller passing one) still caps the grand total.
     const totalWanted = [...wantedByBucket.values()].reduce((a, b) => a + b, 0);
     const limit = body?.limit
@@ -92,104 +100,89 @@ serve(async (req) => {
       });
     }
 
-    // --- 0b. Quota-completion escalation ------------------------------------
-    // A category falling behind its daily quota gets more aggressive treatment
-    // as the (Israel-local) day runs out, so the day ends full on its own:
-    //   level 1 — afternoon, under half quota:  look 48h back, ranker less picky
-    //   level 2 — evening, quota still unmet:   look 72h back, ranker fills the
-    //             quota, and stories earlier scans passed on return to the table.
-    // The quality floor stays: the ranker still rejects junk, and the worker
-    // still refuses to write when the source material is too thin.
-    const israelHour = Number(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Jerusalem",
-        hour: "numeric",
-        hour12: false,
-      }).format(new Date()),
-    );
-    const escalation = new Map<string, 1 | 2>();
-    for (const cat of categoryStats) {
-      if (!wantedByBucket.has(cat.bucket)) continue;
-      const onHand = cat.publishedToday + cat.queued;
-      if (israelHour >= 17 && onHand < stats.dailyTarget) escalation.set(cat.bucket, 2);
-      else if (israelHour >= 13 && onHand < Math.ceil(stats.dailyTarget / 2)) escalation.set(cat.bucket, 1);
-    }
-    // Sources carry no category anymore, so the feed window is shared: the
-    // deepest escalated category widens it for the whole scan.
-    const feedLookback = Math.max(
-      lookbackHours,
-      ...[...escalation.values()].map((level) => (level === 2 ? 72 : 48)),
-      0,
-    );
+    // The escalation itself is computed in `scanWindow`; the notes explaining it
+    // to whoever reads the run belong here.
     for (const [bucket, level] of escalation) {
       notes.push(`השלמת מכסה: ${bucket} בפיגור — רמה ${level}, ${feedLookback} שעות אחורה`);
     }
 
-    // --- 1. Active sources -------------------------------------------------
-    // Sources are one flat pool — every active feed is read, and the ranker
-    // files each picked story under a category by itself.
-    const { data: sources, error: srcErr } = await supabase
-      .from("news_sources")
-      .select("id, name, feed_url, weight, first_failed_at")
-      .eq("is_active", true);
-    if (srcErr) throw new Error(`טעינת מקורות נכשלה: ${srcErr.message}`);
-    if (!sources?.length) return json({ error: "אין מקורות פעילים" }, 400);
+    // --- 1. What the shard workers found -----------------------------------
+    // The shards ran at :02 and buffered everything inside the window; this
+    // reads that buffer once. Nothing is fetched here.
+    const bufferSince = new Date(Date.now() - BUFFER_WINDOW_MINUTES * 60_000).toISOString();
+    const { data: buffered, error: bufErr } = await supabase
+      .from("ingest_scan_buffer")
+      .select("url_key, url, title, summary, image_url, source_name, weight, item_published_at, scanned_at")
+      .gte("scanned_at", bufferSince)
+      .order("scanned_at", { ascending: false })
+      .limit(4000);
+    if (bufErr) throw new Error(`קריאת מאגר הסריקה נכשלה: ${bufErr.message}`);
 
-    // --- 2. Fetch every feed in parallel -----------------------------------
-    const fetched = await Promise.all(
-      (sources as Source[]).map(async (s) => ({ source: s, result: await fetchFeed(s.feed_url) })),
-    );
+    // Old rows are the ledger's business, not the buffer's.
+    await supabase
+      .from("ingest_scan_buffer")
+      .delete()
+      .lt("scanned_at", new Date(Date.now() - BUFFER_RETENTION_HOURS * 3600_000).toISOString());
 
-    const perSource: { name: string; ok: boolean; items: number; error?: string }[] = [];
-    const candidates: Candidate[] = [];
-    let sourcesOk = 0;
-    let sourcesFailed = 0;
-
-    for (const { source, result } of fetched) {
-      if (!result.ok) {
-        sourcesFailed++;
-        perSource.push({ name: source.name, ok: false, items: 0, error: result.error });
-        notes.push(`${source.name}: ${result.error}`);
-        // A feed that has answered nothing but errors for two straight weeks
-        // is dead — switch it off so it stops weighing on every scan. The
-        // panel and the daily digest both surface the shutdown.
-        const failingSince = source.first_failed_at ? Date.parse(source.first_failed_at) : Date.now();
-        const deadFor14Days = Date.now() - failingSince > 14 * 24 * 3600_000;
-        await supabase
-          .from("news_sources")
-          .update({
-            last_fetched_at: new Date().toISOString(),
-            last_status: result.error,
-            last_item_count: 0,
-            first_failed_at: source.first_failed_at ?? new Date().toISOString(),
-            ...(deadFor14Days ? { is_active: false, auto_disabled_at: new Date().toISOString() } : {}),
-          })
-          .eq("id", source.id);
-        if (deadFor14Days) notes.push(`המקור ${source.name} כובה אוטומטית — נכשל ברצף 14 יום`);
-        continue;
-      }
-      sourcesOk++;
-      // A feed with no dates at all still gets in — its items are simply
-      // treated as "now" and the URL ledger keeps them from repeating.
-      // The window widens for the whole scan when a category is behind quota.
-      const fresh = result.items.filter(
-        (it) => !it.publishedAt || hoursAgo(it.publishedAt) <= feedLookback,
-      );
-      perSource.push({ name: source.name, ok: true, items: fresh.length });
-      await supabase
-        .from("news_sources")
-        .update({ last_fetched_at: new Date().toISOString(), last_status: "ok", last_item_count: fresh.length, first_failed_at: null })
-        .eq("id", source.id);
-
-      for (const it of fresh) {
-        candidates.push({
-          ...it,
-          key: urlKey(it.link),
-          sourceName: source.name,
-          weight: source.weight,
-        });
-      }
+    const bufferRows = (buffered || []) as BufferRow[];
+    if (bufferRows.length === 0) {
+      await supabase.from("ingest_runs").insert({
+        kind: "scan",
+        trigger: auth.trigger,
+        sources_ok: 0,
+        sources_failed: 0,
+        items_seen: 0,
+        items_new: 0,
+        items_queued: 0,
+        notes: [...notes, "מאגר הסריקה ריק — לא רצה סריקת מקורות בשעה האחרונה"],
+        duration_ms: Date.now() - startedAt,
+      });
+      return json({ ok: true, itemsSeen: 0, itemsNew: 0, queued: 0, notes });
     }
+
+    // The buffer keeps a feed's freshness filter, but a rank run triggered by
+    // hand may sit outside it, so the window is applied once more here.
+    const candidates: Candidate[] = bufferRows
+      .filter((r) => !r.item_published_at || hoursAgo(r.item_published_at) <= feedLookback)
+      .map((r) => ({
+        title: r.title,
+        link: r.url,
+        summary: r.summary ?? "",
+        publishedAt: r.item_published_at,
+        image: r.image_url,
+        key: r.url_key,
+        sourceName: r.source_name,
+        weight: r.weight,
+      }));
+
+    // How many sources were read is the shards' answer, not the buffer's: a
+    // source that answered with nothing new in the last hour was still read,
+    // and reporting only the outlets that contributed an item would understate
+    // the scan by an order of magnitude.
+    const scannedSince = new Date(Date.now() - BUFFER_WINDOW_MINUTES * 60_000).toISOString();
+    const { count: okCount } = await supabase
+      .from("news_sources")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .eq("last_status", "ok")
+      .gte("last_fetched_at", scannedSince);
+    const { count: failedCount } = await supabase
+      .from("news_sources")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .neq("last_status", "ok")
+      .gte("last_fetched_at", scannedSince);
+    const sourcesOk = okCount ?? 0;
+    const sourcesFailed = failedCount ?? 0;
+
+    // The per-source detail stays what it was — which outlet put how much on
+    // the table — because that is the list a human actually reads.
+    const contributing = new Set(bufferRows.map((r) => r.source_name));
+    const perSource = [...contributing].map((name) => ({
+      name,
+      ok: true,
+      items: bufferRows.filter((r) => r.source_name === name).length,
+    }));
 
     // --- 3. Dedupe inside the run, then against the ledger ------------------
     const byKey = new Map<string, Candidate>();

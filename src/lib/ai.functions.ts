@@ -106,10 +106,55 @@ export type IngestScanResult = {
   picks?: { source: string; title: string; priority: number; angle: string }[];
   sample?: { source: string; title: string; url: string }[];
   durationMs?: number;
+  /** Filled in by `scanGlobalTech` from the shard workers, not by the ranker. */
+  sourcesScanned?: number;
+  sourcesFailed?: number;
+  shardsFailed?: number;
 };
 
-export const scanGlobalTech = ({ data }: { data?: IngestScanInput } = {}) =>
-  invokeEdge<IngestScanResult>("ingest-global-tech", data ?? {});
+export type IngestShardResult = {
+  ok: boolean;
+  shard: number;
+  sources: number;
+  sourcesOk: number;
+  sourcesFailed: number;
+  itemsFound: number;
+  buffered: number;
+};
+
+/**
+ * How many workers split the feed reading. Must match the number of
+ * `agendax-scan-shard-*` cron jobs; ~950 feeds is more fetching and parsing
+ * than one Edge Function invocation is allowed to spend.
+ */
+const SCAN_SHARDS = 6;
+
+/**
+ * A scan from the panel: read the feeds across shards, then rank once.
+ *
+ * On the hourly schedule these are two separate cron jobs six minutes apart.
+ * Pressing the button has to do both, or it would rank whatever the last
+ * automatic scan happened to leave behind and report it as a fresh sweep.
+ */
+export const scanGlobalTech = async ({ data }: { data?: IngestScanInput } = {}) => {
+  const shards = await Promise.all(
+    Array.from({ length: SCAN_SHARDS }, (_unused, shard) =>
+      invokeEdge<IngestShardResult>("ingest-scan-shard", {
+        shard,
+        shards: SCAN_SHARDS,
+        lookbackHours: data?.lookbackHours,
+      }).catch(() => null),
+    ),
+  );
+  const alive = shards.filter((s): s is IngestShardResult => !!s);
+  const result = await invokeEdge<IngestScanResult>("ingest-global-tech", data ?? {});
+  return {
+    ...result,
+    sourcesScanned: alive.reduce((n, s) => n + s.sources, 0),
+    sourcesFailed: alive.reduce((n, s) => n + s.sourcesFailed, 0),
+    shardsFailed: SCAN_SHARDS - alive.length,
+  };
+};
 
 export type IngestWorkerResult = {
   ok: boolean;

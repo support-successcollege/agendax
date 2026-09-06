@@ -125,7 +125,7 @@ const AdminGlobalIngestTab = () => {
       toast({
         title: dryRun ? "בדיקת מקורות הושלמה" : "הסריקה הושלמה",
         description: dryRun
-          ? `${result.sources?.filter((s) => s.ok).length ?? 0} מקורות תקינים, ${result.itemsNew ?? 0} ידיעות חדשות`
+          ? `${result.sourcesScanned ?? 0} מקורות נסרקו, ${result.itemsNew ?? 0} ידיעות חדשות`
           : result.skipped
             ? `${result.skipped} (${result.publishedToday}/${result.dailyTarget})`
             : `${result.itemsNew ?? 0} ידיעות חדשות, ${result.queued ?? 0} נבחרו לכתיבה`,
