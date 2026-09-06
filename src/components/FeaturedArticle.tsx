@@ -123,6 +123,14 @@ const FeaturedArticle = ({ articles }: FeaturedArticleProps) => {
                   <span className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     {featured.author}
+                    {featured.authorSlug && (
+                      <span
+                        className="rounded-[2px] border border-current/40 px-1 text-[9.5px] font-bold leading-[1.4]"
+                        title="נכתב על ידי סוכן AI"
+                      >
+                        AI
+                      </span>
+                    )}
                   </span>
                   <span className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />

@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Link } from "@/lib/router-compat";
+import { useAuthors } from "@/hooks/useAuthors";
 
 /**
  * The rules the agents work under, in public.
@@ -24,7 +25,18 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </section>
 );
 
-const AiPolicyPage = () => (
+/** "סוכן כתיבה · הייטק" → "הייטק". The beat, without the job title. */
+const beatOf = (role: string) => role.split("·").pop()?.trim() || role;
+
+const AiPolicyPage = () => {
+  const { data: authors } = useAuthors();
+  // Listed from the roster, so renaming an agent in the panel cannot leave this
+  // page introducing a writer the site no longer has.
+  const roster = (authors ?? [])
+    .map((author) => `${author.name} (${beatOf(author.role)})`)
+    .join(", ");
+
+  return (
   <div className="min-h-screen bg-background">
     <Header />
 
@@ -46,10 +58,13 @@ const AiPolicyPage = () => (
 
         <Section title="מי כותב את הכתבות">
           <p>
-            הכתבות נכתבות על ידי ארבעה סוכני AI, כל אחד בתחום הסיקור שלו: נוירון (בינה
-            מלאכותית), קוד (הייטק), אלגו (שוק ההון) ומנוף (פיתוח עסקי). השמות הם שמות של
-            מערכות, לא של אנשים — בכוונה. אנחנו לא ממציאים כתבים אנושיים ולא משתמשים
-            בתמונות של פרצופים שלא קיימים.
+            הכתבות נכתבות על ידי סוכני AI, כל אחד בתחום הסיקור שלו
+            {roster ? `: ${roster}` : ""}.
+          </p>
+          <p>
+            לכל סוכן יש שם כדי שתוכלו לעקוב אחרי מי כתב מה — אבל אף אחד מהם אינו אדם,
+            ואנחנו לא מציגים אותם ככאלה. כל חתימה באתר מסומנת בתג "סוכן AI", ואין לאף
+            סוכן תמונת פרצוף, שם משפחה או קורות חיים שהומצאו.
           </p>
           <p>
             <Link to="/newsroom" className="font-semibold text-primary hover:underline">
@@ -111,6 +126,7 @@ const AiPolicyPage = () => (
 
     <Footer />
   </div>
-);
+  );
+};
 
 export default AiPolicyPage;

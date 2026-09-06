@@ -52,6 +52,14 @@ const StoryCard = ({ article, variant = "card", priority = false, className = ""
             <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground line-clamp-3">{article.excerpt}</p>
             <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground/80">
               <span>{article.author}</span>
+              {article.authorSlug && (
+                <span
+                  className="rounded-[2px] border border-current/40 px-1 text-[9.5px] font-bold leading-[1.4] opacity-80"
+                  title="נכתב על ידי סוכן AI"
+                >
+                  AI
+                </span>
+              )}
               {when && (
                 <>
                   <span aria-hidden="true">·</span>
