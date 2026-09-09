@@ -13,6 +13,7 @@ import {
   authorize,
   callModelWithFallback,
   corsHeaders,
+  enforceInternalLinks,
   type ExtractionReason,
   FALLBACK_IMAGE,
   fetchArticleText,
@@ -24,6 +25,9 @@ import {
   loadCategoryStats,
   loadStats,
   mdToArticleHtml,
+  READ_ALSO_PREFIX,
+  readAlsoHtml,
+  relatedLiveArticles,
   resolveCategory,
   toolArgs,
 } from "../_shared/ingest.ts";
@@ -46,7 +50,18 @@ type Item = {
 /** Stop claiming new work past this point so the current article can finish. */
 const TIME_BUDGET_MS = 95_000;
 
-const WRITER_SYSTEM = (today: string, categoryNames: string, headlineBlock: string) => `היום ${today}. אתה כתב הייטק בכיר באתר חדשות ישראלי בעברית. קיבלת כתבה שפורסמה באתר טכנולוגיה בינלאומי. המשימה: לכתוב **כתבה מקורית בעברית** על אותו האירוע.
+/**
+ * Only in the prompt when there are candidates; without a list the rule is
+ * noise, and the model would go looking for something to link.
+ */
+const LINK_RULES = `
+
+קישורים פנימיים:
+- בסוף החומר יש רשימה "כתבות שכבר באתר". שלב 1-2 קישורים אליהן **רק אם** יש קשר ענייני אמיתי לכתבה שלך (אותה חברה, אותו מוצר, המשך של אותו סיפור). אם אין קשר כזה, אל תקשר בכלל. אפס קישורים זו תוצאה לגיטימית.
+- קישור נכתב במרקדאון [ביטוי](/article/slug) על ביטוי טבעי שכבר קיים במשפט, בתוך גוף הטקסט. לא "לחצו כאן", לא "קראו עוד", לא רשימת קישורים, לא בפסקה הראשונה ולא בכותרות.
+- מותר להשתמש אך ורק בכתובות מהרשימה, אות באות. אסור להמציא כתובת, ואסור לקשר לאתרים חיצוניים.`;
+
+const WRITER_SYSTEM = (today: string, categoryNames: string, headlineBlock: string, linkRules = "") => `היום ${today}. אתה כתב הייטק בכיר באתר חדשות ישראלי בעברית. קיבלת כתבה שפורסמה באתר טכנולוגיה בינלאומי. המשימה: לכתוב **כתבה מקורית בעברית** על אותו האירוע.
 
 עקרונות עבודה — קרא בעיון:
 - **אל תתרגם.** קרא, הבן, וכתוב מחדש בניסוח עצמאי שלך, במבנה שלך, בעברית עיתונאית טבעית. אסור לשחזר משפטים או פסקאות מהמקור.
@@ -63,7 +78,7 @@ const WRITER_SYSTEM = (today: string, categoryNames: string, headlineBlock: stri
 - טבלת מרקדאון (GFM) רק אם יש נתונים מספריים שמצדיקים אותה.
 - **סקשן סיום — רק כשיש מה לומר**: ‏## למה זה חשוב לך‏ — 2-4 משפטים על המשמעות המעשית של ההתפתחות: מה היא אומרת לתעשייה, למשתמשים, או לקורא הישראלי — אם ורק אם החומר המקורי עצמו מבסס זווית ישראלית. **הסקשן אינו חובה. אם אין תובנה שנשענת על החומר עצמו — השמט אותו לגמרי.** סקשן שממציא רלוונטיות גרוע מסקשן חסר, והמאמת פוסל עליו.
 - שפה רהוטה, אובייקטיבית, בלי דעות אישיות ובלי סופרלטיבים שיווקיים.
-- החזר מרקדאון נקי בשדה body — בלי code fences ובלי כותרת H1 (הכותרת נשלחת בנפרד).
+- החזר מרקדאון נקי בשדה body — בלי code fences ובלי כותרת H1 (הכותרת נשלחת בנפרד).${linkRules}
 
 בנוסף:
 - title: כותרת חדה בעברית, עד 12 מילים, בלי קליקבייט.
@@ -253,11 +268,13 @@ async function processUpdate(supabase: any, item: Item): Promise<ProcessResult> 
     `</div>`;
 
   // The update lands after the body but before the closing "why it matters"
-  // box, so the box stays the article's last word.
+  // box and the "קראו גם" line, so those stay the article's last words.
   const content: string = target.content || "";
-  const boxAt = content.indexOf('<div class="why-it-matters">');
-  const newContent = boxAt >= 0
-    ? content.slice(0, boxAt) + block + content.slice(boxAt)
+  const cutAt = [content.indexOf('<div class="why-it-matters">'), content.indexOf(READ_ALSO_PREFIX)]
+    .filter((i) => i >= 0)
+    .sort((a, b) => a - b)[0] ?? -1;
+  const newContent = cutAt >= 0
+    ? content.slice(0, cutAt) + block + content.slice(cutAt)
     : content + block;
 
   const sourceLinks = Array.isArray(target.source_links) ? [...target.source_links] : [];
@@ -334,6 +351,23 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     .neq("slug", "home");
   const categoryNames =
     (liveCategories || []).map((c: { name: string }) => c.name).join(", ") || "הייטק";
+
+  // --- 3a. Internal link candidates ------------------------------------------
+  // The writer files the category later, but the ranker's bucket IS the
+  // category slug, so the same-category picks can be made before writing.
+  // The hint is the fallback; with neither, the freshest live stories of any
+  // category stand in.
+  const linkCategory =
+    item.bucket ||
+    (item.category_hint ? (await resolveCategory(supabase, item.category_hint)).category_slug : null);
+  const linkCandidates = await relatedLiveArticles(supabase, { categorySlug: linkCategory });
+  const linksBlock = linkCandidates.length
+    ? `\n\n=== כתבות שכבר באתר (מועמדות לקישור פנימי, לפי הכללים) ===\n` +
+      linkCandidates
+        .map((c) => `- כותרת: ${c.title}\n  כתובת: /article/${c.slug}` + (c.excerpt ? `\n  תקציר: ${c.excerpt}` : ""))
+        .join("\n")
+    : "";
+
   const userContent =
     `מקור: ${item.source_name}\n` +
     `כתובת: ${resolvedUrl}\n` +
@@ -341,12 +375,16 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     (item.source_published_at ? `פורסם: ${item.source_published_at}\n` : "") +
     (item.angle ? `\nהזווית שביקש העורך: ${item.angle}\n` : "") +
     `\n=== גוף הכתבה המקורית ===\n${originalText || item.source_summary}` +
-    relatedBlock;
+    relatedBlock +
+    linksBlock;
 
   const headlineBlock = await headlinePerformanceBlock(supabase);
   const response = await callModelWithFallback({
     messages: [
-      { role: "system", content: WRITER_SYSTEM(today, categoryNames, headlineBlock) },
+      {
+        role: "system",
+        content: WRITER_SYSTEM(today, categoryNames, headlineBlock, linkCandidates.length ? LINK_RULES : ""),
+      },
       { role: "user", content: userContent },
     ],
     tools: [
@@ -454,12 +492,16 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     .limit(1)
     .maybeSingle();
 
+  // Links the writer produced are kept only when they point at an offered
+  // article; the "קראו גם" line then carries up to two of the rest, after the
+  // closing box so the box is not the thing wrapping it.
+  const bodyHtml = enforceInternalLinks(mdToArticleHtml(body), linkCandidates);
   const { data: inserted, error: insertErr } = await supabase
     .from("articles")
     .insert({
       title: article.title.slice(0, 300),
       excerpt,
-      content: wrapWhyItMatters(mdToArticleHtml(body)),
+      content: wrapWhyItMatters(bodyHtml) + readAlsoHtml(linkCandidates, bodyHtml),
       category,
       category_slug,
       image_url: imageUrl,

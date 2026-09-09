@@ -25,6 +25,7 @@ import {
   publishInstagramStory,
   publishLinkedIn,
   publishX,
+  withLinkInCommentFooter,
   type ArticleForPost,
 } from "../_shared/social.ts";
 
@@ -160,11 +161,24 @@ type QueueRow = {
   source: string;
 };
 
+/**
+ * LinkedIn experiment flag (social_settings.linkedin_link_in_comment): the
+ * article link goes into the first comment instead of the post body. Read
+ * per post so flipping the flag in the DB takes effect on the next post.
+ * Missing row or column = experiment on (the migration's default).
+ */
+async function linkedInLinkInComment(supabase: any): Promise<boolean> {
+  const { data } = await supabase.from("social_settings").select("linkedin_link_in_comment").eq("id", 1).maybeSingle();
+  return data?.linkedin_link_in_comment ?? true;
+}
+
+type PublishOutcome = { platform: string; ok: boolean; error?: string; warning?: string };
+
 async function publishOne(
   supabase: any,
   article: ArticleRow,
   account: Account,
-): Promise<{ platform: string; ok: boolean; error?: string }> {
+): Promise<PublishOutcome> {
   // Facebook renders and linkifies the raw Hebrew URL correctly, so it gets
   // the readable form. LinkedIn's and X's URL detectors stop at the first
   // non-Latin character — a raw Hebrew slug got cut to /article/ and the
@@ -192,10 +206,15 @@ async function publishOne(
       .eq("platform", account.platform)
       .eq("status", "pending")
       .maybeSingle();
-    const text = prepared?.post_text?.trim()
+    const linkInComment = account.platform === "linkedin" && await linkedInLinkInComment(supabase);
+    let text = prepared?.post_text?.trim()
       ? String(prepared.post_text)
-      : await generatePostText(forPost, account.platform);
+      : await generatePostText(forPost, account.platform, { linkInComment });
+    // Link-in-comment: no URL in the body (a prepared text may still carry
+    // one), and the "link in the first comment" footer.
+    if (linkInComment) text = withLinkInCommentFooter(text);
     let externalId = "";
+    let warning: string | undefined;
     switch (account.platform) {
       case "facebook": {
         const image = await brandedImageUrl(supabase, article);
@@ -217,10 +236,18 @@ async function publishOne(
       }
       case "linkedin": {
         const image = await brandedImageUrl(supabase, article);
-        ({ externalId } = await publishLinkedIn(account.credentials, { text, link: url, imageUrl: image }));
+        // The comment link is tagged so the visit can be told apart from a
+        // link-card click of the old kind in any tool that keeps the query
+        // string (page_views stores the pathname only; its measure is the
+        // referrer).
+        const link = linkInComment ? `${url}?utm_source=linkedin&utm_medium=social` : url;
+        ({ externalId, warning } = await publishLinkedIn(account.credentials, { text, link, imageUrl: image, linkInComment }));
         break;
       }
     }
+    // A warning (post live, follow-up comment failed) is kept in `error` for
+    // the admin panel to show, while the status stays "posted".
+    if (warning) console.error(`${account.platform} warning:`, warning);
     await supabase.from("social_posts").upsert(
       {
         article_id: article.id,
@@ -228,11 +255,11 @@ async function publishOne(
         status: "posted",
         external_id: externalId,
         post_text: text,
-        error: null,
+        error: warning ? warning.slice(0, 500) : null,
       },
       { onConflict: "article_id,platform" },
     );
-    return { platform: account.platform, ok: true };
+    return warning ? { platform: account.platform, ok: true, warning } : { platform: account.platform, ok: true };
   } catch (e: any) {
     const message = e?.message || String(e);
     await supabase.from("social_posts").upsert(
@@ -255,8 +282,8 @@ async function publishTo(
   article: ArticleRow,
   targets: Account[],
   kind: "post" | "story",
-): Promise<{ platform: string; ok: boolean; error?: string }[]> {
-  const results = [];
+): Promise<PublishOutcome[]> {
+  const results: PublishOutcome[] = [];
   for (const account of targets) {
     results.push(kind === "story" ? await publishStory(supabase, article, account) : await publishOne(supabase, article, account));
   }

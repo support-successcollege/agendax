@@ -519,6 +519,9 @@ export function mdToArticleHtml(md: string): string {
     .replace(/<li>/g, '<li class="leading-relaxed">')
     .replace(/<blockquote>/g, '<blockquote class="border-r-4 border-primary pr-4 my-6 italic text-foreground/75 bg-muted/30 py-4 rounded-l-lg">')
     .replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80" ')
+    // A site-relative link (an internal article link) stays in the same tab;
+    // only links that leave the site get the new-tab treatment.
+    .replace(/<a target="_blank" rel="noopener noreferrer" (class="[^"]*") href="\/(?!\/)/g, '<a $1 href="/')
     .replace(/<strong>/g, '<strong class="font-bold text-foreground">')
     .replace(/<table>/g, '<div class="overflow-x-auto my-6"><table class="w-full border-collapse border border-border text-sm">')
     .replace(/<\/table>/g, "</table></div>")
@@ -527,6 +530,163 @@ export function mdToArticleHtml(md: string): string {
     .replace(/<td>/g, '<td class="border border-border px-3 py-2 text-right">')
     .replace(/<hr>/g, '<hr class="my-8 border-border" />');
   return html;
+}
+
+// ---------------------------------------------------------------------------
+// Internal links
+// ---------------------------------------------------------------------------
+//
+// A new article gets a short list of live stories it may link to: the writer
+// weaves 0-2 of them into the prose when there is a real connection, and a
+// deterministic "קראו גם" line at the end carries up to two of the rest. The
+// model only ever sees slugs from this list, and enforceInternalLinks() drops
+// any link it produced that is not on it.
+
+export type RelatedArticle = { id: string; slug: string; title: string; excerpt: string };
+
+/** A link target older than this is stale news; it is not offered. */
+const RELATED_WINDOW_DAYS = 14;
+/** The anchor classes mdToArticleHtml gives every link, so both kinds render the same. */
+const ARTICLE_LINK_CLASS = "text-primary underline hover:text-primary/80";
+/** The exact opening of the "קראו גם" paragraph; processUpdate looks for it. */
+export const READ_ALSO_PREFIX = '<p class="text-foreground/90 leading-relaxed mb-4">קראו גם: ';
+
+/** Public path of a live article. Slugs are Hebrew, so the segment is encoded
+ *  the way the site's own canonical URLs are. */
+export function articlePath(slug: string): string {
+  return `/article/${encodeURIComponent(slug)}`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Up to `sameCategory` freshest live stories of the category plus up to
+ * `popular` most-read stories of the past week, all from the last two weeks,
+ * no duplicates. `categorySlug` null skips the category filter. Never throws:
+ * an empty list simply means no internal links this time.
+ */
+export async function relatedLiveArticles(
+  supabase: SupabaseClient,
+  opts: { categorySlug?: string | null; excludeId?: string | null; sameCategory?: number; popular?: number } = {},
+): Promise<RelatedArticle[]> {
+  const sameCategory = opts.sameCategory ?? 3;
+  const popular = opts.popular ?? 2;
+  const since = new Date(Date.now() - RELATED_WINDOW_DAYS * 86_400_000).toISOString();
+  const fields = "id, slug, title, excerpt";
+  type Row = { id: string; slug: string | null; title: string | null; excerpt: string | null };
+
+  const picked: RelatedArticle[] = [];
+  const seen = new Set<string>(opts.excludeId ? [opts.excludeId] : []);
+  const take = (row: Row | undefined) => {
+    if (!row || !row.slug || !row.title || seen.has(row.id)) return;
+    seen.add(row.id);
+    picked.push({
+      id: row.id,
+      slug: row.slug,
+      title: row.title.trim().slice(0, 200),
+      excerpt: (row.excerpt || "").trim().slice(0, 200),
+    });
+  };
+
+  try {
+    if (sameCategory > 0) {
+      let q = supabase
+        .from("articles")
+        .select(fields)
+        .eq("is_draft", false)
+        .not("slug", "is", null)
+        .gte("published_at", since)
+        .order("published_at", { ascending: false })
+        .limit(sameCategory + (opts.excludeId ? 1 : 0));
+      if (opts.categorySlug) q = q.eq("category_slug", opts.categorySlug);
+      const { data, error } = await q;
+      if (error) console.error("relatedLiveArticles: category query failed", error);
+      for (const row of (data || []) as Row[]) {
+        if (picked.length >= sameCategory) break;
+        take(row);
+      }
+    }
+
+    if (popular > 0) {
+      const { data: hot, error: hotErr } = await supabase.rpc("get_hot_articles", { p_hours: 24 * 7, p_limit: 10 });
+      if (hotErr) console.error("relatedLiveArticles: get_hot_articles failed", hotErr);
+      const hotIds = ((hot || []) as { article_id: string }[])
+        .map((h) => h.article_id)
+        .filter((id) => id && !seen.has(id));
+      if (hotIds.length) {
+        const { data: rows, error } = await supabase
+          .from("articles")
+          .select(fields)
+          .in("id", hotIds)
+          .eq("is_draft", false)
+          .not("slug", "is", null)
+          .gte("published_at", since);
+        if (error) console.error("relatedLiveArticles: hot rows query failed", error);
+        const byId = new Map(((rows || []) as Row[]).map((r) => [r.id, r]));
+        // Keep the RPC's order (views desc); the IN query does not.
+        const target = picked.length + popular;
+        for (const id of hotIds) {
+          if (picked.length >= target) break;
+          take(byId.get(id));
+        }
+      }
+    }
+  } catch (e) {
+    console.error("relatedLiveArticles failed", e);
+  }
+  return picked;
+}
+
+/** Slugs of the internal article links already in the HTML (decoded, since
+ *  marked percent-encodes hrefs). */
+export function linkedArticleSlugs(html: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of html.matchAll(/href="\/article\/([^"#?]+)/g)) {
+    try {
+      out.add(decodeURIComponent(m[1]));
+    } catch {
+      out.add(m[1]);
+    }
+  }
+  return out;
+}
+
+/**
+ * Unwraps every link that does not point at one of the offered articles.
+ * The prompt says "only from the list", but a writer that has just been told
+ * to think about links will sometimes link the source, or a slug it made up;
+ * both become plain text here so nothing invented can reach a reader.
+ */
+export function enforceInternalLinks(html: string, allowed: RelatedArticle[]): string {
+  const ok = new Set(allowed.map((a) => a.slug));
+  return html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (whole, attrs: string, text: string) => {
+    const href = /href="([^"]*)"/i.exec(attrs)?.[1] ?? "";
+    const m = /^\/article\/([^"#?]+)$/.exec(href);
+    if (!m) return text;
+    let slug = m[1];
+    try {
+      slug = decodeURIComponent(slug);
+    } catch { /* keep as is */ }
+    return ok.has(slug) ? whole : text;
+  });
+}
+
+/**
+ * The "קראו גם" paragraph: up to `max` of the offered articles the writer did
+ * NOT already link in the body. Empty string when there is nothing to add.
+ * Same paragraph and anchor classes the body uses, so it renders as one more
+ * paragraph and the editor's guard sees no new class or tag.
+ */
+export function readAlsoHtml(candidates: RelatedArticle[], bodyHtml: string, max = 2): string {
+  const already = linkedArticleSlugs(bodyHtml);
+  const rest = candidates.filter((c) => !already.has(c.slug)).slice(0, max);
+  if (rest.length === 0) return "";
+  const links = rest.map(
+    (c) => `<a href="${articlePath(c.slug)}" class="${ARTICLE_LINK_CLASS}">${escapeHtml(c.title)}</a>`,
+  );
+  return `${READ_ALSO_PREFIX}${links.join(" · ")}</p>`;
 }
 
 // ---------------------------------------------------------------------------

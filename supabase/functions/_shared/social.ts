@@ -21,10 +21,41 @@ export type ArticleForPost = {
   url: string;
 };
 
+/**
+ * The closing line of a post whose link travels in the first comment
+ * (LinkedIn experiment). Appended in code, never by the model, so every post
+ * carries it verbatim.
+ */
+export const LINK_IN_COMMENT_FOOTER = "הקישור לכתבה המלאה בתגובה הראשונה 👇";
+
+/**
+ * Rewrites a post for link-in-comment mode: every line carrying a site URL is
+ * dropped (a pre-approved text from the marketing flow still has the old
+ * "📖 לכתבה המלאה: ..." line), and the footer goes in right before the
+ * hashtag line, or at the very end when there is none.
+ */
+export function withLinkInCommentFooter(text: string): string {
+  const lines = text
+    .split("\n")
+    .filter((l) => !/https?:\/\/\S*agendax\.co\.il/i.test(l) && l.trim() !== LINK_IN_COMMENT_FOOTER);
+  while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+  const last = lines[lines.length - 1]?.trim() ?? "";
+  if (last.startsWith("#")) {
+    lines.splice(lines.length - 1, 0, "", LINK_IN_COMMENT_FOOTER, "");
+  } else {
+    lines.push("", LINK_IN_COMMENT_FOOTER);
+  }
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /** Generates the post text for one platform. */
-export async function generatePostText(article: ArticleForPost, platform: string): Promise<string> {
+export async function generatePostText(
+  article: ArticleForPost,
+  platform: string,
+  opts: { linkInComment?: boolean } = {},
+): Promise<string> {
   const style = PLATFORM_STYLE[platform] ?? PLATFORM_STYLE.facebook;
-  const includeLink = platform !== "instagram";
+  const includeLink = platform !== "instagram" && !opts.linkInComment;
   const wantHashtags = platform !== "whatsapp";
   const plainContent = article.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 2000);
 
@@ -35,6 +66,7 @@ ${style}
 כללים:
 - כתוב בעברית. אל תתייחס לתמונה. אל תמציא עובדות שלא בפרטי הכתבה.
 ${includeLink ? `- סיים עם: 📖 לכתבה המלאה: ${article.url}` : ""}
+${opts.linkInComment ? "- אל תכלול שום קישור בפוסט, ואל תכתוב שהקישור בתגובות. שורה כזו תתווסף אוטומטית." : ""}
 ${wantHashtags ? "- שורה אחרונה: לפחות 4 האשטגים בעברית." : "- בלי האשטגים."}
 - **החזר אך ורק את הפוסט הסופי.** בלי טיוטות, בלי ספירת תווים, בלי "Draft", בלי הערות או הסברים — כל תו שתחזיר יפורסם כלשונו.
 
@@ -73,7 +105,12 @@ ${wantHashtags ? "- שורה אחרונה: לפחות 4 האשטגים בעבר�
   return post;
 }
 
-export type PublishResult = { externalId: string };
+/**
+ * externalId: the network's id of the post. warning: the post is up, but a
+ * follow-up step (LinkedIn's link comment) failed; the caller records it
+ * without marking the post as failed.
+ */
+export type PublishResult = { externalId: string; warning?: string };
 type Creds = Record<string, string>;
 
 const need = (creds: Creds, keys: string[], platform: string) => {
@@ -426,26 +463,64 @@ async function uploadLinkedInImage(creds: Creds, imageUrl: string): Promise<stri
 }
 
 /**
+ * Comments on a LinkedIn post as the same member/organization that wrote it
+ * (w_member_social covers comments on the member's own posts). A post is not
+ * always commentable in the first second after creation, so a failed attempt
+ * is retried twice with a short pause.
+ */
+async function commentOnLinkedInPost(creds: Creds, postUrn: string, text: string): Promise<string> {
+  const url = `https://api.linkedin.com/rest/socialActions/${encodeURIComponent(postUrn)}/comments`;
+  let lastError = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 2500));
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: liHeaders(creds),
+      body: JSON.stringify({ actor: creds.author_urn, message: { text } }),
+    });
+    if (resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      return resp.headers.get("x-restli-id") ?? String(data?.$URN ?? data?.id ?? "");
+    }
+    const body = await resp.text();
+    lastError = `LinkedIn comment ${resp.status}: ${body.slice(0, 250)}`;
+    // Client errors other than "not there yet" will not change on retry.
+    if (resp.status >= 400 && resp.status < 500 && resp.status !== 404 && resp.status !== 429) break;
+  }
+  throw new Error(lastError);
+}
+
+/**
  * LinkedIn post for a member or organization (author = URN). With imageUrl the
  * branded PNG leads the post (the article link stays in the text); a failed
  * upload falls back to the plain article link card — a post without our
  * template beats no post.
+ *
+ * linkInComment (experiment, September 2026): the body carries no URL at all
+ * — LinkedIn's feed suppresses posts with an outbound link — and `link` is
+ * posted as the first comment right after the post is up. A failed image
+ * upload then yields a text-only post (no link card, which would defeat the
+ * experiment). A failed comment does not fail the post: the post is already
+ * live, so the failure comes back as `warning`.
  */
 export async function publishLinkedIn(
   creds: Creds,
-  post: { text: string; link: string; imageUrl?: string },
+  post: { text: string; link: string; imageUrl?: string; linkInComment?: boolean },
 ): Promise<PublishResult> {
   need(creds, ["access_token", "author_urn"], "לינקדאין");
 
-  let content: Record<string, unknown> = {
-    article: { source: post.link, title: post.text.slice(0, 100) },
-  };
+  let content: Record<string, unknown> | undefined = post.linkInComment
+    ? undefined
+    : { article: { source: post.link, title: post.text.slice(0, 100) } };
   if (post.imageUrl) {
     try {
       const imageUrn = await uploadLinkedInImage(creds, post.imageUrl);
       content = { media: { id: imageUrn, altText: post.text.slice(0, 100) } };
     } catch (e) {
-      console.error("LinkedIn image upload failed, posting link card instead:", (e as Error).message);
+      console.error(
+        `LinkedIn image upload failed, posting ${post.linkInComment ? "text only" : "link card"} instead:`,
+        (e as Error).message,
+      );
     }
   }
 
@@ -457,7 +532,7 @@ export async function publishLinkedIn(
       commentary: post.text,
       visibility: "PUBLIC",
       distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
-      content,
+      ...(content ? { content } : {}),
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     }),
@@ -467,5 +542,17 @@ export async function publishLinkedIn(
     throw new Error(`LinkedIn ${resp.status}: ${t.slice(0, 250)}`);
   }
   const externalId = resp.headers.get("x-restli-id") ?? "";
-  return { externalId };
+  if (!post.linkInComment) return { externalId };
+
+  if (!externalId) {
+    return { externalId, warning: "הפוסט פורסם אבל לינקדאין לא החזיר מזהה, אי אפשר להוסיף את תגובת הקישור" };
+  }
+  try {
+    await commentOnLinkedInPost(creds, externalId, post.link);
+    return { externalId };
+  } catch (e) {
+    const message = (e as Error).message;
+    console.error("LinkedIn link comment failed (post is live):", message);
+    return { externalId, warning: `הפוסט פורסם בלי תגובת הקישור: ${message}` };
+  }
 }
