@@ -10,10 +10,11 @@ const ROTATE_MS = 9000;
 
 /**
  * The front page's opening block: one story at full size, and the next four
- * beside it in a row. The top slot rotates through the week's leading stories
- * (10 picked automatically every Sunday, at least 2 per category — see
- * refresh_hero_rotation in the DB); hovering holds it, because a story
- * someone is reaching for must not move.
+ * beside it in a row. The top slot opens on the pinned story (is_featured,
+ * which auto_featured_article rotates four times a day) and then cycles
+ * through the week's leading stories (10 picked automatically every Sunday,
+ * at least 2 per category — see refresh_hero_rotation in the DB); hovering
+ * holds it, because a story someone is reaching for must not move.
  *
  * The four secondary slots never repeat the lead, and they are not part of the
  * rotation — a reader who looks away and back should find the same four.
@@ -35,13 +36,21 @@ const LeadBlock = ({ articles }: { articles: Article[] }) => {
     },
   });
 
+  // The pinned story (is_featured, rotated by the DB four times a day) always
+  // opens the pool: the server renders it, the browser's first paint keeps it,
+  // and only the later rotations move on to the week's picks. Keeping it at
+  // index 0 on both sides is what stops the lead from jumping on hydration.
   const pool = useMemo(() => {
-    const byId = new Map(articles.map((a) => [a.id, a]));
-    const weekly = rotationIds.map((id) => byId.get(id)).filter((a): a is Article => !!a);
-    if (weekly.length >= 2) return weekly;
     const featured = getFeaturedArticle(articles);
     if (!featured) return articles.slice(0, 5);
-    const breaking = getBreakingNews(articles).filter((a) => a.id !== featured.id);
+    const byId = new Map(articles.map((a) => [a.id, a]));
+    const weekly = rotationIds
+      .map((id) => byId.get(id))
+      .filter((a): a is Article => !!a && a.id !== featured.id);
+    if (weekly.length >= 1) return [featured, ...weekly];
+    const breaking = getBreakingNews(articles).filter(
+      (a) => a.id !== featured.id,
+    );
     return [featured, ...breaking, ...articles].filter(
       (a, i, all) => all.findIndex((x) => x.id === a.id) === i,
     );
