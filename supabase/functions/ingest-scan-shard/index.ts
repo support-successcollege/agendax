@@ -29,10 +29,37 @@ type Source = {
   first_failed_at: string | null;
 };
 
-/** Bounded so one shard's sockets stay well inside a single worker. */
-const FETCH_CONCURRENCY = 24;
-/** Leaves room to write the buffer and the source statuses before the limit. */
-const FETCH_BUDGET_MS = 60_000;
+/**
+ * Bounded so one shard's sockets stay well inside a single worker — and low
+ * enough that the site on the other end sees a reader, not a burst. The
+ * moment the first six shards opened ~150 connections each from the same
+ * egress address, some thirty sources (Geektime, Times of Israel, Israel
+ * Hayom, Kan, The Robot Report…) began answering 403 and did not stop.
+ */
+const FETCH_CONCURRENCY = 12;
+/** Two feeds of the same host never overlap, and this much air sits between them. */
+const SAME_HOST_GAP_MS = 1500;
+/** A random pause before every fetch, so the pool never fires in lockstep. */
+const JITTER_MIN_MS = 250;
+const JITTER_MAX_MS = 1000;
+/**
+ * Leaves room to write the buffer and the source statuses before the limit.
+ * A shard used to finish in ~10s at concurrency 24; the gaps and the lower
+ * pool put it around 30s, and the cron allows 150s.
+ */
+const FETCH_BUDGET_MS = 90_000;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const jitter = () => sleep(JITTER_MIN_MS + Math.random() * (JITTER_MAX_MS - JITTER_MIN_MS));
+
+/** `pc.co.il` and `www.pc.co.il` are one server and get one queue. */
+function hostOf(feedUrl: string): string {
+  try {
+    return new URL(feedUrl).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return feedUrl;
+  }
+}
 
 function hoursAgo(iso: string | null): number {
   if (!iso) return 0;
@@ -129,18 +156,37 @@ serve(async (req) => {
       }
     };
 
+    // The pool hands out hosts, not feeds: a worker that holds a host reads
+    // its feeds one after another, so a site with three feeds in this shard
+    // never sees them arrive together. Hosts with the most feeds go first —
+    // they take the longest, and starting them last is how a shard runs out
+    // of budget on its final host.
+    const byHost = new Map<string, Source[]>();
+    for (const source of mine) {
+      const host = hostOf(source.feed_url);
+      const group = byHost.get(host);
+      if (group) group.push(source);
+      else byHost.set(host, [source]);
+    }
+    const hostQueue = [...byHost.values()].sort((a, b) => b.length - a.length);
+
     await Promise.all(
-      Array.from({ length: Math.min(FETCH_CONCURRENCY, mine.length) }, async () => {
+      Array.from({ length: Math.min(FETCH_CONCURRENCY, hostQueue.length) }, async () => {
         while (true) {
           const index = cursor++;
-          if (index >= mine.length) return;
-          if (Date.now() > deadline) {
-            skippedForTime++;
-            continue;
+          if (index >= hostQueue.length) return;
+          const group = hostQueue[index];
+          for (let i = 0; i < group.length; i++) {
+            if (Date.now() > deadline) {
+              skippedForTime++;
+              continue;
+            }
+            if (i > 0) await sleep(SAME_HOST_GAP_MS);
+            await jitter();
+            // 8s, not 12: a slow feed costs the pool a worker, and an hourly scan
+            // sees it again in an hour anyway.
+            absorb(group[i], await fetchFeed(group[i].feed_url, 8000));
           }
-          // 8s, not 12: a slow feed costs the pool a worker, and an hourly scan
-          // sees it again in an hour anyway.
-          absorb(mine[index], await fetchFeed(mine[index].feed_url, 8000));
         }
       }),
     );

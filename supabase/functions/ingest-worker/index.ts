@@ -13,6 +13,7 @@ import {
   authorize,
   callModelWithFallback,
   corsHeaders,
+  type ExtractionReason,
   FALLBACK_IMAGE,
   fetchArticleText,
   fetchFeed,
@@ -181,7 +182,16 @@ ${bottom.map((r) => `- ${r.title}`).join("\n")}`;
   }
 }
 
-async function processUpdate(supabase: any, item: Item): Promise<{ ok: true; articleId: string; title: string } | { ok: false; error: string }> {
+type ProcessResult =
+  | { ok: true; articleId: string; title: string }
+  | { ok: false; error: string; code?: ExtractionReason };
+
+/** Same failure path as a paywall, with the gate's reason in the message so it can be counted. */
+function extractionFailure(reason: ExtractionReason, detail: string): ProcessResult {
+  return { ok: false, error: `חילוץ הטקסט מהמקור נכשל [${reason}]: ${detail}`, code: reason };
+}
+
+async function processUpdate(supabase: any, item: Item): Promise<ProcessResult> {
   const { data: target } = await supabase
     .from("articles")
     .select("id, slug, title, content, is_draft, source_links")
@@ -192,6 +202,11 @@ async function processUpdate(supabase: any, item: Item): Promise<{ ok: true; art
   const original = await fetchArticleText(item.url);
   const originalText = original?.text || "";
   const resolvedUrl = original?.url || item.url;
+  // An update only needs one paragraph of news, so a short brief is fine
+  // here; a menu or a looping widget is not.
+  if (original && !original.check.ok && original.check.reason !== "extraction_too_short") {
+    return extractionFailure(original.check.reason!, original.check.detail);
+  }
   if (originalText.length < 500 && (item.source_summary || "").length < 300) {
     return { ok: false, error: "לא הצלחנו לקרוא את הדיווח החדש (paywall או חסימה)" };
   }
@@ -275,7 +290,7 @@ async function processUpdate(supabase: any, item: Item): Promise<{ ok: true; art
   return { ok: true, articleId: target.id, title: `עדכון: ${newTitle || target.title}` };
 }
 
-async function processItem(supabase: any, item: Item, slotStepMinutes: number): Promise<{ ok: true; articleId: string; title: string } | { ok: false; error: string }> {
+async function processItem(supabase: any, item: Item, slotStepMinutes: number): Promise<ProcessResult> {
   // A development of an article already on the site takes the update path.
   if (item.update_of) return await processUpdate(supabase, item);
 
@@ -283,6 +298,13 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
   const original = await fetchArticleText(item.url);
   const originalText = original?.text || "";
   const resolvedUrl = original?.url || item.url;
+
+  // The page came back but what we pulled out of it is not an article (too
+  // thin, a menu, a loop). Fail now, before the model gets to inflate it; the
+  // feed summary is no rescue here, it is the same teaser the page showed.
+  if (original && !original.check.ok) {
+    return extractionFailure(original.check.reason!, original.check.detail);
+  }
 
   // The feed summary alone is usually a teaser paragraph — not enough to write
   // 600 words from without inventing the rest.
@@ -481,6 +503,8 @@ serve(async (req) => {
 
   const created: { id: string; title: string }[] = [];
   const notes: string[] = [];
+  /** Items the extraction gate rejected before any model call. */
+  let extractionRejected = 0;
 
   // The daily cap lives here rather than in the scanner because only the worker
   // knows what actually got written. The scanner queues spares on purpose; this
@@ -553,6 +577,7 @@ serve(async (req) => {
           .update({ status: exhausted ? "failed" : "pending", error: result.error })
           .eq("id", typed.id);
         notes.push(`${typed.source_title.slice(0, 60)}: ${result.error}`);
+        if (result.code) extractionRejected++;
       }
     } catch (e: any) {
       const message = e?.message || String(e);
@@ -565,6 +590,8 @@ serve(async (req) => {
       notes.push(`${typed.source_title.slice(0, 60)}: ${message}`);
     }
   }
+
+  if (extractionRejected > 0) notes.push(`שער חילוץ: ${extractionRejected} נפסלו לפני קריאת המודל`);
 
   if (created.length > 0 || notes.length > 0) {
     await supabase.from("ingest_runs").insert({
@@ -611,6 +638,7 @@ serve(async (req) => {
     remaining: count ?? 0,
     publishedToday: stats.publishedToday + created.length,
     dailyTarget: stats.dailyTarget,
+    extractionRejected,
     notes,
     durationMs: Date.now() - startedAt,
   });

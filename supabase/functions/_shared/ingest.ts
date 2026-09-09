@@ -342,12 +342,112 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
-/** Follows redirects (Google News links in particular) and returns plain text. */
+// ---------------------------------------------------------------------------
+// Extraction quality gate
+// ---------------------------------------------------------------------------
+//
+// htmlToText flattens the page into one line, so the writer cannot tell a
+// 900-word article from a cookie banner plus a menu. The gate looks at the
+// page's shape (one line per block element) before the model ever sees it:
+// a page whose readable prose is too thin, or is mostly navigation, or repeats
+// itself, is rejected with a precise reason so the reserve item comes in.
+
+export type ExtractionReason = "extraction_too_short" | "extraction_nav_noise" | "extraction_repetitive";
+export type ExtractionCheck = { ok: boolean; reason?: ExtractionReason; words: number; detail: string };
+
+/**
+ * The writer must produce 500-850 words without inventing anything. A wire
+ * brief runs 250-400 words; under ~200 words of prose it is a lead paragraph
+ * and a teaser, and the model has to fabricate two thirds of the article.
+ * The old floor (800 chars, ~130 words) let exactly those through.
+ */
+export const MIN_BODY_WORDS = 200;
+
+/** A line of this many words or more reads like prose, not a label. */
+const PROSE_LINE_WORDS = 8;
+/** A line of this many words or fewer is a menu item, tag, byline or button. */
+const LABEL_LINE_WORDS = 4;
+
+const BLOCK_BOUNDARY =
+  /<br\s*\/?>|<\/(?:p|div|li|h[1-6]|tr|blockquote|section|article|dt|dd|figcaption|summary|button|option|label|pre|table|ul|ol)\s*>/gi;
+/** Survives htmlToText (not a tag, not whitespace); split on it afterwards. */
+const LINE_MARK = " ¶ ";
+
+const NAV_PHRASES =
+  /\b(?:subscribe|subscription|sign in|sign up|log in|login|register|cookies?|accept all|privacy policy|terms of (?:use|service)|newsletter|read more|learn more|see all|view all|load more|skip to|follow us|advertisement|sponsored|share (?:this|on)|main menu|menu|related (?:articles|stories)|most (?:read|popular)|trending|all rights reserved)\b/gi;
+
+const WORD = /[\p{L}\p{N}]/u;
+function countWords(s: string): number {
+  return s.split(/\s+/).filter((t) => WORD.test(t)).length;
+}
+
+/** htmlToText, but one line per block element, so the page keeps its shape. */
+export function htmlToLines(html: string): string[] {
+  return htmlToText(html.replace(BLOCK_BOUNDARY, LINE_MARK))
+    .split("¶")
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Deterministic. `text` is newline-separated lines (from htmlToLines); a flat
+ * string still works, it just loses the shape-based checks. Checks in order:
+ *   1. repetitive - a line of 3+ words appears 3+ times and the duplicates are
+ *      a fifth of the page (widget loops, templating bugs)
+ *   2. nav noise - 10+ lines and either 40% of the words sit in 1-4 word
+ *      labels, or UI phrases run at 3+ per 100 words (6+ hits)
+ *   3. too short - fewer than MIN_BODY_WORDS in distinct prose lines
+ */
+export function assessExtractedText(text: string, minWords = MIN_BODY_WORDS): ExtractionCheck {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .map((l) => ({ line: l, words: countWords(l) }))
+    .filter((l) => l.words > 0);
+  const words = lines.reduce((sum, l) => sum + l.words, 0);
+
+  const seen = new Map<string, number>();
+  let dupWords = 0;
+  let maxRepeat = 0;
+  let bodyWords = 0;
+  let labelWords = 0;
+  for (const l of lines) {
+    if (l.words <= LABEL_LINE_WORDS) labelWords += l.words;
+    if (l.words < 3) continue;
+    const key = l.line.toLowerCase().replace(/\s+/g, " ");
+    const n = (seen.get(key) || 0) + 1;
+    seen.set(key, n);
+    if (n > 1) dupWords += l.words;
+    else if (l.words >= PROSE_LINE_WORDS) bodyWords += l.words;
+    if (n > maxRepeat) maxRepeat = n;
+  }
+  const navHits = (text.match(NAV_PHRASES) || []).length;
+  const navPer100 = words > 0 ? (navHits * 100) / words : 0;
+
+  const detail =
+    `${words} מילים, ${bodyWords} בפסקאות, ${lines.length} שורות, ` +
+    `${labelWords} מילים בפריטים קצרים, ${navHits} ביטויי ניווט, חזרה מקסימלית ${maxRepeat}`;
+  const fail = (reason: ExtractionReason): ExtractionCheck => ({ ok: false, reason, words, detail });
+
+  if (maxRepeat >= 3 && dupWords >= words * 0.2) return fail("extraction_repetitive");
+  if (lines.length >= 10 && (labelWords >= words * 0.4 || (navHits >= 6 && navPer100 >= 3))) {
+    return fail("extraction_nav_noise");
+  }
+  if (bodyWords < minWords) return fail("extraction_too_short");
+  return { ok: true, words, detail };
+}
+
+/**
+ * Follows redirects (Google News links in particular) and returns plain text
+ * plus the quality gate's verdict on it. `null` only when the page could not
+ * be fetched at all (network error, non-2xx); a page that came back fine but
+ * has no readable body is a gate failure, not a fetch failure.
+ */
 export async function fetchArticleText(
   url: string,
   timeoutMs = 15000,
   maxChars = 14000,
-): Promise<{ url: string; text: string } | null> {
+): Promise<{ url: string; text: string; check: ExtractionCheck } | null> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -355,9 +455,12 @@ export async function fetchArticleText(
     clearTimeout(timer);
     if (!resp.ok) return null;
     const html = await resp.text();
-    const text = htmlToText(html).slice(0, maxChars);
-    if (text.length < 300) return null;
-    return { url: resp.url || url, text };
+    const lined = htmlToLines(html).join("\n").slice(0, maxChars);
+    const check = assessExtractedText(lined);
+    // The model still gets the flat text it always got; the shape was only
+    // needed for the gate.
+    const text = lined.replace(/\n/g, " ");
+    return { url: resp.url || url, text, check };
   } catch (e) {
     console.error("fetchArticleText failed", url, (e as Error).message);
     return null;
