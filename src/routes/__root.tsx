@@ -60,9 +60,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
-        // Google AdSense - deferred until after page load to improve TTI/LCP (ported from index.html)
-        children:
-          "window.addEventListener('load', function() { var s = document.createElement('script'); s.async = true; s.crossOrigin = 'anonymous'; s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2472621584944709'; document.head.appendChild(s); });",
+        // Google AdSense, as the literal tag Google hands out. It used to be
+        // injected after the load event to protect LCP, but AdSense verifies
+        // the site by crawling the static HTML for this exact <script> - an
+        // inline loader does not count and the account stays unverified.
+        // `async` keeps it off the critical path anyway.
+        src: "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2472621584944709",
+        async: true,
+        crossOrigin: "anonymous",
       },
     ],
   }),
