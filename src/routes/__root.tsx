@@ -69,6 +69,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         async: true,
         crossOrigin: "anonymous",
       },
+      // Google tag (gtag.js) - GA4 property G-K49KV1HGD1. Two tags, exactly as
+      // Google hands them out: the async loader, then the inline bootstrap.
+      {
+        src: "https://www.googletagmanager.com/gtag/js?id=G-K49KV1HGD1",
+        async: true,
+      },
+      {
+        children:
+          "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-K49KV1HGD1');",
+      },
     ],
   }),
   shellComponent: RootShell,
