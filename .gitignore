@@ -36,3 +36,7 @@ dist-ssr
 
 # Artifact of running deno check on the edge functions locally
 deno.lock
+.agendax-run/
+
+# Claude Code local settings (per machine)
+.claude/settings.local.json
