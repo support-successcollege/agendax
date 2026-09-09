@@ -7,6 +7,7 @@ import {
   categoriesQueryOptions,
   isUuid,
 } from "@/lib/queries";
+import { socialLinksQueryOptions } from "@/hooks/useSocialLinks";
 
 const SITE_URL = "https://agendax.co.il";
 const FALLBACK_TITLE = "כתבה - Agendax";
@@ -20,6 +21,12 @@ export const Route = createFileRoute("/article/$id")({
       context.queryClient.ensureQueryData(articleQueryOptions(params.id)),
       context.queryClient.ensureQueryData(articlesQueryOptions()),
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
+      // The follow block under the story reads the account URLs; primed here
+      // so they are in the prerendered HTML. A settings hiccup must not take
+      // the article page down with it, so a failure just leaves the defaults.
+      context.queryClient
+        .ensureQueryData(socialLinksQueryOptions())
+        .catch(() => null),
     ]);
 
     // Legacy /article/<uuid> links permanently redirect to the slug URL so
@@ -62,6 +69,9 @@ export const Route = createFileRoute("/article/$id")({
     const modifiedIso = article
       ? new Date(article.updatedAt || article.publishedAt || article.date).toISOString()
       : "";
+    // `meta.id` is the slug whenever the row has one (see the loader), so the
+    // canonical, og:url and both JSON-LD @ids carry the readable address, never
+    // the UUID. The params fallback only serves the noindex "not found" page.
     const url = `${SITE_URL}/article/${encodeURIComponent(article?.id ?? decodeURIComponent(params.id))}`;
 
     return {

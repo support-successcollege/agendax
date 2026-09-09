@@ -3,6 +3,7 @@ import { useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { isUuid } from "@/lib/queries";
+import { shouldSkipPageView } from "@/hooks/usePageViews";
 
 /**
  * Site-wide page view tracker. Records one row in `page_views` for every page
@@ -37,6 +38,10 @@ const PageViewTracker = () => {
   useEffect(() => {
     if (!pathname) return;
     if (pathname.startsWith("/admin")) return;
+    // Local dev (localhost / 127.0.0.1 / *.local / DEV build / localhost
+    // referrer) is not an audience. Checked before lastTracked so nothing
+    // is remembered for a view that was never written.
+    if (shouldSkipPageView()) return;
     if (lastTracked.current === pathname) return;
     lastTracked.current = pathname;
 
@@ -65,6 +70,9 @@ const PageViewTracker = () => {
           article_id: articleId,
           path: pathname,
           user_agent: navigator.userAgent,
+          // Stored verbatim (full URL, slug and all). Note: on client-side
+          // navigation document.referrer does not change, so an internal
+          // referrer is the URL that first brought the visitor to the site.
           referrer: document.referrer || null,
           visitor_id: getVisitorId(),
         });

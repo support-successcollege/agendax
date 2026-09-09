@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Facebook, Instagram, Linkedin, Twitter, Youtube, MessageCircle, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -81,12 +81,21 @@ async function fetchSocialLinks(): Promise<SocialLinksMap> {
   return normalizeSocialLinks(data?.value);
 }
 
-/** The raw map, for the panel's editor. */
-export const useSocialLinks = () =>
-  useQuery({
+/**
+ * Shared by the hook and the route loaders that prime it on the server, so a
+ * prerendered page carries the real account URLs instead of the defaults.
+ */
+export const socialLinksQueryOptions = () =>
+  queryOptions({
     queryKey: socialLinksQueryKey,
     queryFn: fetchSocialLinks,
     staleTime: 10 * 60 * 1000,
+  });
+
+/** The raw map, for the panel's editor. */
+export const useSocialLinks = () =>
+  useQuery({
+    ...socialLinksQueryOptions(),
     // placeholderData, not initialData: initialData counts as a fresh cache
     // entry, so with a staleTime the query would never fetch and the site
     // would keep showing the compiled-in defaults forever.

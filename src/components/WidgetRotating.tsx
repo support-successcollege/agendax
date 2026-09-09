@@ -2,7 +2,7 @@ import { SidebarWidget } from "@/hooks/useSidebarWidgets";
 import { useState, useEffect } from "react";
 import WidgetFormDisplay from "@/components/WidgetFormDisplay";
 import { useTrackWidgetImpression, useTrackWidgetClick } from "@/hooks/useWidgetImpressions";
-import { getOptimizedImageUrl } from "@/lib/imageUtils";
+import { getOptimizedImageUrl, responsiveImage } from "@/lib/imageUtils";
 
 interface WidgetRotatingProps {
   widgets: SidebarWidget[];
@@ -41,7 +41,13 @@ const WidgetRotating = ({ widgets, intervalMs = 10000 }: WidgetRotatingProps) =>
           onClick={() => trackClick(widget.id)}
           className="block rounded-xl overflow-hidden shadow-card hover:shadow-lg transition-all"
         >
-          <img src={widget.imageUrl} alt={widget.title} className="w-full h-auto block" loading="lazy" />
+          <img
+            {...responsiveImage(widget.imageUrl, { width: 480, sizes: "(max-width: 1023px) 100vw, 480px" })}
+            alt={widget.title}
+            className="w-full h-auto block"
+            loading="lazy"
+            decoding="async"
+          />
         </a>
         {widgets.length > 1 && (
           <div className="flex justify-center gap-1.5 mt-3">

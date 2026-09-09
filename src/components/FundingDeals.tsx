@@ -11,7 +11,18 @@ type DealRow = {
   round: string | null;
   investors: string | null;
   article_id: string | null;
+  /** The linked story's slug, embedded through funding_deals_article_id_fkey. */
+  article: { slug: string | null } | null;
   announced_on: string;
+};
+
+/**
+ * Internal links carry the slug, the same address the canonical and the
+ * sitemap use; the UUID form only reaches the story through a 301.
+ */
+const articleHref = (deal: DealRow): string | null => {
+  const key = deal.article?.slug || deal.article_id;
+  return key ? `/article/${encodeURIComponent(key)}` : null;
 };
 
 const KIND_LABEL: Record<DealRow["kind"], { text: string; className: string }> = {
@@ -33,7 +44,7 @@ const FundingDeals = () => {
       const since = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString().slice(0, 10);
       const { data } = await supabase
         .from("funding_deals")
-        .select("id, company, kind, amount_label, round, investors, article_id, announced_on")
+        .select("id, company, kind, amount_label, round, investors, article_id, announced_on, article:articles(slug)")
         .gte("announced_on", since)
         .order("announced_on", { ascending: false })
         .limit(8);
@@ -50,6 +61,7 @@ const FundingDeals = () => {
         {deals.map((deal) => {
           const kind = KIND_LABEL[deal.kind];
           const details = [deal.round && `סבב ${deal.round}`, deal.investors].filter(Boolean).join(" · ");
+          const href = articleHref(deal);
           const row = (
             <div className="flex items-center gap-3 py-2.5">
               <span className={`shrink-0 text-[11px] font-bold px-1.5 py-[2px] ${kind.className}`}>
@@ -66,8 +78,8 @@ const FundingDeals = () => {
           );
           return (
             <li key={deal.id}>
-              {deal.article_id ? (
-                <Link to={`/article/${deal.article_id}`} className="block -mx-2 px-2 hover:bg-white/[0.03] transition-colors">
+              {href ? (
+                <Link to={href} className="block -mx-2 px-2 hover:bg-white/[0.03] transition-colors">
                   {row}
                 </Link>
               ) : (

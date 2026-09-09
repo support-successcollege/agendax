@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { useState, useEffect } from "react";
 import WidgetFormDisplay from "@/components/WidgetFormDisplay";
 import { useTrackWidgetImpression, useTrackWidgetClick } from "@/hooks/useWidgetImpressions";
-import { getOptimizedImageUrl } from "@/lib/imageUtils";
+import { getOptimizedImageUrl, responsiveImage } from "@/lib/imageUtils";
 
 interface WidgetPopupProps {
   widget: SidebarWidget;
@@ -65,7 +65,13 @@ const WidgetPopup = ({ widget, delayMs = 60000 }: WidgetPopupProps) => {
             }}
             className="block rounded-2xl overflow-hidden shadow-2xl"
           >
-            <img src={widget.imageUrl} alt={widget.title} className="w-full h-auto block" />
+            <img
+              {...responsiveImage(widget.imageUrl, { width: 448, sizes: "(max-width: 448px) 100vw, 448px" })}
+              alt={widget.title}
+              className="w-full h-auto block"
+              loading="lazy"
+              decoding="async"
+            />
           </a>
         </div>
       </div>

@@ -2,12 +2,28 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Local / dev traffic must never reach `page_views` - it inflated the 30-day
+// report with views whose referrer was http://localhost:5173/. Browser-only:
+// callers run this inside useEffect, and it returns true (skip) if there is
+// no window at all, so SSR can never record a view either.
+const LOCAL_HOST_RE = /^(localhost|127\.0\.0\.1|\[::1\])$|\.local$/i;
+const LOCAL_REFERRER_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i;
+
+export const shouldSkipPageView = (): boolean => {
+  if (typeof window === "undefined" || typeof document === "undefined") return true;
+  if (import.meta.env.DEV) return true;
+  if (LOCAL_HOST_RE.test(window.location.hostname)) return true;
+  if (LOCAL_REFERRER_RE.test(document.referrer || "")) return true;
+  return false;
+};
+
 // Track a page view for an article
 export const useTrackPageView = (articleId: string | undefined) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!articleId) return;
+    if (shouldSkipPageView()) return;
 
     const trackView = async () => {
       try {

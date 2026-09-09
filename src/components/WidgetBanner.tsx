@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { useState, useEffect } from "react";
 import WidgetFormDisplay from "@/components/WidgetFormDisplay";
 import { useTrackWidgetImpression, useTrackWidgetClick } from "@/hooks/useWidgetImpressions";
-import { getOptimizedImageUrl } from "@/lib/imageUtils";
+import { getOptimizedImageUrl, responsiveImage } from "@/lib/imageUtils";
 
 interface WidgetBannerProps {
   widgets: SidebarWidget[];
@@ -37,7 +37,13 @@ const WidgetBanner = ({ widgets, intervalMs = 10000 }: WidgetBannerProps) => {
     return (
       <div className="relative rounded-xl overflow-hidden shadow-card">
         <a href={widget.linkUrl} target="_blank" rel="noopener noreferrer" className="block" onClick={() => trackClick(widget.id)}>
-          <img src={widget.imageUrl} alt={widget.title} className="w-full h-auto block" loading="lazy" />
+          <img
+            {...responsiveImage(widget.imageUrl, { width: 800, sizes: "(max-width: 800px) 100vw, 800px" })}
+            alt={widget.title}
+            className="w-full h-auto block"
+            loading="lazy"
+            decoding="async"
+          />
         </a>
         {widgets.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">

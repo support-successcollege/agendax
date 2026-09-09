@@ -9,9 +9,9 @@ import WidgetBanner from "@/components/WidgetBanner";
 import RichHtmlContent from "@/components/RichHtmlContent";
 import { Calendar, User, ArrowRight, Tag } from "lucide-react";
 import { motion } from "framer-motion";
-import StoryCard from "@/components/news/StoryCard";
-import SectionHeader from "@/components/news/SectionHeader";
 import { CategoryTag } from "@/components/news/StoryCard";
+import RelatedArticles from "@/components/news/RelatedArticles";
+import FollowCta from "@/components/news/FollowCta";
 import { timeLabel } from "@/lib/newsTime";
 import OptimizedImage from "@/components/OptimizedImage";
 import ArticleReactions from "@/components/ArticleReactions";
@@ -69,11 +69,6 @@ const Article = () => {
       </div>
     );
   }
-
-  // Get related articles from the same category (exclude drafts)
-  const relatedArticles = allArticles
-    .filter((a) => a.categorySlug === article.categorySlug && a.id !== article.id && !a.isDraft)
-    .slice(0, 3);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -293,20 +288,10 @@ const Article = () => {
             </div>
           </article>
 
-          {/* Related Articles */}
-          {relatedArticles.length > 0 && (
-            <section className="max-w-4xl mx-auto mt-12">
-              <SectionHeader
-                title={`עוד ב${article.category}`}
-                href={`/category/${encodeURIComponent(article.categorySlug || "")}`}
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
-                {relatedArticles.map((relatedArticle) => (
-                  <StoryCard key={relatedArticle.id} article={relatedArticle} variant="card" />
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Related stories, then the follow prompt: the list the loader
+              primed is filtered in memory, so both are in the prerendered HTML. */}
+          <RelatedArticles current={article} articles={allArticles} />
+          <FollowCta />
 
           {/* Back to Home */}
           <div className="max-w-4xl mx-auto mt-10 mb-16">
