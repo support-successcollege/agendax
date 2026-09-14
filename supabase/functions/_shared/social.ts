@@ -267,6 +267,90 @@ export async function publishInstagram(
   return await publishIgContainer(creds, created.id);
 }
 
+/**
+ * Instagram carousel: one child container per slide (is_carousel_item), then a
+ * CAROUSEL parent that lists them and carries the caption. Instagram accepts
+ * 2–10 items; the slides are already in reading order.
+ */
+export async function publishInstagramCarousel(
+  creds: Creds,
+  post: { caption: string; imageUrls: string[] },
+): Promise<PublishResult> {
+  need(creds, ["ig_user_id", "access_token"], "אינסטגרם");
+  if (post.imageUrls.length < 2 || post.imageUrls.length > 10) {
+    throw new Error(`קרוסלה באינסטגרם דורשת 2–10 שקפים (יש ${post.imageUrls.length})`);
+  }
+
+  const children: string[] = [];
+  for (const [i, imageUrl] of post.imageUrls.entries()) {
+    const resp = await fetch(`https://graph.facebook.com/v21.0/${creds.ig_user_id}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, is_carousel_item: true, access_token: creds.access_token }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data?.id) {
+      throw new Error(`Instagram carousel item ${i + 1} ${resp.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 200)}`);
+    }
+    children.push(String(data.id));
+  }
+
+  const parentResp = await fetch(`https://graph.facebook.com/v21.0/${creds.ig_user_id}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      media_type: "CAROUSEL",
+      children: children.join(","),
+      caption: post.caption,
+      access_token: creds.access_token,
+    }),
+  });
+  const parent = await parentResp.json();
+  if (!parentResp.ok || !parent?.id) {
+    throw new Error(`Instagram carousel ${parentResp.status}: ${parent?.error?.message ?? JSON.stringify(parent).slice(0, 200)}`);
+  }
+  return await publishIgContainer(creds, String(parent.id));
+}
+
+/**
+ * Facebook Page multi-photo post: each slide goes up unpublished, then one feed
+ * post attaches them all. Unlike Instagram, the caption may carry a live link.
+ */
+export async function publishFacebookCarousel(
+  creds: Creds,
+  post: { text: string; imageUrls: string[] },
+): Promise<PublishResult> {
+  need(creds, ["page_id", "access_token"], "פייסבוק");
+  const pageToken = await fbPageToken(creds);
+
+  const mediaIds: string[] = [];
+  for (const [i, url] of post.imageUrls.entries()) {
+    const resp = await fetch(`https://graph.facebook.com/v21.0/${creds.page_id}/photos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, published: false, access_token: pageToken }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data?.id) {
+      throw new Error(`Facebook photo ${i + 1} ${resp.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 200)}`);
+    }
+    mediaIds.push(String(data.id));
+  }
+
+  const resp = await fetch(`https://graph.facebook.com/v21.0/${creds.page_id}/feed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: post.text,
+      attached_media: mediaIds.map((id) => ({ media_fbid: id })),
+      access_token: pageToken,
+    }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(`Facebook carousel ${resp.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 200)}`);
+  return { externalId: String(data.id ?? data.post_id) };
+}
+
 // ---------------------------------------------------------------------------
 // X (Twitter)
 // ---------------------------------------------------------------------------

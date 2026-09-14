@@ -47,7 +47,7 @@ interface QueueItem {
   id: string;
   article_id: string;
   platforms: string[];
-  kind: "post" | "story";
+  kind: "post" | "story" | "carousel";
   scheduled_at: string;
   status: "queued" | "publishing" | "posted" | "failed" | "cancelled";
   source: "auto" | "manual";
@@ -320,9 +320,12 @@ const AdminSocialScheduler = ({ articles, enabledPlatforms, onChanged }: Props) 
           </button>
         )}
 
-        <Badge variant="outline" className={`gap-1 ${item.kind === "story" ? "border-fuchsia-300 text-fuchsia-700" : ""}`}>
-          {item.kind === "story" ? <Layers className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
-          {item.kind === "story" ? "סטורי" : "פוסט"}
+        <Badge
+          variant="outline"
+          className={`gap-1 ${item.kind === "story" ? "border-fuchsia-300 text-fuchsia-700" : item.kind === "carousel" ? "border-cyan-400 text-cyan-600" : ""}`}
+        >
+          {item.kind === "post" ? <ImageIcon className="w-3 h-3" /> : <Layers className="w-3 h-3" />}
+          {item.kind === "story" ? "סטורי" : item.kind === "carousel" ? "קרוסלה" : "פוסט"}
         </Badge>
         <Badge variant="outline" className={st.className}>{st.text}</Badge>
         {item.source === "auto" && <Badge variant="secondary" className="text-[10px]">אוטו</Badge>}
@@ -333,7 +336,7 @@ const AdminSocialScheduler = ({ articles, enabledPlatforms, onChanged }: Props) 
 
         {/* platforms */}
         <span className="flex items-center gap-1">
-          {(item.kind === "story" ? STORY_PLATFORMS : ALL_PLATFORMS).map((p) => {
+          {(item.kind === "post" ? ALL_PLATFORMS : STORY_PLATFORMS).map((p) => {
             const on = item.platforms.includes(p);
             const connected = enabledPlatforms.includes(p);
             return (

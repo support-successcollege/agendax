@@ -7,7 +7,8 @@
 //     — manual: post one article now to the given platforms (default: every
 //     enabled one). Re-posting a platform that already has a row for this
 //     article is refused unless force: true.
-//   { queueId }                          — run one social_queue item now.
+//   { queueId }                          — run one social_queue item now
+//     (post, story, or carousel — a carousel item carries its carousel_id).
 //   { auto: true }                       — the cron sweep (every 5 minutes):
 //     1. fill: when social_settings.auto_fill is on, the free publishing
 //        slots of today and tomorrow (publish_hours, capped by posts_per_day)
@@ -20,8 +21,10 @@ import {
   SITE_URL,
   generatePostText,
   publishFacebook,
+  publishFacebookCarousel,
   publishFacebookStory,
   publishInstagram,
+  publishInstagramCarousel,
   publishInstagramStory,
   publishLinkedIn,
   publishX,
@@ -155,7 +158,8 @@ type QueueRow = {
   id: string;
   article_id: string;
   platforms: string[];
-  kind: "post" | "story";
+  kind: "post" | "story" | "carousel";
+  carousel_id?: string | null;
   scheduled_at: string;
   status: string;
   source: string;
@@ -357,7 +361,8 @@ async function fillQueue(supabase: any, settings: Settings, autoAccounts: Accoun
     .gte("scheduled_at", new Date(now.getTime() - 36 * 3600_000).toISOString())
     .lte("scheduled_at", new Date(now.getTime() + 60 * 3600_000).toISOString());
   const existing: { scheduled_at: string; kind: string }[] = queued ?? [];
-  const postsOnDay = (day: string) => existing.filter((q) => q.kind === "post" && israelDate(new Date(q.scheduled_at)) === day).length;
+  // A carousel is a feed post too, so it spends one of the day's slots.
+  const postsOnDay = (day: string) => existing.filter((q) => q.kind !== "story" && israelDate(new Date(q.scheduled_at)) === day).length;
 
   const freeSlots: Date[] = [];
   for (const day of days) {
@@ -417,6 +422,67 @@ async function fillQueue(supabase: any, settings: Settings, autoAccounts: Accoun
   return inserted;
 }
 
+/**
+ * A carousel to Facebook and Instagram. Refuses to publish a half-built one:
+ * a carousel with a slide still rendering would go out one slide short, and
+ * Instagram would take it without complaint.
+ */
+async function publishCarousel(
+  supabase: any,
+  article: ArticleRow,
+  carouselId: string,
+  targets: Account[],
+): Promise<{ platform: string; ok: boolean; error?: string }[]> {
+  const { data: carousel } = await supabase
+    .from("social_carousels")
+    .select("id, status, caption, slides")
+    .eq("id", carouselId)
+    .maybeSingle();
+  const urls: string[] = ((carousel?.slides ?? []) as { png_url: string | null }[])
+    .map((s) => s.png_url)
+    .filter((u): u is string => !!u);
+
+  const notReady = !carousel
+    ? "הקרוסלה נמחקה"
+    : carousel.status !== "ready" || urls.length !== (carousel.slides ?? []).length
+    ? "הקרוסלה עדיין לא מוכנה — יש שקפים שלא רונדרו"
+    : null;
+
+  const results: { platform: string; ok: boolean; error?: string }[] = [];
+  for (const account of targets) {
+    const ledger = `${account.platform}_carousel`;
+    if (account.platform !== "facebook" && account.platform !== "instagram") {
+      results.push({ platform: ledger, ok: false, error: "קרוסלה אפשרית רק בפייסבוק ובאינסטגרם" });
+      continue;
+    }
+    if (notReady) {
+      results.push({ platform: ledger, ok: false, error: notReady });
+      continue;
+    }
+    const link = `${SITE_URL}/article/${encodeURIComponent(article.slug || article.id)}`;
+    try {
+      const { externalId } = account.platform === "instagram"
+        // Instagram captions cannot carry a working link; the last slide says where to go.
+        ? await publishInstagramCarousel(account.credentials, { caption: carousel.caption, imageUrls: urls })
+        : await publishFacebookCarousel(account.credentials, { text: `${carousel.caption}\n\n${link}`, imageUrls: urls });
+      await supabase.from("social_posts").upsert(
+        { article_id: article.id, platform: ledger, status: "posted", external_id: externalId, post_text: carousel.caption, error: null },
+        { onConflict: "article_id,platform" },
+      );
+      results.push({ platform: ledger, ok: true });
+    } catch (e: any) {
+      const message = e?.message || String(e);
+      console.error(`${ledger} failed:`, message);
+      await supabase.from("social_posts").upsert(
+        { article_id: article.id, platform: ledger, status: "failed", post_text: carousel.caption, error: message.slice(0, 500) },
+        { onConflict: "article_id,platform" },
+      );
+      results.push({ platform: ledger, ok: false, error: message });
+    }
+  }
+  return results;
+}
+
 /** Publish one queue item; marks it publishing → posted/failed. */
 async function runQueueItem(supabase: any, item: QueueRow, accounts: Account[]): Promise<any> {
   // Claim it — a second sweep that overlaps must not double-post.
@@ -441,7 +507,7 @@ async function runQueueItem(supabase: any, item: QueueRow, accounts: Account[]):
     return { id: item.id, ok: false, error: "הכתבה עדיין טיוטה" };
   }
 
-  const wanted = item.kind === "story"
+  const wanted = item.kind === "story" || item.kind === "carousel"
     ? item.platforms.filter((p) => p === "facebook" || p === "instagram")
     : item.platforms;
   const targets = accounts.filter((a) => a.enabled && wanted.includes(a.platform));
@@ -450,7 +516,11 @@ async function runQueueItem(supabase: any, item: QueueRow, accounts: Account[]):
     return { id: item.id, ok: false, error: "אין פלטפורמות פעילות" };
   }
 
-  const results = await publishTo(supabase, article as ArticleRow, targets, item.kind);
+  const results = item.kind === "carousel"
+    ? item.carousel_id
+      ? await publishCarousel(supabase, article as ArticleRow, item.carousel_id, targets)
+      : [{ platform: "carousel", ok: false, error: "לפריט אין קרוסלה משויכת" }]
+    : await publishTo(supabase, article as ArticleRow, targets, item.kind);
   const ok = results.some((r) => r.ok);
   const failed = results.filter((r) => !r.ok);
   await finish({
@@ -465,7 +535,7 @@ async function runQueueItem(supabase: any, item: QueueRow, accounts: Account[]):
 async function runDue(supabase: any, accounts: Account[], cap = 8): Promise<any[]> {
   const { data: due } = await supabase
     .from("social_queue")
-    .select("id, article_id, platforms, kind, scheduled_at, status, source")
+    .select("id, article_id, platforms, kind, carousel_id, scheduled_at, status, source")
     .eq("status", "queued")
     .lte("scheduled_at", new Date().toISOString())
     .order("scheduled_at", { ascending: true })
@@ -509,7 +579,7 @@ serve(async (req) => {
     if (body?.queueId) {
       const { data: item } = await supabase
         .from("social_queue")
-        .select("id, article_id, platforms, kind, scheduled_at, status, source")
+        .select("id, article_id, platforms, kind, carousel_id, scheduled_at, status, source")
         .eq("id", String(body.queueId))
         .maybeSingle();
       if (!item) return json({ error: "הפריט לא נמצא בתור" }, 404);

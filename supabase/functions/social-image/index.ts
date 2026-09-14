@@ -7,16 +7,7 @@
 // Body: { articleId, variant: "post" | "story" }  →  { url }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { authorize, corsHeaders, json } from "../_shared/ingest.ts";
-import { renderPostPng, renderStoryPng } from "../_shared/postImage.ts";
-
-const PALETTE = ["#0d3c99", "#7c3aed", "#0f766e", "#be123c", "#b45309", "#166534", "#0e7490", "#9d174d"];
-function categoryColor(key: string): string {
-  const s = (key || "").trim().toLowerCase();
-  if (!s) return PALETTE[0];
-  let hash = 0;
-  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
-  return PALETTE[hash % PALETTE.length];
-}
+import { categoryColor, renderPostPng, renderStoryPng } from "../_shared/postImage.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

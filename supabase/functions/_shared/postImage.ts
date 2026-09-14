@@ -13,6 +13,16 @@ const BRAND_BLUE = "#0d3c99";
 const CREAM = "#fef7f2";
 const WORDMARK_URL = "https://agendax.co.il/brand/wordmark-light.png";
 
+/** Category → brand colour, stable per category. Shared by every branded render. */
+const PALETTE = ["#0d3c99", "#7c3aed", "#0f766e", "#be123c", "#b45309", "#166534", "#0e7490", "#9d174d"];
+export function categoryColor(key: string): string {
+  const s = (key || "").trim().toLowerCase();
+  if (!s) return PALETTE[0];
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return PALETTE[hash % PALETTE.length];
+}
+
 // ---- lazy, cached heavy assets (survive across warm invocations) ----------
 let wasmReady: Promise<void> | null = null;
 let fontsReady: Promise<{ name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" }[]> | null = null;
@@ -133,7 +143,11 @@ const h = (type: string, props: Record<string, any>, ...children: any[]) => ({
 // with paired brackets mirrored. What satori then draws left-to-right reads
 // correctly right-to-left.
 
-const LTR_RUN = /[A-Za-z0-9]+(?:[.,'%+&#-][A-Za-z0-9]+)*/g;
+// One Latin word, or several separated only by spaces: "GPT-6 Astra" is a single
+// left-to-right island. Matching word by word let the space between them fall to
+// the Hebrew side, and the reversal swapped the words.
+const LTR_WORD = String.raw`[A-Za-z0-9]+(?:[.,'%+&#-][A-Za-z0-9]+)*`;
+const LTR_RUN = new RegExp(`${LTR_WORD}(?:\\s+${LTR_WORD})*`, "g");
 const MIRROR: Record<string, string> = { "(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<" };
 
 const reverseSegment = (s: string) =>
@@ -513,4 +527,322 @@ export async function renderStoryPng(opts: {
   // Rasterized at 720×1280 (plenty for a phone story): the full 1080×1920
   // raster pushed the edge worker past its CPU budget.
   return new Resvg(svg, { fitTo: { mode: "width", value: 720 } }).render().asPng();
+}
+
+// ---- carousel slide (1080×1350) --------------------------------------------
+// A carousel slide carries a paragraph, not just a headline, so the text sits
+// on a heavier overlay than the post and wraps to more lines. The background is
+// an AI image generated for that slide; the words are always drawn here —
+// image models cannot be trusted to spell Hebrew.
+
+const CW = 1080;
+const CH = 1350;
+const CYAN = "#22d3ee";
+
+/**
+ * Greedy line-breaking at the largest size that fits `maxLines`, returned in
+ * visual order. Assistant averages ~0.52em per character; Hebrew runs a touch
+ * narrower and the margin absorbs the difference.
+ */
+function layoutBlock(
+  text: string,
+  width: number,
+  sizes: number[],
+  maxLines: number,
+): { size: number; lines: string[] } {
+  const words = text.split(/\s+/).filter(Boolean);
+  for (const size of sizes) {
+    const perLine = Math.max(8, Math.floor(width / (size * 0.52)));
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      const cand = cur ? `${cur} ${w}` : w;
+      if (cur && cand.length > perLine) {
+        lines.push(cur);
+        cur = w;
+      } else {
+        cur = cand;
+      }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length <= maxLines) return { size, lines: lines.map(toVisualLine) };
+  }
+  // Still too long at the smallest size: keep what fits and mark the cut.
+  const size = sizes[sizes.length - 1];
+  const perLine = Math.max(8, Math.floor(width / (size * 0.52)));
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const cand = cur ? `${cur} ${w}` : w;
+    if (cur && cand.length > perLine) {
+      lines.push(cur);
+      cur = w;
+      if (lines.length === maxLines) break;
+    } else {
+      cur = cand;
+    }
+  }
+  if (lines.length < maxLines && cur) lines.push(cur);
+  const kept = lines.slice(0, maxLines);
+  kept[kept.length - 1] = `${kept[kept.length - 1].replace(/[.,;:]$/, "")}…`;
+  return { size, lines: kept.map(toVisualLine) };
+}
+
+const textRows = (lines: string[], style: Record<string, unknown>) =>
+  lines.map((line) => h("div", { style: { whiteSpace: "nowrap", display: "flex", ...style } }, line));
+
+export async function renderCarouselSlidePng(opts: {
+  kind: "cover" | "point" | "cta";
+  title: string;
+  body: string;
+  index: number;
+  total: number;
+  category: string;
+  categoryColor: string;
+  photoUrl: string;
+  ctaHost?: string;
+}): Promise<Uint8Array> {
+  const [fonts, wordmark, photo] = await Promise.all([
+    ensureFonts(),
+    ensureWordmark(),
+    toDataUrl(opts.photoUrl),
+    ensureWasm(),
+  ]);
+  const ctaHost = opts.ctaHost ?? "agendax.co.il";
+  const PAD = 84;
+  const TEXT_W = CW - PAD * 2;
+
+  // The cover lets the image breathe at the top; the other slides need the
+  // paragraph legible over whatever the picture happens to be.
+  const overlay = opts.kind === "cover"
+    ? "linear-gradient(to bottom, rgba(5,10,28,0.30) 0%, rgba(5,10,28,0.35) 40%, rgba(5,10,28,0.92) 100%)"
+    : "linear-gradient(to bottom, rgba(5,10,28,0.55) 0%, rgba(5,10,28,0.78) 45%, rgba(5,10,28,0.94) 100%)";
+
+  const header = [
+    // Wordmark at the reading start (right) — small, it is a signature here.
+    h("img", {
+      src: wordmark,
+      width: 330,
+      height: 44,
+      style: { position: "absolute", right: `${PAD}px`, top: "64px", width: "330px", height: "44px" },
+    }),
+    // Slide counter, LTR by nature ("3/7").
+    h(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          left: `${PAD}px`,
+          top: "58px",
+          height: "56px",
+          padding: "0 22px",
+          borderRadius: "999px",
+          backgroundColor: "rgba(255,255,255,0.14)",
+          border: "2px solid rgba(255,255,255,0.28)",
+          color: "#ffffff",
+          fontSize: "30px",
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+        },
+      },
+      `${opts.index + 1}/${opts.total}`,
+    ),
+  ];
+
+  let content: any;
+  if (opts.kind === "cover") {
+    const title = layoutBlock(opts.title, TEXT_W, [92, 84, 76, 68, 60, 54], 4);
+    const sub = opts.body ? layoutBlock(opts.body, TEXT_W, [40, 36, 32], 2) : null;
+    content = h(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          right: `${PAD}px`,
+          bottom: "96px",
+          width: `${TEXT_W}px`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+        },
+      },
+      h(
+        "div",
+        {
+          style: {
+            backgroundColor: opts.categoryColor,
+            color: "#ffffff",
+            fontSize: "34px",
+            fontWeight: 700,
+            padding: "8px 26px",
+            marginBottom: "28px",
+            display: "flex",
+          },
+        },
+        toVisualLine(opts.category),
+      ),
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", alignItems: "flex-end" } },
+        ...textRows(title.lines, {
+          fontSize: `${title.size}px`,
+          fontWeight: 700,
+          color: "#ffffff",
+          lineHeight: 1.08,
+        }),
+      ),
+      sub
+        ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: "26px" } },
+          ...textRows(sub.lines, { fontSize: `${sub.size}px`, color: "rgba(255,255,255,0.86)", lineHeight: 1.3 }),
+        )
+        : h("div", { style: { display: "flex" } }),
+      h(
+        "div",
+        {
+          style: {
+            marginTop: "40px",
+            fontSize: "32px",
+            fontWeight: 700,
+            color: CYAN,
+            display: "flex",
+            alignItems: "center",
+          },
+        },
+        // Drawn, not typed: the font has no arrow glyph. It points left, where the
+        // next slide comes from.
+        h(
+          "svg",
+          { width: 40, height: 24, viewBox: "0 0 40 24", style: { marginLeft: "0px", marginRight: "14px" } },
+          h("path", {
+            d: "M14 3 L4 12 L14 21 M4 12 L38 12",
+            stroke: CYAN,
+            "stroke-width": 4,
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+            fill: "none",
+          }),
+        ),
+        toVisualLine("החליקו לקריאה"),
+      ),
+    );
+  } else if (opts.kind === "point") {
+    const title = layoutBlock(opts.title, TEXT_W, [66, 60, 54, 48, 44], 3);
+    const body = layoutBlock(opts.body, TEXT_W, [42, 39, 36, 33, 30], 8);
+    content = h(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          right: `${PAD}px`,
+          top: "300px",
+          width: `${TEXT_W}px`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+        },
+      },
+      // The point's number, in the category colour.
+      h(
+        "div",
+        {
+          style: {
+            fontSize: "120px",
+            fontWeight: 700,
+            color: opts.categoryColor === "#0d3c99" ? CYAN : opts.categoryColor,
+            lineHeight: 1,
+            display: "flex",
+          },
+        },
+        String(opts.index).padStart(2, "0"),
+      ),
+      h("div", {
+        style: { width: "120px", height: "8px", backgroundColor: CYAN, marginTop: "24px", marginBottom: "34px", display: "flex" },
+      }),
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", alignItems: "flex-end" } },
+        ...textRows(title.lines, { fontSize: `${title.size}px`, fontWeight: 700, color: "#ffffff", lineHeight: 1.12 }),
+      ),
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: "30px" } },
+        ...textRows(body.lines, { fontSize: `${body.size}px`, color: "rgba(255,255,255,0.9)", lineHeight: 1.36 }),
+      ),
+    );
+  } else {
+    const title = layoutBlock(opts.title, TEXT_W, [80, 72, 64, 56, 50], 3);
+    const body = opts.body ? layoutBlock(opts.body, TEXT_W, [42, 38, 34], 4) : null;
+    content = h(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: `${CW}px`,
+          height: `${CH}px`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      },
+      ...textRows(title.lines, { fontSize: `${title.size}px`, fontWeight: 700, color: "#ffffff", lineHeight: 1.1 }),
+      body
+        ? h(
+          "div",
+          { style: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: "34px" } },
+          ...textRows(body.lines, { fontSize: `${body.size}px`, color: "rgba(255,255,255,0.88)", lineHeight: 1.34 }),
+        )
+        : h("div", { style: { display: "flex" } }),
+      h(
+        "div",
+        {
+          style: {
+            marginTop: "64px",
+            backgroundColor: "#ffffff",
+            color: BRAND_BLUE,
+            fontSize: "58px",
+            fontWeight: 700,
+            padding: "18px 64px",
+            borderRadius: "999px",
+            display: "flex",
+          },
+        },
+        ctaHost,
+      ),
+    );
+  }
+
+  const tree = h(
+    "div",
+    {
+      style: {
+        width: `${CW}px`,
+        height: `${CH}px`,
+        display: "flex",
+        position: "relative",
+        fontFamily: "Assistant, AssistantLatin",
+        overflow: "hidden",
+        backgroundColor: "#050a1c",
+      },
+    },
+    h("img", {
+      src: photo,
+      width: CW,
+      height: CH,
+      style: { position: "absolute", top: 0, left: 0, width: `${CW}px`, height: `${CH}px`, objectFit: "cover" },
+    }),
+    h("div", {
+      style: { position: "absolute", top: 0, left: 0, width: `${CW}px`, height: `${CH}px`, background: overlay },
+    }),
+    ...header,
+    content,
+  );
+
+  const svg = await satori(tree as any, { width: CW, height: CH, fonts });
+  return new Resvg(svg, { fitTo: { mode: "width", value: CW } }).render().asPng();
 }

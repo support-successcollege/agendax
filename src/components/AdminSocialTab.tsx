@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import AdminSocialScheduler from "@/components/AdminSocialScheduler";
 import AdminSocialLinksCard from "@/components/AdminSocialLinksCard";
+import AdminCarouselStudio from "@/components/AdminCarouselStudio";
 import {
   Share2,
   Loader2,
@@ -106,6 +107,8 @@ const EXTRA_LABELS: Record<string, string> = {
 const AdminSocialTab = () => {
   const { toast } = useToast();
   const { articles } = useArticles();
+  // Bumped when the carousel studio queues something, so the queue card reloads.
+  const [queueVersion, setQueueVersion] = useState(0);
   const [accounts, setAccounts] = useState<Record<Platform, AccountRow>>(() =>
     Object.fromEntries(
       PLATFORMS.map((p) => [p, { platform: p, enabled: false, auto_publish: false, credentials: {} }]),
@@ -308,7 +311,16 @@ const AdminSocialTab = () => {
       </Card>
 
       {/* Schedule + queue */}
-      <AdminSocialScheduler articles={articles} enabledPlatforms={enabledPlatforms} onChanged={fetchAll} />
+      <AdminSocialScheduler key={queueVersion} articles={articles} enabledPlatforms={enabledPlatforms} onChanged={fetchAll} />
+
+      <AdminCarouselStudio
+        articles={articles}
+        enabledPlatforms={enabledPlatforms}
+        onScheduled={() => {
+          setQueueVersion((v) => v + 1);
+          fetchAll();
+        }}
+      />
 
       {/* Manual publish */}
       <Card>
