@@ -1073,6 +1073,83 @@ export async function generateImage(
   }
 }
 
+/**
+ * Generates one image with Gemini and stores it; throws with a readable reason.
+ *
+ * Two fallbacks, both cheap to try:
+ *  - model: the configured image model, then gemini-2.5-flash-image. Free-tier
+ *    quotas are counted per model, so the second bucket is often still open
+ *    when the first is spent.
+ *  - config: an explicit aspect ratio first, then no generation config at all —
+ *    the form `generateImage` has always sent successfully — in case a model
+ *    rejects `imageConfig`. The renderer crops to fit either way.
+ */
+export async function generateGeminiImage(
+  supabase: SupabaseClient,
+  prompt: string,
+  opts: { aspectRatio: string; pathPrefix: string },
+): Promise<string> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) throw new Error("GEMINI_API_KEY חסר");
+
+  const models = [...new Set([IMAGE_MODEL, "gemini-2.5-flash-image"])];
+  let lastError = "Gemini לא החזיר תמונה";
+
+  for (const model of models) {
+    for (const withConfig of [true, false]) {
+      const body: Record<string, unknown> = { contents: [{ parts: [{ text: prompt }] }] };
+      if (withConfig) {
+        body.generationConfig = {
+          responseModalities: ["IMAGE"],
+          imageConfig: { aspectRatio: opts.aspectRatio },
+        };
+      }
+      const resp = await fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+
+      if (!resp.ok) {
+        const detail = (await resp.text()).slice(0, 300);
+        lastError = resp.status === 429
+          ? "מכסת Gemini לתמונות נגמרה להיום"
+          : `Gemini ${model} ${resp.status}: ${detail.replace(/\s+/g, " ").slice(0, 160)}`;
+        // A 400 with the config might be the config; anything else is the model.
+        if (resp.status === 400 && withConfig) continue;
+        break;
+      }
+
+      const data = await resp.json();
+      const part = data.candidates?.[0]?.content?.parts?.find(
+        (p: { inlineData?: { data?: string } }) => p.inlineData?.data,
+      );
+      if (!part) {
+        const reason = data.candidates?.[0]?.finishReason || data.promptFeedback?.blockReason;
+        lastError = reason ? `Gemini סירב ליצור את התמונה (${reason})` : "Gemini לא החזיר תמונה";
+        break;
+      }
+
+      const mime: string = part.inlineData.mimeType || "image/png";
+      const bin = atob(part.inlineData.data as string);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+      const ext = mime.split("/")[1]?.split("+")[0] || "png";
+      const path = `${opts.pathPrefix}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+      const { error } = await supabase.storage
+        .from("article-images")
+        .upload(path, bytes, { contentType: mime, upsert: false });
+      if (error) throw new Error(`שמירת התמונה נכשלה: ${error.message}`);
+      return supabase.storage.from("article-images").getPublicUrl(path).data.publicUrl;
+    }
+  }
+  throw new Error(lastError);
+}
+
 export const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=675&fit=crop";
 

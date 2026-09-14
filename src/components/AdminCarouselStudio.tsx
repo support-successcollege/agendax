@@ -29,8 +29,9 @@ interface Slide {
   body: string;
   prompt: string;
   hf_request_id: string | null;
+  bg_pending?: boolean;
   bg_url: string | null;
-  bg_source: "higgsfield" | "article" | null;
+  bg_source: "gemini" | "higgsfield" | "article" | null;
   bg_error: string | null;
   png_url: string | null;
   version: number;
@@ -64,7 +65,9 @@ const toLocalInput = (d: Date) => {
 };
 
 const stageOf = (slide: Slide) =>
-  slide.png_url ? null : slide.bg_url ? "מרנדר טקסט…" : slide.hf_request_id ? "מייצר תמונה…" : "ממתין…";
+  slide.png_url ? null : slide.bg_url ? "מרנדר טקסט…" : slide.hf_request_id || slide.bg_pending ? "מייצר תמונה…" : "ממתין…";
+
+const SOURCE_LABEL: Record<string, string> = { gemini: "Gemini", higgsfield: "Higgsfield", article: "תמונת הכתבה" };
 
 interface Props {
   articles: Article[];
@@ -86,7 +89,7 @@ const AdminCarouselStudio = ({ articles, enabledPlatforms, onScheduled }: Props)
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [regenIndex, setRegenIndex] = useState<number | null>(null);
-  const [higgsfieldMissing, setHiggsfieldMissing] = useState(false);
+  const [providerMissing, setProviderMissing] = useState(false);
   const [platforms, setPlatforms] = useState<Platform[]>(["instagram", "facebook"]);
   const [when, setWhen] = useState(() => toLocalInput(new Date(Date.now() + 60 * 60_000)));
   const [scheduling, setScheduling] = useState(false);
@@ -165,11 +168,12 @@ const AdminCarouselStudio = ({ articles, enabledPlatforms, onScheduled }: Props)
     }
     setCreating(true);
     try {
-      const { carousel: next, higgsfield } = await invokeEdge<{ carousel: Carousel; higgsfield: boolean }>(
-        "social-carousel",
-        { action: "create", articleId },
-      );
-      setHiggsfieldMissing(!higgsfield);
+      const { carousel: next, providerReady } = await invokeEdge<{
+        carousel: Carousel;
+        provider: "gemini" | "higgsfield";
+        providerReady: boolean;
+      }>("social-carousel", { action: "create", articleId });
+      setProviderMissing(!providerReady);
       adopt(next, true);
       toast({ title: "התסריט מוכן", description: `${next.slides.length} שקפים — מייצר תמונות` });
     } catch (error) {
@@ -293,7 +297,7 @@ const AdminCarouselStudio = ({ articles, enabledPlatforms, onScheduled }: Props)
           סטודיו קרוסלות
         </CardTitle>
         <CardDescription>
-          בחר כתבה — ה-AI כותב את השקפים, Higgsfield מייצר רקע לכל שקף, והטקסט מונח במיתוג של Agendax.
+          בחר כתבה — ה-AI כותב את השקפים, Gemini מייצר רקע לכל שקף, והטקסט מונח במיתוג של Agendax.
           אפשר לערוך כל שקף לפני התזמון.
         </CardDescription>
       </CardHeader>
@@ -345,9 +349,9 @@ const AdminCarouselStudio = ({ articles, enabledPlatforms, onScheduled }: Props)
           </div>
         </div>
 
-        {higgsfieldMissing && (
+        {providerMissing && (
           <p className="rounded-md border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm text-amber-600">
-            Higgsfield עדיין לא מחובר — הרקעים נלקחו מתמונת הכתבה. אחרי הוספת המפתחות אפשר ללחוץ "רקע חדש" על כל שקף.
+            מחולל התמונות לא מוגדר — הרקעים נלקחו מתמונת הכתבה.
           </p>
         )}
 
@@ -412,7 +416,7 @@ const AdminCarouselStudio = ({ articles, enabledPlatforms, onScheduled }: Props)
                         רקע חדש
                       </Button>
                       <span className="text-[10px] text-muted-foreground">
-                        {slide.bg_source === "higgsfield" ? "Higgsfield" : slide.bg_source === "article" ? "תמונת הכתבה" : ""}
+                        {slide.bg_source ? SOURCE_LABEL[slide.bg_source] : ""}
                       </span>
                     </div>
                     {slide.bg_error && slide.bg_source === "article" && (
