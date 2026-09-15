@@ -143,29 +143,94 @@ const h = (type: string, props: Record<string, any>, ...children: any[]) => ({
 // with paired brackets mirrored. What satori then draws left-to-right reads
 // correctly right-to-left.
 
-// One Latin word, or several separated only by spaces: "GPT-6 Astra" is a single
-// left-to-right island. Matching word by word let the space between them fall to
-// the Hebrew side, and the reversal swapped the words.
-const LTR_WORD = String.raw`[A-Za-z0-9]+(?:[.,'%+&#-][A-Za-z0-9]+)*`;
-const LTR_RUN = new RegExp(`${LTR_WORD}(?:\\s+${LTR_WORD})*`, "g");
-const MIRROR: Record<string, string> = { "(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<" };
+// A single right-to-left paragraph, no embeddings: the subset of UAX #9 that
+// such a line needs. Each character gets a bidi class, the weak and neutral
+// rules resolve it to a direction, and the line is reordered by level.
+type BidiClass = "R" | "L" | "EN" | "ET" | "CS" | "ON";
 
-const reverseSegment = (s: string) =>
-  [...s].reverse().map((c) => MIRROR[c] ?? c).join("");
+const HEBREW = /[\u0590-\u05FF\uFB1D-\uFB4F]/;
+const LETTER = /\p{L}/u;
+const DIGIT = /[0-9]/;
+// European terminators: they stick to an adjacent number ("50%", "$100").
+const TERMINATOR = /[%$€£¥₪°#+\u2030\u2031]/;
+// Separators that stay inside a number when flanked by digits ("5.1", "1,000").
+const SEPARATOR = /[.,:\/\-]/;
 
+const MIRROR: Record<string, string> = {
+  "(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<", "«": "»", "»": "«",
+};
+
+const classOf = (c: string): BidiClass =>
+  HEBREW.test(c) ? "R"
+  : LETTER.test(c) ? "L"
+  : DIGIT.test(c) ? "EN"
+  : TERMINATOR.test(c) ? "ET"
+  : SEPARATOR.test(c) ? "CS"
+  : "ON";
+
+/** Logical Hebrew/English line → the order satori must draw it, left to right. */
 function toVisualLine(logical: string): string {
-  const parts: { ltr: boolean; s: string }[] = [];
-  let last = 0;
-  for (const m of logical.matchAll(LTR_RUN)) {
-    if ((m.index ?? 0) > last) parts.push({ ltr: false, s: logical.slice(last, m.index) });
-    parts.push({ ltr: true, s: m[0] });
-    last = (m.index ?? 0) + m[0].length;
+  const chars = [...logical];
+  const n = chars.length;
+  if (n === 0) return logical;
+  const original = chars.map(classOf);
+  const t = [...original];
+
+  // W4: one separator between two digits belongs to the number.
+  for (let i = 1; i < n - 1; i++) {
+    if (t[i] === "CS" && t[i - 1] === "EN" && t[i + 1] === "EN") t[i] = "EN";
   }
-  if (last < logical.length) parts.push({ ltr: false, s: logical.slice(last) });
-  return parts
-    .reverse()
-    .map((p) => (p.ltr ? p.s : reverseSegment(p.s)))
-    .join("");
+  // W5: a run of terminators touching a number joins it.
+  for (let i = 0; i < n; ) {
+    if (t[i] !== "ET") { i++; continue; }
+    let j = i;
+    while (j < n && t[j] === "ET") j++;
+    if ((i > 0 && t[i - 1] === "EN") || (j < n && t[j] === "EN")) {
+      for (let k = i; k < j; k++) t[k] = "EN";
+    }
+    i = j;
+  }
+  // W6: whatever is left over is plain neutral.
+  for (let i = 0; i < n; i++) if (t[i] === "ET" || t[i] === "CS") t[i] = "ON";
+
+  // W7: a number that follows English is English ("GPT 5", "iPhone 17").
+  // The paragraph is right-to-left, so the start of the line counts as Hebrew.
+  let lastStrong: "L" | "R" = "R";
+  for (let i = 0; i < n; i++) {
+    if (original[i] === "L" || original[i] === "R") lastStrong = original[i] as "L" | "R";
+    else if (t[i] === "EN" && lastStrong === "L") t[i] = "L";
+  }
+
+  // N1/N2: neutrals take the direction of their neighbours when both agree,
+  // otherwise the paragraph's. Remaining numbers count as right-to-left here.
+  const side = (x: BidiClass): "L" | "R" => (x === "L" ? "L" : "R");
+  for (let i = 0; i < n; ) {
+    if (t[i] !== "ON") { i++; continue; }
+    let j = i;
+    while (j < n && t[j] === "ON") j++;
+    const before = i > 0 ? side(t[i - 1]) : "R";
+    const after = j < n ? side(t[j]) : "R";
+    const dir = before === after ? before : "R";
+    for (let k = i; k < j; k++) t[k] = dir;
+    i = j;
+  }
+
+  // I2: in a right-to-left paragraph, English and numbers sit one level up.
+  const level = t.map((x) => (x === "R" ? 1 : 2));
+
+  // L4: mirror paired brackets that end up right-to-left.
+  const glyphs = chars.map((c, i) => (level[i] === 1 ? MIRROR[c] ?? c : c));
+
+  // L2: reverse every run at level 2, then the whole line.
+  for (let i = 0; i < n; ) {
+    if (level[i] !== 2) { i++; continue; }
+    let j = i;
+    while (j < n && level[j] === 2) j++;
+    const run = glyphs.slice(i, j).reverse();
+    for (let k = i; k < j; k++) glyphs[k] = run[k - i];
+    i = j;
+  }
+  return glyphs.reverse().join("");
 }
 
 /** Mirrors the canvas version's auto-shrink: try sizes until the title fits
