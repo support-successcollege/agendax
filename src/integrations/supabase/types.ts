@@ -2795,6 +2795,30 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_secrets: {
+        Row: {
+          key: string
+          preview: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          preview?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Update: {
+          key?: string
+          preview?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       job_applications: {
         Row: {
           cover_letter: string | null
@@ -3739,6 +3763,16 @@ export type Database = {
           weekend_target: number
         }[]
       }
+      integration_secret_keys: { Args: never; Returns: string[] }
+      integration_secrets_status: {
+        Args: never
+        Returns: {
+          is_set: boolean
+          key: string
+          preview: string
+          updated_at: string
+        }[]
+      }
       next_publish_slot: { Args: { _step_minutes?: number }; Returns: string }
       redeem_course_coupon: {
         Args: { p_code: string; p_course_id: string }
@@ -3752,6 +3786,10 @@ export type Database = {
       refresh_hero_rotation: { Args: never; Returns: number }
       set_featured_article: {
         Args: { _article_id: string }
+        Returns: undefined
+      }
+      set_integration_secret: {
+        Args: { p_key: string; p_value: string }
         Returns: undefined
       }
       slugify_title: { Args: { _title: string }; Returns: string }

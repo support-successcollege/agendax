@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import AdminAuthorsCard from "@/components/AdminAuthorsCard";
+import AdminIntegrationsCard from "@/components/AdminIntegrationsCard";
 import {
   Globe,
   Loader2,
@@ -752,6 +753,8 @@ const AdminGlobalIngestTab = () => {
       </Card>
 
       <AdminAuthorsCard />
+
+      <AdminIntegrationsCard />
     </div>
   );
 };

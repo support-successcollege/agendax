@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { getSecret } from "../_shared/secrets.ts";
 import { marked } from "https://esm.sh/marked@12.0.2";
 import { callModelWithFallback } from "../_shared/ingest.ts";
 
@@ -192,7 +193,7 @@ serve(async (req) => {
       return json({ error: "יש לספק נושא לכתבה, קישורים למקורות, או שניהם" }, 400);
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GEMINI_API_KEY = await getSecret("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY חסר" }, 500);
 
     const today = new Date().toISOString().slice(0, 10);

@@ -4,6 +4,7 @@
 // deployed as functions of their own — the CLI just bundles them into whoever
 // imports them.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { getSecret } from "./secrets.ts";
 import { marked } from "https://esm.sh/marked@12.0.2";
 
 export const AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
@@ -879,7 +880,7 @@ export async function fetchWithRetry(
  */
 const SEP = String.fromCharCode(10, 10);
 export async function callClaude(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  const key = await getSecret("ANTHROPIC_API_KEY");
   if (!key) throw new Error("ANTHROPIC_API_KEY חסר");
 
   const messages = (body.messages as { role: string; content: string }[]) || [];
@@ -960,7 +961,7 @@ export async function callClaude(body: Record<string, unknown>): Promise<Record<
  * to flip the whole system over on a bad Gemini day.
  */
 export async function callModelWithFallback(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const claudeFirst = (Deno.env.get("AI_PRIMARY") || "").toLowerCase() === "claude";
+  const claudeFirst = (await getSecret("AI_PRIMARY")).toLowerCase() === "claude";
   const geminiChain: (() => Promise<Record<string, unknown>>)[] = [
     () => callModel(body),
     ...["gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"].map(
@@ -992,7 +993,7 @@ export async function callModelWithFallback(body: Record<string, unknown>): Prom
 }
 
 export async function callModel(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const key = Deno.env.get("GEMINI_API_KEY");
+  const key = await getSecret("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY חסר");
   const resp = await fetchWithRetry(AI_URL, {
     method: "POST",
@@ -1021,7 +1022,7 @@ export async function generateImage(
   supabase: SupabaseClient,
   prompt: string,
 ): Promise<string | null> {
-  const key = Deno.env.get("GEMINI_API_KEY");
+  const key = await getSecret("GEMINI_API_KEY");
   if (!key) return null;
   try {
     const resp = await fetchWithRetry(
@@ -1089,7 +1090,7 @@ export async function generateGeminiImage(
   prompt: string,
   opts: { aspectRatio: string; pathPrefix: string },
 ): Promise<string> {
-  const key = Deno.env.get("GEMINI_API_KEY");
+  const key = await getSecret("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY חסר");
 
   const models = [...new Set([IMAGE_MODEL, "gemini-2.5-flash-image"])];

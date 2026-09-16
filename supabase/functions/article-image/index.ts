@@ -10,6 +10,11 @@
 // Body:
 //   { articleId, force? }  → generate for one article
 //   { sweep: true, max? }  → find articles missing a real image and fix them
+//
+// Two sources, in this order: a real photograph from Pexels when its key is
+// set, then the Gemini image models. A photograph of the subject is worth more
+// on a news story than an illustration of it, and it costs nothing — so the
+// generator is left for the stories stock libraries do not cover.
 import {
   adminClient,
   authorize,
@@ -18,7 +23,9 @@ import {
   FALLBACK_IMAGE,
   json,
   toolArgs,
+  mirrorImageToBucket,
 } from "../_shared/ingest.ts";
+import { getSecret } from "../_shared/secrets.ts";
 
 /** With the model chain a single article can take ~40s; one per invocation stays inside the wall clock. */
 const SWEEP_DEFAULT = 1;
@@ -115,7 +122,7 @@ async function renderWithModel(
   model: string,
   prompt: string,
 ): Promise<{ mime: string; bytes: Uint8Array } | { error: string }> {
-  const key = Deno.env.get("GEMINI_API_KEY");
+  const key = await getSecret("GEMINI_API_KEY");
   if (!key) return { error: "GEMINI_API_KEY חסר" };
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -151,6 +158,89 @@ async function renderWithModel(
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return { mime, bytes };
+}
+
+/**
+ * Two or three English words to search a stock library with. The prompt written
+ * for the generator is a paragraph of art direction, which matches nothing in a
+ * photo library, so the subject is asked for separately.
+ */
+async function buildSearchQuery(article: Article): Promise<string> {
+  try {
+    const response = await callModelWithFallback({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You pick stock-photo search terms for a Hebrew tech-news site. Given a headline, " +
+            "return TWO or THREE English words naming the concrete subject a photographer would " +
+            "shoot for it — the object, place or activity. No brand names, no adjectives, no " +
+            "abstract words like 'technology' or 'innovation'. Return only through the tool.",
+        },
+        {
+          role: "user",
+          content: `כותרת: ${article.title}\nתקציר: ${article.excerpt || ""}\nקטגוריה: ${article.category || ""}`,
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "write_search_query",
+            description: "Two or three English search words for a stock photo library",
+            parameters: {
+              type: "object",
+              properties: { query: { type: "string" } },
+              required: ["query"],
+            },
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "write_search_query" } },
+      max_tokens: 200,
+    });
+    const query = String((toolArgs(response) as { query?: string }).query ?? "").trim();
+    if (query) return query.split(/\s+/).slice(0, 4).join(" ");
+  } catch (e) {
+    console.error("search query failed, using the category", (e as Error).message);
+  }
+  return article.category || "technology";
+}
+
+/**
+ * A landscape photograph from Pexels, mirrored into our own bucket — Pexels
+ * URLs are stable but hotlinking them would leak reader traffic and break the
+ * day they rotate a CDN.
+ */
+async function findStockPhoto(
+  supabase: any,
+  article: Article,
+): Promise<{ url: string; model: string } | { error: string }> {
+  const key = await getSecret("PEXELS_API_KEY");
+  if (!key) return { error: "אין מפתח Pexels" };
+
+  const query = await buildSearchQuery(article);
+  try {
+    const resp = await fetch(
+      `https://api.pexels.com/v1/search?per_page=5&orientation=landscape&query=${encodeURIComponent(query)}`,
+      { headers: { Authorization: key } },
+    );
+    if (!resp.ok) {
+      const detail = (await resp.text()).slice(0, 160).replace(/\s+/g, " ");
+      return { error: `Pexels ${resp.status}: ${detail}` };
+    }
+    const data = await resp.json();
+    const photos = (data?.photos ?? []) as { src?: Record<string, string>; alt?: string }[];
+    for (const photo of photos) {
+      const src = photo.src?.large2x || photo.src?.large || photo.src?.original;
+      if (!src) continue;
+      const mirrored = await mirrorImageToBucket(supabase, src, 20_000);
+      if (mirrored) return { url: mirrored, model: `pexels (${query})` };
+    }
+    return { error: `Pexels לא החזיר תמונה מתאימה ל-"${query}"` };
+  } catch (e) {
+    return { error: `Pexels: ${(e as Error).message}` };
+  }
 }
 
 /**
@@ -205,15 +295,35 @@ async function dropSocialRenders(supabase: any, id: string): Promise<void> {
 }
 
 async function fixOne(supabase: any, article: Article): Promise<Record<string, unknown>> {
-  const prompt = await buildPrompt(article);
-  const image = await generateArticleImage(supabase, prompt);
+  const stock = await findStockPhoto(supabase, article);
+  let prompt = "";
+  let image: { url: string; model: string } | { error: string };
+  if ("url" in stock) {
+    image = stock;
+  } else {
+    prompt = await buildPrompt(article);
+    const generated = await generateArticleImage(supabase, prompt);
+    // Both failures are reported: "Pexels has no key" explains the fallback,
+    // and on a total failure the editor can see which half broke.
+    image = "error" in generated ? { error: `${stock.error} | ${generated.error}` } : generated;
+  }
   if ("error" in image) {
     return { id: article.id, title: article.title, ok: false, error: image.error };
   }
   const { error } = await supabase.from("articles").update({ image_url: image.url }).eq("id", article.id);
   if (error) return { id: article.id, title: article.title, ok: false, error: error.message };
   await dropSocialRenders(supabase, article.id);
-  return { id: article.id, title: article.title, ok: true, url: image.url, model: image.model, prompt };
+  return {
+    id: article.id,
+    title: article.title,
+    ok: true,
+    url: image.url,
+    // `source` is what the panel's test button reports; `model` stays for the
+    // callers that already read it.
+    source: image.model.startsWith("pexels") ? "Pexels" : image.model,
+    model: image.model,
+    prompt,
+  };
 }
 
 const COLS = "id, title, excerpt, category, image_url, is_draft, scheduled_at";
