@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import AdminAuthorsCard from "@/components/AdminAuthorsCard";
 import AdminIntegrationsCard from "@/components/AdminIntegrationsCard";
+import AdminQualityCard from "@/components/AdminQualityCard";
 import {
   Globe,
   Loader2,
@@ -751,6 +752,8 @@ const AdminGlobalIngestTab = () => {
           )}
         </CardContent>
       </Card>
+
+      <AdminQualityCard />
 
       <AdminAuthorsCard />
 
