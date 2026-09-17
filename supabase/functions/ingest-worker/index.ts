@@ -198,7 +198,7 @@ ${bottom.map((r) => `- ${r.title}`).join("\n")}`;
 }
 
 type ProcessResult =
-  | { ok: true; articleId: string; title: string }
+  | { ok: true; articleId: string; title: string; linkCandidates: number; linksPlaced: number }
   | { ok: false; error: string; code?: ExtractionReason };
 
 /** Same failure path as a paywall, with the gate's reason in the message so it can be counted. */
@@ -304,7 +304,15 @@ async function processUpdate(supabase: any, item: Item): Promise<ProcessResult> 
       }).catch((e) => console.error("index-article ping failed", e));
     }
   }
-  return { ok: true, articleId: target.id, title: `עדכון: ${newTitle || target.title}` };
+  // An update preserves whatever links the article already had; it is reported
+  // so a run's note distinguishes "kept none" from "was offered none".
+  return {
+    ok: true,
+    articleId: target.id,
+    title: `עדכון: ${newTitle || target.title}`,
+    linkCandidates: 0,
+    linksPlaced: (newContent.match(/href="\/article\//g) || []).length,
+  };
 }
 
 async function processItem(supabase: any, item: Item, slotStepMinutes: number): Promise<ProcessResult> {
@@ -496,12 +504,13 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
   // article; the "קראו גם" line then carries up to two of the rest, after the
   // closing box so the box is not the thing wrapping it.
   const bodyHtml = enforceInternalLinks(mdToArticleHtml(body), linkCandidates);
+  const storedContent = wrapWhyItMatters(bodyHtml) + readAlsoHtml(linkCandidates, bodyHtml);
   const { data: inserted, error: insertErr } = await supabase
     .from("articles")
     .insert({
       title: article.title.slice(0, 300),
       excerpt,
-      content: wrapWhyItMatters(bodyHtml) + readAlsoHtml(linkCandidates, bodyHtml),
+      content: storedContent,
       category,
       category_slug,
       image_url: imageUrl,
@@ -526,6 +535,8 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
   if (insertErr) return { ok: false, error: `שמירת הכתבה נכשלה: ${insertErr.message}` };
   return {
     ok: true,
+    linkCandidates: linkCandidates.length,
+    linksPlaced: (storedContent.match(/href="\/article\//g) || []).length,
     articleId: inserted.id,
     title: needsHuman ? `${article.title} (ממתין לאישור — ציון ${review.score}/10)` : article.title,
   };
@@ -603,6 +614,11 @@ serve(async (req) => {
           })
           .eq("id", typed.id);
         created.push({ id: result.articleId, title: result.title });
+        if (result.linksPlaced === 0) {
+          notes.push(
+            `${result.title.slice(0, 50)}: יצאה בלי קישור פנימי (${result.linkCandidates} מועמדים היו זמינים)`,
+          );
+        }
         // Spend the category's budget locally so a multi-story invocation
         // cannot overshoot one category before the next stats load sees it.
         if (typed.bucket && budgetByBucket.has(typed.bucket)) {
