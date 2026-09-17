@@ -45,7 +45,7 @@ const FIELDS: FieldSpec[] = [
   {
     key: "PEXELS_API_KEY",
     label: "Pexels",
-    help: "חיפוש תמונות אמיתיות לכתבות שאין להן תמונת מקור. חינם, 200 בקשות בשעה.",
+    help: "גיבוי לתמונות: תצלום אמיתי כשהיצירה ב-Gemini נכשלת או שהמכסה נגמרה. חינם, 200 בקשות בשעה.",
     where: "pexels.com/api",
   },
   {
@@ -57,7 +57,7 @@ const FIELDS: FieldSpec[] = [
   {
     key: "GEMINI_API_KEY",
     label: "Google Gemini",
-    help: "ייצור תמונה כשאין תמונה אמיתית מתאימה, וגיבוי לכתיבה.",
+    help: "יצירת התמונה לכתבה — המקור הראשון — וגיבוי לכתיבה.",
     where: "ai.studio",
   },
   {

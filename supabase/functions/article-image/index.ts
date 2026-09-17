@@ -11,10 +11,11 @@
 //   { articleId, force? }  → generate for one article
 //   { sweep: true, max? }  → find articles missing a real image and fix them
 //
-// Two sources, in this order: a real photograph from Pexels when its key is
-// set, then the Gemini image models. A photograph of the subject is worth more
-// on a news story than an illustration of it, and it costs nothing — so the
-// generator is left for the stories stock libraries do not cover.
+// Two sources, in this order: the Gemini image models, then a real photograph
+// from Pexels when its key is set. A generated image is drawn for this story
+// specifically, which no stock library can match; the photo library is the
+// safety net for when generation is refused, out of quota, or down — so an
+// article is never left wearing the shared placeholder.
 import {
   adminClient,
   authorize,
@@ -121,31 +122,41 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function renderWithModel(
   model: string,
   prompt: string,
+  withAspectRatio = true,
 ): Promise<{ mime: string; bytes: Uint8Array } | { error: string }> {
   const key = await getSecret("GEMINI_API_KEY");
   if (!key) return { error: "GEMINI_API_KEY חסר" };
+  const body: Record<string, unknown> = {
+    contents: [
+      {
+        parts: [
+          {
+            text:
+              `${prompt}. Editorial photojournalism style, realistic, high quality, ` +
+              `no text or watermarks, 16:9 composition.`,
+          },
+        ],
+      },
+    ],
+  };
+  // Asked for, not merely described: the same prompt ending in "16:9
+  // composition" came back square, and every card and social render crops to
+  // 16:9, so a square loses a third of the frame.
+  if (withAspectRatio) {
+    body.generationConfig = { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } };
+  }
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: "POST",
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text:
-                  `${prompt}. Editorial photojournalism style, realistic, high quality, ` +
-                  `no text or watermarks, 16:9 composition.`,
-              },
-            ],
-          },
-        ],
-      }),
+      body: JSON.stringify(body),
     },
   );
   if (!resp.ok) {
     const text = (await resp.text()).slice(0, 200);
+    // A model that rejects imageConfig should still produce a picture.
+    if (resp.status === 400 && withAspectRatio) return await renderWithModel(model, prompt, false);
     return { error: `${resp.status} ${text.replace(/\s+/g, " ")}` };
   }
   const data = await resp.json();
@@ -295,17 +306,16 @@ async function dropSocialRenders(supabase: any, id: string): Promise<void> {
 }
 
 async function fixOne(supabase: any, article: Article): Promise<Record<string, unknown>> {
-  const stock = await findStockPhoto(supabase, article);
-  let prompt = "";
-  let image: { url: string; model: string } | { error: string };
-  if ("url" in stock) {
-    image = stock;
-  } else {
-    prompt = await buildPrompt(article);
-    const generated = await generateArticleImage(supabase, prompt);
-    // Both failures are reported: "Pexels has no key" explains the fallback,
-    // and on a total failure the editor can see which half broke.
-    image = "error" in generated ? { error: `${stock.error} | ${generated.error}` } : generated;
+  const prompt = await buildPrompt(article);
+  const generated = await generateArticleImage(supabase, prompt);
+  let image: { url: string; model: string } | { error: string } = generated;
+  if ("error" in generated) {
+    // Generation was refused, out of quota or down. A real photograph of the
+    // subject beats the shared placeholder, so the library gets its turn.
+    const stock = await findStockPhoto(supabase, article);
+    // Both failures travel together: on a total failure the editor can see
+    // which half broke, and on a fallback why the generator stood down.
+    image = "url" in stock ? stock : { error: `${generated.error} | ${stock.error}` };
   }
   if ("error" in image) {
     return { id: article.id, title: article.title, ok: false, error: image.error };
