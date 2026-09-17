@@ -9,6 +9,8 @@ import {
   useNewsSources,
   useRefreshIngest,
   updateDailyTarget,
+  updateFreshness,
+  useFreshnessConfig,
   type IngestItem,
   type NewsSource,
 } from "@/hooks/useGlobalIngest";
@@ -75,6 +77,10 @@ const AdminGlobalIngestTab = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [lastScan, setLastScan] = useState<IngestScanResult | null>(null);
   const [targetDraft, setTargetDraft] = useState<string>("");
+  const { data: freshness } = useFreshnessConfig();
+  const [horizonDraft, setHorizonDraft] = useState("");
+  const [ageDraft, setAgeDraft] = useState("");
+  const [savingFreshness, setSavingFreshness] = useState(false);
   const [weekendDraft, setWeekendDraft] = useState<string>("");
   const [savingTarget, setSavingTarget] = useState(false);
   const [addingSource, setAddingSource] = useState(false);
@@ -171,6 +177,29 @@ const AdminGlobalIngestTab = () => {
       });
     } finally {
       setIsWorking(false);
+    }
+  };
+
+  /** The two rules that keep the site same-day. */
+  const saveFreshness = async () => {
+    setSavingFreshness(true);
+    try {
+      await updateFreshness({
+        scheduleHorizonHours: Number(horizonDraft) || (freshness?.scheduleHorizonHours ?? 12),
+        maxStoryAgeHours: Number(ageDraft) || (freshness?.maxStoryAgeHours ?? 36),
+      });
+      setHorizonDraft("");
+      setAgeDraft("");
+      toast({ title: "נשמר", description: "הכללים חלים על התזמון הבא" });
+      refresh();
+    } catch (error) {
+      toast({
+        title: "השמירה נכשלה",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    } finally {
+      setSavingFreshness(false);
     }
   };
 
@@ -398,6 +427,53 @@ const AdminGlobalIngestTab = () => {
               ))}
             </div>
           )}
+
+          {/* Same-day rules */}
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 p-4">
+            <Clock className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex-1 min-w-[16rem]">
+              <p className="text-sm font-medium">
+                פרסום באותו יום: מתזמנים עד {freshness?.scheduleHorizonHours ?? 12} שעות קדימה,
+                ולא מפרסמים ידיעה בת יותר מ-{freshness?.maxStoryAgeHours ?? 36} שעות
+              </p>
+              <p className="text-xs text-muted-foreground">
+                כשאין מקום בטווח הזה, הכותב עוצר במקום לדחוף כתבות למחר. ידיעה שמתיישנת לפני
+                שמגיע תורה יורדת מהתזמון ונשארת טיוטה עם הסבר, וגם לא יוצאת לרשתות.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">טווח תזמון</label>
+              <Input
+                type="number"
+                min={1}
+                max={72}
+                inputMode="numeric"
+                placeholder={String(freshness?.scheduleHorizonHours ?? 12)}
+                value={horizonDraft}
+                onChange={(e) => setHorizonDraft(e.target.value)}
+                className="w-20 text-center"
+              />
+              <label className="text-xs text-muted-foreground">גיל מרבי</label>
+              <Input
+                type="number"
+                min={6}
+                max={168}
+                inputMode="numeric"
+                placeholder={String(freshness?.maxStoryAgeHours ?? 36)}
+                value={ageDraft}
+                onChange={(e) => setAgeDraft(e.target.value)}
+                className="w-20 text-center"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={saveFreshness}
+                disabled={savingFreshness || (!horizonDraft && !ageDraft)}
+              >
+                {savingFreshness ? <Loader2 className="w-4 h-4 animate-spin" /> : "שמור"}
+              </Button>
+            </div>
+          </div>
 
           {/* Daily target */}
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 p-4">

@@ -133,6 +133,45 @@ export const updateDailyTarget = async (dailyTarget: number, weekendTarget?: num
   if (error) throw error;
 };
 
+/**
+ * The two numbers that keep the site same-day: how far ahead a story may be
+ * scheduled, and how old it may be when its turn arrives. They live in
+ * ingest_config beside the daily target but outside `ingest_daily_stats`, so
+ * they are read straight from the table.
+ */
+export interface FreshnessConfig {
+  scheduleHorizonHours: number;
+  maxStoryAgeHours: number;
+}
+
+export const useFreshnessConfig = () =>
+  useQuery({
+    queryKey: ["ingest", "freshness"] as const,
+    queryFn: async (): Promise<FreshnessConfig> => {
+      const { data, error } = await supabase
+        .from("ingest_config")
+        .select("schedule_horizon_hours, max_story_age_hours")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return {
+        scheduleHorizonHours: (data as any)?.schedule_horizon_hours ?? 12,
+        maxStoryAgeHours: (data as any)?.max_story_age_hours ?? 36,
+      };
+    },
+  });
+
+export const updateFreshness = async (config: FreshnessConfig) => {
+  const { error } = await supabase
+    .from("ingest_config")
+    .update({
+      schedule_horizon_hours: config.scheduleHorizonHours,
+      max_story_age_hours: config.maxStoryAgeHours,
+    })
+    .eq("id", true);
+  if (error) throw error;
+};
+
 export const useNewsSources = () =>
   useQuery({
     queryKey: INGEST_KEYS.sources,

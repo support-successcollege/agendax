@@ -33,7 +33,28 @@ import {
 } from "../_shared/social.ts";
 
 const TZ = "Asia/Jerusalem";
-const ARTICLE_COLS = "id, slug, title, excerpt, category, category_slug, content, image_url";
+/** Fallback when ingest_config cannot be read; the same number the site uses. */
+const DEFAULT_MAX_STORY_AGE_HOURS = 36;
+
+/**
+ * How old a story may be when it goes out on social, counted from when the news
+ * happened rather than from when the site published it. The site's own limit
+ * lives in ingest_config, and sharing it keeps one number in one place.
+ */
+async function maxStoryAgeHours(supabase: any): Promise<number> {
+  const { data } = await supabase.from("ingest_config").select("max_story_age_hours").limit(1).maybeSingle();
+  const hours = Number(data?.max_story_age_hours);
+  return Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_MAX_STORY_AGE_HOURS;
+}
+
+/** Null source date means a hand-written piece: it is judged by publication. */
+const storyAgeHours = (article: { source_published_at?: string | null; published_at?: string | null }): number => {
+  const when = article.source_published_at || article.published_at;
+  if (!when) return 0;
+  return (Date.now() - Date.parse(when)) / 3_600_000;
+};
+const ARTICLE_COLS =
+  "id, slug, title, excerpt, category, category_slug, content, image_url, published_at, source_published_at";
 
 /**
  * The branded images (4:5 post, 9:16 story) are rendered by the social-image
@@ -387,13 +408,16 @@ async function fillQueue(supabase: any, settings: Settings, autoAccounts: Accoun
     ...((everPosted ?? []) as any[]).map((r) => r.article_id),
   ]);
 
-  const since = new Date(now.getTime() - 3 * 24 * 3600_000).toISOString();
+  // Counted from the story, not from us: an article we published today about
+  // something that happened on Sunday is not Wednesday's news.
+  const maxAge = await maxStoryAgeHours(supabase);
+  const since = new Date(now.getTime() - maxAge * 3600_000).toISOString();
   const { data: fresh } = await supabase
     .from("articles")
-    .select("id, title, is_breaking, published_at")
+    .select("id, title, is_breaking, published_at, source_published_at")
     .eq("is_draft", false)
     .neq("category_slug", "marketing")
-    .gte("published_at", since)
+    .or(`source_published_at.gte.${since},and(source_published_at.is.null,published_at.gte.${since})`)
     .order("is_breaking", { ascending: false })
     .order("published_at", { ascending: false })
     .limit(60);
@@ -505,6 +529,16 @@ async function runQueueItem(supabase: any, item: QueueRow, accounts: Account[]):
   if ((article as any).is_draft) {
     await finish({ status: "failed", error: "הכתבה עדיין טיוטה" });
     return { id: item.id, ok: false, error: "הכתבה עדיין טיוטה" };
+  }
+
+  // Stale by the time its slot came: cancelled rather than failed, because
+  // nothing went wrong — the story simply stopped being news while it queued.
+  const maxAge = await maxStoryAgeHours(supabase);
+  const age = storyAgeHours(article as any);
+  if (age > maxAge) {
+    const reason = `הידיעה בת ${Math.round(age)} שעות — ישנה מדי לפרסום ברשתות`;
+    await finish({ status: "cancelled", error: reason });
+    return { id: item.id, ok: false, error: reason };
   }
 
   const wanted = item.kind === "story" || item.kind === "carousel"

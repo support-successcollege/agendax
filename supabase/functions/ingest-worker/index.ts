@@ -579,6 +579,17 @@ serve(async (req) => {
     Math.floor((18 * 60) / Math.max(1, stats.dailyTarget * stats.categoryCount)),
   );
 
+  // Is there room left in the day at all? The slot allocator answers null once
+  // the chain reaches the horizon, and writing then would only add to a queue
+  // that publishes tomorrow — which is how a story from Monday ended up going
+  // live on Thursday. Asking once, before any model call, costs one query and
+  // saves the whole run.
+  const { data: dayHasRoom } = await supabase.rpc("next_publish_slot", { _step_minutes: slotStepMinutes });
+  const dayIsFull = dayHasRoom === null;
+  if (dayIsFull) {
+    notes.push("היום מלא — לא נכתבו כתבות חדשות; הידיעות נשארות בתור לסבב הבא");
+  }
+
   // Even with every category at quota the loop still runs: update items
   // (bucket is null) ride on existing articles and spend no daily budget.
   let processedAny = false;
@@ -600,6 +611,7 @@ serve(async (req) => {
 
     const typed = item as Item;
     try {
+      if (dayIsFull && !typed.update_of) continue;
       const result = await processItem(supabase, typed, slotStepMinutes);
       if (result.ok) {
         await supabase
