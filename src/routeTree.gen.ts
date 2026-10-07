@@ -14,6 +14,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccessibilityRouteImport } from './routes/accessibility'
 import { Route as AiPolicyRouteImport } from './routes/ai-policy'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as JoinRouteImport } from './routes/join'
 import { Route as NewsroomRouteImport } from './routes/newsroom'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -55,6 +56,11 @@ const AiPolicyRoute = AiPolicyRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewsroomRoute = NewsroomRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/accessibility': typeof AccessibilityRoute
   '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
+  '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/accessibility': typeof AccessibilityRoute
   '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
+  '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/accessibility': typeof AccessibilityRoute
   '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
+  '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/ai-policy'
     | '/auth'
+    | '/join'
     | '/newsroom'
     | '/privacy'
     | '/reset-password'
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/ai-policy'
     | '/auth'
+    | '/join'
     | '/newsroom'
     | '/privacy'
     | '/reset-password'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/ai-policy'
     | '/auth'
+    | '/join'
     | '/newsroom'
     | '/privacy'
     | '/reset-password'
@@ -297,6 +309,7 @@ export interface RootRouteChildren {
   AccessibilityRoute: typeof AccessibilityRoute
   AiPolicyRoute: typeof AiPolicyRoute
   AuthRoute: typeof AuthRoute
+  JoinRoute: typeof JoinRoute
   NewsroomRoute: typeof NewsroomRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/newsroom': {
@@ -481,6 +501,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccessibilityRoute: AccessibilityRoute,
   AiPolicyRoute: AiPolicyRoute,
   AuthRoute: AuthRoute,
+  JoinRoute: JoinRoute,
   NewsroomRoute: NewsroomRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,

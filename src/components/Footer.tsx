@@ -37,6 +37,7 @@ const Footer = () => {
         <div>
           <h4 className="font-bold mb-4 text-sm">קישורים</h4>
           <ul className="space-y-2.5 text-muted-foreground text-sm">
+            <li><Link to="/join" className="hover:text-foreground transition-colors">הצטרפו לעדכונים</Link></li>
             <li><Link to="/about" className="hover:text-foreground transition-colors">אודות</Link></li>
             <li><Link to="/newsroom" className="hover:text-foreground transition-colors">חדר החדשות</Link></li>
             <li><Link to="/ai-policy" className="hover:text-foreground transition-colors">מדיניות AI</Link></li>

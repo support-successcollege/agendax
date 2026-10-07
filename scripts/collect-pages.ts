@@ -20,6 +20,8 @@ type PageEntry = {
 const STATIC_PAGES: PageEntry[] = [
   { path: "/", sitemap: { priority: 1.0, changefreq: "hourly" } },
   { path: "/about", sitemap: { priority: 0.5, changefreq: "monthly" } },
+  // The page every channel and post points at, so it ranks for the brand too.
+  { path: "/join", sitemap: { priority: 0.8, changefreq: "monthly" } },
   // The newsroom and the AI policy are what a reader (and a reviewer) reaches
   // for when deciding whether to trust a machine-written site, so they are
   // indexed pages rather than a footnote.
