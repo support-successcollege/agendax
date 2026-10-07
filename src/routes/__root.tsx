@@ -1,12 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
-import {
-  HeadContent,
-  Outlet,
-  Scripts,
-  createRootRouteWithContext,
-  useRouter,
-} from "@tanstack/react-router";
+import { HeadContent, Outlet, Scripts, createRootRouteWithContext, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/toaster";
@@ -135,7 +129,10 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+// The router types a caught error as `unknown` — it can be anything a throw
+// produced — so the component takes the router's own props type rather than
+// asserting it is an Error.
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   return (
