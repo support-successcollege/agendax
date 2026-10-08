@@ -108,18 +108,20 @@ export function withCtaLine(text: string, cta: string): string {
 }
 
 /**
- * The private reply, as two messages: the link first, then the words.
+ * The private reply: the words, then the link on the last line.
  *
- * The link leads because that is the thing the reader asked for — it arrives
- * with its preview card before any explanation of it — and because it has to
- * be a message of its own either way: a link inside a paragraph is not
- * recognised by Messenger or Instagram at all.
+ * One message, because Meta allows exactly one per comment and nothing more:
+ * a reply addressed to the comment is permitted under standard access, while a
+ * message addressed to the person needs advanced access unless that person has
+ * a role in the app — which no reader does. So everything the reader gets has
+ * to fit here.
+ *
+ * The link is the short ASCII one for a reason. Messenger and Instagram stop
+ * detecting an address at the first non-Latin character, and every article is
+ * published at its Hebrew headline; /a/<code> survives that, inside a message
+ * as well as alone.
  */
-export function renderMessage(
-  template: string,
-  article: { title: string },
-  link: string,
-): { link: string; body: string } {
+export function renderMessage(template: string, article: { title: string }, link: string): string {
   const body = template
     .replaceAll("{title}", article.title)
     .replaceAll("{link}", "")
@@ -128,7 +130,7 @@ export function renderMessage(
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return { link, body: body || article.title };
+  return `${body || article.title}\n\n${link}`;
 }
 
 // ---------------------------------------------------------------- keywords
