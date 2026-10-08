@@ -297,16 +297,27 @@ export async function sendPrivateReply(
   commentId: string,
   text: string,
 ): Promise<{ messageId: string; recipientId: string }> {
-  const token = await fbPageToken(creds);
+  return await send(platform, creds, { comment_id: commentId }, text, "private reply");
+}
 
-  // Instagram messaging has been documented on two different nodes — the
-  // Instagram account and the page it is connected to — and which one an app
-  // may use depends on how its Instagram product was set up. Both are tried,
-  // because the refusal is the same opaque "(#3) does not have the capability"
-  // either way and only an attempt tells them apart.
-  const nodes = platform === "instagram"
-    ? [creds.ig_user_id, creds.page_id].filter(Boolean)
-    : [creds.page_id].filter(Boolean);
+/**
+ * Instagram messaging is documented on two different nodes — the Instagram
+ * account and the page it is connected to — and which one an app may use
+ * depends on how its Instagram product was set up. The page is tried first
+ * because that is the one this app is entitled to; the other follows, because
+ * the refusal is the same opaque "(#3) does not have the capability" either
+ * way and only an attempt tells them apart.
+ */
+async function send(
+  platform: "instagram" | "facebook",
+  creds: Record<string, string>,
+  recipient: Record<string, string>,
+  text: string,
+  what: string,
+): Promise<{ messageId: string; recipientId: string }> {
+  const token = await fbPageToken(creds);
+  const nodes = (platform === "instagram" ? [creds.page_id, creds.ig_user_id] : [creds.page_id])
+    .filter(Boolean);
   if (nodes.length === 0) throw new Error(`חסר מזהה חשבון ל${platform}`);
 
   const failures: string[] = [];
@@ -315,7 +326,7 @@ export async function sendPrivateReply(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        recipient: { comment_id: commentId },
+        recipient,
         message: { text },
         ...(platform === "facebook" ? { messaging_type: "RESPONSE" } : {}),
         access_token: token,
@@ -325,14 +336,14 @@ export async function sendPrivateReply(
     if (resp.ok) {
       return {
         messageId: String(data?.message_id ?? data?.id ?? ""),
-        // Only the reply's answer carries the person's id in the form the
+        // Only the send's own answer carries the person's id in the form the
         // messaging API accepts; the id on the comment is a different scope.
         recipientId: String(data?.recipient_id ?? ""),
       };
     }
     failures.push(`${id}: ${resp.status} ${data?.error?.message ?? JSON.stringify(data).slice(0, 150)}`);
   }
-  throw new Error(`private reply — ${failures.join(" | ")}`);
+  throw new Error(`${what} — ${failures.join(" | ")}`);
 }
 
 /**
@@ -345,25 +356,8 @@ export async function sendDirectMessage(
   recipientId: string,
   text: string,
 ): Promise<string> {
-  const id = platform === "instagram" ? creds.ig_user_id : creds.page_id;
-  if (!id) throw new Error(`חסר מזהה חשבון ל${platform}`);
-  const token = platform === "facebook" ? await fbPageToken(creds) : creds.access_token;
-
-  const resp = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      recipient: { id: recipientId },
-      message: { text },
-      messaging_type: "RESPONSE",
-      access_token: token,
-    }),
-  });
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    throw new Error(`direct message ${resp.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 200)}`);
-  }
-  return String(data?.message_id ?? data?.id ?? "");
+  const { messageId } = await send(platform, creds, { id: recipientId }, text, "direct message");
+  return messageId;
 }
 
 /**

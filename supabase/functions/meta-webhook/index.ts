@@ -73,10 +73,16 @@ async function handleEvent(
       // follow are addressed to the person — and only the reply's own answer
       // names them in the scope the messaging API accepts.
       const { recipientId } = await sendPrivateReply(event.network, creds, event.eventId, link);
-      if (recipientId) {
+      // The link is what was asked for, so it alone decides whether this
+      // counts as served. The words that follow it are an improvement on a
+      // reply the reader already has, and a failure there is logged rather
+      // than allowed to mark the whole thing failed — which would also leave
+      // the ledger claiming nothing was sent.
+      try {
+        if (!recipientId) throw new Error("השליחה לא החזירה מזהה נמען");
         await sendDirectMessage(event.network, creds, recipientId, body);
-      } else {
-        console.error("no recipient id came back; the link is out but the message is not");
+      } catch (e) {
+        console.error("the link is out but the message after it is not:", (e as Error).message);
       }
     } else {
       await sendDirectMessage(event.network, creds, event.senderId, link);
