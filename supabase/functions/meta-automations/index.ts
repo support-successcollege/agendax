@@ -13,6 +13,10 @@
 //                              messages (the half of the setup that has an API)
 //   { action: "test", text } — which rule and word this comment would hit;
 //                              sends nothing
+//   { action: "exchangeToken", userToken }
+//                            — turns a short-lived user token from the Graph
+//                              API Explorer into a page token that does not
+//                              expire, and stores it for both networks
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { authorize, corsHeaders, json } from "../_shared/ingest.ts";
@@ -22,6 +26,16 @@ import { type AutomationRow, matchesKeywords } from "../_shared/dmAutomation.ts"
 
 /** Comments and story/DM replies — the two deliveries this feature lives on. */
 const FIELDS = "feed,messages";
+
+/**
+ * What the app must be subscribed to per object. Registering the callback URL
+ * is not enough and looks identical in the dashboard: an object with no fields
+ * ticked is live, verified, and silent. This is the list that makes it speak.
+ */
+const OBJECT_FIELDS: Record<string, string> = {
+  page: "feed,messages",
+  instagram: "comments,messages",
+};
 
 const WEBHOOK_URL = `${Deno.env.get("SUPABASE_URL") ?? ""}/functions/v1/meta-webhook`;
 
@@ -35,6 +49,196 @@ async function loadAccounts(supabase: any) {
     map[row.platform] = { enabled: !!row.enabled, credentials: (row.credentials ?? {}) as Record<string, string> };
   }
   return map;
+}
+
+/**
+ * What the app itself is subscribed to, per object — read with an app access
+ * token (app id + app secret), which is the only credential that can see it.
+ * Returns the callback URL Meta holds for each object too, so a URL that was
+ * saved for one object and not another shows up as what it is.
+ */
+async function readAppSubscriptions(facebook: Record<string, string>): Promise<Record<string, unknown>> {
+  const appSecret = await getSecret("META_APP_SECRET");
+  if (!appSecret || !facebook.access_token) return { appSubscriptions: null };
+  try {
+    const token = await fbPageToken(facebook);
+    // The token names its own app, so the id never has to be typed anywhere.
+    const appResp = await fetch(
+      `https://graph.facebook.com/v21.0/app?access_token=${encodeURIComponent(token)}`,
+    );
+    const app = await appResp.json();
+    if (!appResp.ok || !app?.id) {
+      throw new Error(app?.error?.message ?? `HTTP ${appResp.status}`);
+    }
+    const resp = await fetch(
+      `https://graph.facebook.com/v21.0/${app.id}/subscriptions?access_token=${encodeURIComponent(`${app.id}|${appSecret}`)}`,
+    );
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data?.error?.message ?? `HTTP ${resp.status}`);
+    const objects: Record<string, { fields: string[]; callbackUrl: string; active: boolean }> = {};
+    for (const row of (data?.data ?? []) as any[]) {
+      objects[String(row.object)] = {
+        fields: ((row.fields ?? []) as any[]).map((f) => String(f?.name ?? f)),
+        callbackUrl: String(row.callback_url ?? ""),
+        active: row.active !== false,
+      };
+    }
+    return { appId: String(app.id), appSubscriptions: objects };
+  } catch (e) {
+    return { appSubscriptions: null, appSubscriptionsError: (e as Error).message };
+  }
+}
+
+/**
+ * Subscribes the app itself to an object's fields. Meta re-runs the callback
+ * handshake on every write, so the verify token is required here even though
+ * the URL is already registered — which is why this can only be done by the
+ * server, where both secrets live.
+ */
+async function subscribeAppToObject(
+  appId: string,
+  appSecret: string,
+  verifyToken: string,
+  object: string,
+): Promise<{ object: string; ok: boolean; fields: string; error?: string }> {
+  const fields = OBJECT_FIELDS[object];
+  const body = new URLSearchParams({
+    object,
+    callback_url: WEBHOOK_URL,
+    fields,
+    verify_token: verifyToken,
+    include_values: "true",
+    access_token: `${appId}|${appSecret}`,
+  });
+  const resp = await fetch(`https://graph.facebook.com/v21.0/${appId}/subscriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    return { object, ok: false, fields, error: data?.error?.message ?? `HTTP ${resp.status}` };
+  }
+  return { object, ok: true, fields };
+}
+
+/**
+ * Which permissions the stored token actually carries — names only, never the
+ * token. "(#3) Application does not have the capability" is the same message
+ * whether a permission was never granted, was granted to a different token, or
+ * needs App Review, and this is the only way to tell those apart.
+ */
+async function readTokenScopes(facebook: Record<string, string>): Promise<Record<string, unknown>> {
+  const appSecret = await getSecret("META_APP_SECRET");
+  if (!appSecret || !facebook.access_token) return { scopes: null };
+  try {
+    const token = await fbPageToken(facebook);
+    const appResp = await fetch(
+      `https://graph.facebook.com/v21.0/app?access_token=${encodeURIComponent(token)}`,
+    );
+    const app = await appResp.json();
+    if (!appResp.ok || !app?.id) throw new Error(app?.error?.message ?? `HTTP ${appResp.status}`);
+
+    const resp = await fetch(
+      `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(token)}` +
+        `&access_token=${encodeURIComponent(`${app.id}|${appSecret}`)}`,
+    );
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data?.error?.message ?? `HTTP ${resp.status}`);
+    const info = data?.data ?? {};
+    return {
+      scopes: (info.scopes ?? []) as string[],
+      tokenType: String(info.type ?? ""),
+      tokenExpiresAt: info.expires_at ? new Date(Number(info.expires_at) * 1000).toISOString() : "never",
+      tokenValid: info.is_valid !== false,
+    };
+  } catch (e) {
+    return { scopes: null, scopesError: (e as Error).message };
+  }
+}
+
+/**
+ * A page token that does not expire, from a short-lived user token.
+ *
+ * The Graph API Explorer hands out tokens that die in an hour, and a page
+ * token inherits the life of the user token it came from — which is how the
+ * site ended up publishing with a credential that expired the same afternoon.
+ * Exchanging the user token for a long-lived one first makes the page token
+ * permanent, and that exchange needs the app secret, so it happens here rather
+ * than in a browser or a URL the admin has to assemble by hand.
+ */
+async function exchangeForPageToken(
+  supabase: any,
+  userToken: string,
+  pageId: string,
+): Promise<Record<string, unknown>> {
+  const appSecret = await getSecret("META_APP_SECRET");
+  if (!appSecret) throw new Error("חסר App Secret — בלעדיו אי אפשר להאריך טוקן");
+
+  // The token names its own app, so nothing has to be typed or stored.
+  const appResp = await fetch(
+    `https://graph.facebook.com/v21.0/app?access_token=${encodeURIComponent(userToken)}`,
+  );
+  const app = await appResp.json();
+  if (!appResp.ok || !app?.id) {
+    throw new Error(`הטוקן לא זוהה: ${app?.error?.message ?? `HTTP ${appResp.status}`}`);
+  }
+
+  const longResp = await fetch(
+    `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token` +
+      `&client_id=${encodeURIComponent(String(app.id))}` +
+      `&client_secret=${encodeURIComponent(appSecret)}` +
+      `&fb_exchange_token=${encodeURIComponent(userToken)}`,
+  );
+  const long = await longResp.json();
+  if (!longResp.ok || !long?.access_token) {
+    throw new Error(`ההארכה נכשלה: ${long?.error?.message ?? `HTTP ${longResp.status}`}`);
+  }
+
+  // The page's own token, derived from a long-lived user token, never expires.
+  const pagesResp = await fetch(
+    `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token&limit=100` +
+      `&access_token=${encodeURIComponent(String(long.access_token))}`,
+  );
+  const pages = await pagesResp.json();
+  if (!pagesResp.ok) {
+    throw new Error(`קריאת העמודים נכשלה: ${pages?.error?.message ?? `HTTP ${pagesResp.status}`}`);
+  }
+  const page = ((pages?.data ?? []) as any[]).find((p) => String(p.id) === String(pageId));
+  if (!page?.access_token) {
+    const names = ((pages?.data ?? []) as any[]).map((p) => `${p.name} (${p.id})`).join(", ");
+    throw new Error(`העמוד ${pageId} לא נמצא בין העמודים של הטוקן. נמצאו: ${names || "אף עמוד"}`);
+  }
+
+  // Both rows carry the same page token: Instagram is reached through the page.
+  for (const platform of ["facebook", "instagram"]) {
+    const { data: row } = await supabase
+      .from("social_accounts")
+      .select("credentials")
+      .eq("platform", platform)
+      .maybeSingle();
+    if (!row) continue;
+    await supabase
+      .from("social_accounts")
+      .update({
+        credentials: { ...(row.credentials ?? {}), access_token: page.access_token },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("platform", platform);
+  }
+
+  // Report back what was stored, by its properties rather than its value.
+  const debugResp = await fetch(
+    `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(page.access_token)}` +
+      `&access_token=${encodeURIComponent(`${app.id}|${appSecret}`)}`,
+  );
+  const debug = await debugResp.json().catch(() => ({}));
+  const info = debug?.data ?? {};
+  return {
+    page: page.name,
+    expiresAt: info.expires_at ? new Date(Number(info.expires_at) * 1000).toISOString() : "never",
+    scopes: (info.scopes ?? []) as string[],
+  };
 }
 
 serve(async (req) => {
@@ -78,6 +282,13 @@ serve(async (req) => {
         }
       }
 
+      // The other half of the subscription, and the one that is easy to miss:
+      // the page being subscribed to the app says nothing about the app being
+      // subscribed to an object's fields. Both have to be true for a single
+      // comment to be delivered, and only this call can tell them apart.
+      const appSubscriptions = await readAppSubscriptions(facebook);
+      const tokenInfo = await readTokenScopes(facebook);
+
       return json({
         ok: true,
         webhookUrl: WEBHOOK_URL,
@@ -87,6 +298,8 @@ serve(async (req) => {
         instagramConnected: !!(accounts.instagram?.credentials.ig_user_id),
         subscribedFields,
         subscriptionError,
+        ...appSubscriptions,
+        ...tokenInfo,
       });
     }
 
@@ -108,7 +321,37 @@ serve(async (req) => {
           400,
         );
       }
-      return json({ ok: true, subscribed: FIELDS.split(",") });
+
+      // Half two: the app's own subscription to each object's fields. Without
+      // it the page is subscribed to an app that asked for nothing, and not a
+      // single comment is ever delivered — with no error anywhere to say so.
+      const appSecret = await getSecret("META_APP_SECRET");
+      const verifyToken = await getSecret("META_VERIFY_TOKEN");
+      const objects: { object: string; ok: boolean; fields: string; error?: string }[] = [];
+      if (!appSecret || !verifyToken) {
+        return json({
+          error: "העמוד חובר, אבל חסרים App Secret או Verify Token — בלעדיהם אי אפשר לרשום את השדות",
+        }, 400);
+      }
+      const appResp = await fetch(
+        `https://graph.facebook.com/v21.0/app?access_token=${encodeURIComponent(token)}`,
+      );
+      const app = await appResp.json();
+      if (!appResp.ok || !app?.id) {
+        return json({ error: `לא הצלחתי לזהות את האפליקציה: ${app?.error?.message ?? appResp.status}` }, 400);
+      }
+      for (const object of Object.keys(OBJECT_FIELDS)) {
+        objects.push(await subscribeAppToObject(String(app.id), appSecret, verifyToken, object));
+      }
+
+      const failed = objects.filter((o) => !o.ok);
+      if (failed.length > 0) {
+        return json(
+          { error: failed.map((f) => `${f.object}: ${f.error}`).join(" · ") },
+          400,
+        );
+      }
+      return json({ ok: true, subscribed: FIELDS.split(","), objects });
     }
 
     // ---------- dry run of the matcher ----------
@@ -141,6 +384,19 @@ serve(async (req) => {
         }
       }
       return json({ ok: true, matched: false, checked: rules.length });
+    }
+
+    // ---------- a page token that does not expire ----------
+    if (action === "exchangeToken") {
+      const userToken = String(body?.userToken ?? "").trim();
+      if (!userToken) return json({ error: "חסר טוקן משתמש" }, 400);
+      if (!facebook.page_id) return json({ error: "חסר Page ID בכרטיס הרשתות" }, 400);
+      try {
+        const result = await exchangeForPageToken(supabase, userToken, facebook.page_id);
+        return json({ ok: true, ...result });
+      } catch (e) {
+        return json({ error: (e as Error).message }, 400);
+      }
     }
 
     return json({ error: `פעולה לא מוכרת: ${action}` }, 400);

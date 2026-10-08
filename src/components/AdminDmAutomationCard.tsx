@@ -74,7 +74,18 @@ type Check = {
   instagramConnected: boolean;
   subscribedFields: string[] | null;
   subscriptionError: string | null;
+  appSubscriptions: Record<string, { fields: string[]; callbackUrl: string; active: boolean }> | null;
+  scopes: string[] | null;
+  tokenExpiresAt?: string;
 };
+
+/** What a working setup needs on the token and on each webhook object. */
+const NEEDED_SCOPES = [
+  "pages_manage_metadata",
+  "pages_messaging",
+  "instagram_manage_comments",
+  "instagram_manage_messages",
+];
 
 const PLATFORM_LABEL: Record<string, string> = {
   instagram: "אינסטגרם",
@@ -99,6 +110,8 @@ const AdminDmAutomationCard = () => {
   const [secretDrafts, setSecretDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [userToken, setUserToken] = useState("");
+  const [exchanging, setExchanging] = useState(false);
   const [testText, setTestText] = useState("");
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
@@ -191,6 +204,30 @@ const AdminDmAutomationCard = () => {
     }
   };
 
+  const exchangeToken = async () => {
+    setExchanging(true);
+    try {
+      const data = await invokeEdge<{ page: string; expiresAt: string; scopes: string[] }>(
+        "meta-automations",
+        { action: "exchangeToken", userToken: userToken.trim() },
+      );
+      setUserToken("");
+      toast({
+        title: "הטוקן הוחלף",
+        description: `${data.page} · תפוגה: ${data.expiresAt === "never" ? "לא פג" : new Date(data.expiresAt).toLocaleString("he-IL")}`,
+      });
+      await load();
+    } catch (error) {
+      toast({
+        title: "ההחלפה נכשלה",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    } finally {
+      setExchanging(false);
+    }
+  };
+
   const runTest = async () => {
     setTesting(true);
     setTestResult(null);
@@ -241,10 +278,21 @@ const AdminDmAutomationCard = () => {
     toast({ title: "הועתק" });
   };
 
+  const missingScopes = NEEDED_SCOPES.filter((p) => check?.scopes && !check.scopes.includes(p));
+  const tokenLooksPermanent = check?.tokenExpiresAt === "never";
+
+  // The app's own subscription is the half that used to be invisible: a page
+  // can be subscribed to an app that asked for no fields, and nothing anywhere
+  // says so.
+  const appFieldsOk =
+    (check?.appSubscriptions?.page?.fields?.includes("feed") ?? false) &&
+    (check?.appSubscriptions?.instagram?.fields?.includes("comments") ?? false);
+
   const ready =
     !!check?.appSecretSet &&
     !!check?.verifyTokenSet &&
-    !!check?.subscribedFields?.includes("feed");
+    !!check?.subscribedFields?.includes("feed") &&
+    appFieldsOk;
 
   const Step = ({ done, children }: { done: boolean; children: React.ReactNode }) => (
     <div className="flex items-start gap-2 text-sm">
@@ -340,6 +388,44 @@ const AdminDmAutomationCard = () => {
             </div>
           </Step>
 
+          <Step done={tokenLooksPermanent && missingScopes.length === 0}>
+            <p>
+              טוקן עמוד שלא פג, עם ההרשאות שהאוטומציה צריכה.
+              {check?.tokenExpiresAt && check.tokenExpiresAt !== "never" && (
+                <span className="text-destructive">
+                  {" "}הטוקן הנוכחי פג ב-{new Date(check.tokenExpiresAt).toLocaleString("he-IL")}.
+                </span>
+              )}
+              {missingScopes.length > 0 && (
+                <span className="text-destructive"> חסרות הרשאות: <span dir="ltr">{missingScopes.join(", ")}</span>.</span>
+              )}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              ב-Graph API Explorer הפק <b>User Token</b> עם ההרשאות, הדבק אותו כאן, ואני מאריך אותו
+              ושומר את טוקן העמוד הקבוע בשתי הרשתות. טוקן שמודבק ישירות מה-Explorer פג בתוך שעה.
+            </p>
+            <div className="mt-2 flex gap-1.5">
+              <Input
+                type="password"
+                dir="ltr"
+                className="h-8 text-xs"
+                placeholder="User Token מה-Graph API Explorer"
+                value={userToken}
+                onChange={(e) => setUserToken(e.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 shrink-0 gap-1 px-2 text-xs"
+                disabled={exchanging || !userToken.trim()}
+                onClick={exchangeToken}
+              >
+                {exchanging ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                החלף לקבוע
+              </Button>
+            </div>
+          </Step>
+
           <Step done={!!check?.subscribedFields?.includes("feed")}>
             <div className="flex flex-wrap items-center gap-2">
               <span>הרשמת העמוד לקבלת התגובות שלו</span>
@@ -359,6 +445,14 @@ const AdminDmAutomationCard = () => {
                 חבר עכשיו
               </Button>
             </div>
+            {check?.appSubscriptions && (
+              <p className="mt-1 text-[11px] text-muted-foreground" dir="ltr">
+                {Object.entries(check.appSubscriptions)
+                  .filter(([object]) => object === "page" || object === "instagram")
+                  .map(([object, info]) => `${object}: ${info.fields.join("/") || "—"}`)
+                  .join("  ·  ")}
+              </p>
+            )}
             {check?.subscriptionError && (
               <p className="mt-1 text-xs text-destructive">{check.subscriptionError}</p>
             )}

@@ -279,25 +279,35 @@ export async function sendPrivateReply(
   commentId: string,
   text: string,
 ): Promise<string> {
-  const id = platform === "instagram" ? creds.ig_user_id : creds.page_id;
-  if (!id) throw new Error(`חסר מזהה חשבון ל${platform}`);
-  const token = platform === "facebook" ? await fbPageToken(creds) : creds.access_token;
+  const token = await fbPageToken(creds);
 
-  const resp = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      recipient: { comment_id: commentId },
-      message: { text },
-      ...(platform === "facebook" ? { messaging_type: "RESPONSE" } : {}),
-      access_token: token,
-    }),
-  });
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    throw new Error(`private reply ${resp.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 200)}`);
+  // Instagram messaging has been documented on two different nodes — the
+  // Instagram account and the page it is connected to — and which one an app
+  // may use depends on how its Instagram product was set up. Both are tried,
+  // because the refusal is the same opaque "(#3) does not have the capability"
+  // either way and only an attempt tells them apart.
+  const nodes = platform === "instagram"
+    ? [creds.ig_user_id, creds.page_id].filter(Boolean)
+    : [creds.page_id].filter(Boolean);
+  if (nodes.length === 0) throw new Error(`חסר מזהה חשבון ל${platform}`);
+
+  const failures: string[] = [];
+  for (const id of nodes) {
+    const resp = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: { text },
+        ...(platform === "facebook" ? { messaging_type: "RESPONSE" } : {}),
+        access_token: token,
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok) return String(data?.message_id ?? data?.id ?? "");
+    failures.push(`${id}: ${resp.status} ${data?.error?.message ?? JSON.stringify(data).slice(0, 150)}`);
   }
-  return String(data?.message_id ?? data?.id ?? "");
+  throw new Error(`private reply — ${failures.join(" | ")}`);
 }
 
 /**
