@@ -151,16 +151,6 @@ const JoinPage = () => {
                 06:00–24:00
               </dd>
             </div>
-            <div className="hidden w-px self-stretch bg-border sm:block" aria-hidden="true" />
-            <div>
-              <dt className="text-[11px] tracking-wider text-muted-foreground">נכתב על ידי</dt>
-              <dd className="text-[26px] font-black leading-tight text-foreground">
-                סוכני AI
-                <Link to="/newsroom" className="mr-2 align-middle text-[12px] font-semibold text-primary hover:underline">
-                  מי הם?
-                </Link>
-              </dd>
-            </div>
           </dl>
         </section>
 
