@@ -108,19 +108,16 @@ export function withCtaLine(text: string, cta: string): string {
 }
 
 /**
- * The private reply, split in two: the words, and then the link by itself.
+ * The private reply: the words, a blank line, and the link alone on the last
+ * line.
  *
- * A link inside a paragraph is not reliably recognised by Messenger or
- * Instagram — the article's Hebrew slug stops their detector, and the
- * percent-encoded form fares no better — while a message whose whole body is
- * the address is linked and given a preview card. So {link} is removed from
- * the text and sent after it as a message of its own.
+ * That separation is what makes it a link. Messenger and Instagram stop
+ * detecting an address at the first non-Latin character, so the article's
+ * Hebrew slug has to stand on its own line for them to take all of it.
+ * Percent-encoding it was tried and did not help; sending the link as a second
+ * message worked but read worse.
  */
-export function renderMessage(
-  template: string,
-  article: { title: string },
-  link: string,
-): { body: string; link: string } {
+export function renderMessage(template: string, article: { title: string }, link: string): string {
   const body = template
     .replaceAll("{title}", article.title)
     .replaceAll("{link}", "")
@@ -129,7 +126,7 @@ export function renderMessage(
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return { body: body || article.title, link };
+  return `${body || article.title}\n\n${link}`;
 }
 
 // ---------------------------------------------------------------- keywords
