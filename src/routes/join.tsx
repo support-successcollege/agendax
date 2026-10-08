@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import JoinPage from "@/pages/Join";
-import { categoriesQueryOptions } from "@/lib/queries";
+import { articlesQueryOptions, categoriesQueryOptions } from "@/lib/queries";
 
 const SITE_URL = "https://agendax.co.il";
 const TITLE = "הצטרפו ל-Agendax | ערוץ וואטסאפ וניוזלטר";
@@ -9,7 +9,13 @@ const DESCRIPTION =
 
 export const Route = createFileRoute("/join")({
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(categoriesQueryOptions());
+    // The page argues with real headlines — the message preview and the list of
+    // what went out — so they belong in the prerendered HTML, not in a flash
+    // after hydration.
+    await Promise.all([
+      context.queryClient.ensureQueryData(categoriesQueryOptions()),
+      context.queryClient.ensureQueryData(articlesQueryOptions()),
+    ]);
   },
   head: () => ({
     meta: [
