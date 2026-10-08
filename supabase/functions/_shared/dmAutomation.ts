@@ -38,7 +38,7 @@ export type AutomationSettings = {
 };
 
 const DEFAULT_TEMPLATE =
-  "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}\n\nאם בא לך עוד כאלה כל יום — agendax.co.il/join";
+  "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}";
 
 export async function loadAutomationSettings(supabase: any): Promise<AutomationSettings> {
   const { data } = await supabase

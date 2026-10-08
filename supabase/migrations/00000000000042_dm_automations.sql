@@ -99,7 +99,7 @@ alter table public.social_settings
   add column if not exists dm_window_days int not null default 7
       check (dm_window_days between 1 and 7),
   add column if not exists dm_message_template text not null default
-      E'היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}\n\nאם בא לך עוד כאלה כל יום — agendax.co.il/join';
+      E'היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}';
 
 comment on column public.social_settings.dm_automation is
   'Meta: פוסט נושא "הגיבו <מילה>" ומי שמגיב מקבל את הקישור בפרטי';

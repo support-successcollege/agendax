@@ -101,7 +101,7 @@ const DEFAULTS: Settings = {
   dm_automation: false,
   dm_public_reply: true,
   dm_window_days: 7,
-  dm_message_template: "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}\n\nאם בא לך עוד כאלה כל יום — agendax.co.il/join",
+  dm_message_template: "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}",
 };
 
 const AdminDmAutomationCard = () => {
