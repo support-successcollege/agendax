@@ -64,13 +64,23 @@ async function handleEvent(
   }
 
   const title = titles.get(hit.rule.article_id) ?? "";
-  const text = renderMessage(hit.rule.message, { title }, hit.rule.link_url);
+  const { link, body } = renderMessage(hit.rule.message, { title }, hit.rule.link_url);
 
   try {
     if (event.kind === "comment") {
-      await sendPrivateReply(event.network, creds, event.eventId, text);
+      // The link goes out as the private reply itself, so it arrives first and
+      // alone. Meta allows one private reply per comment, so the words that
+      // follow are addressed to the person — and only the reply's own answer
+      // names them in the scope the messaging API accepts.
+      const { recipientId } = await sendPrivateReply(event.network, creds, event.eventId, link);
+      if (recipientId) {
+        await sendDirectMessage(event.network, creds, recipientId, body);
+      } else {
+        console.error("no recipient id came back; the link is out but the message is not");
+      }
     } else {
-      await sendDirectMessage(event.network, creds, event.senderId, text);
+      await sendDirectMessage(event.network, creds, event.senderId, link);
+      await sendDirectMessage(event.network, creds, event.senderId, body);
     }
     await finish({ matched: true, sent: true, automation_id: hit.rule.id });
     await supabase.rpc("bump_automation", { p_id: hit.rule.id, p_sent: true });
