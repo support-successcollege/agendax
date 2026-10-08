@@ -151,7 +151,7 @@ async function publishStory(
           platform: storyPlatform as "facebook_story" | "instagram_story",
           postExternalId: externalId,
           keywords: dmPlan.keywords,
-          link: `${SITE_URL}/article/${encodeURIComponent(article.slug || article.id)}`,
+          link: `${SITE_URL}/article/${article.slug || article.id}`,
           settings: dmSettings,
         });
       } catch (e) {
@@ -315,10 +315,7 @@ async function publishOne(
           platform: account.platform as "facebook" | "instagram",
           postExternalId: externalId,
           keywords: dmPlan.keywords,
-          // Percent-encoded: a Hebrew slug is not recognised as a link by
-          // Messenger or Instagram, and the reader is sent plain text they
-          // cannot tap.
-          link: `${SITE_URL}/article/${encodeURIComponent(article.slug || article.id)}`,
+          link: `${SITE_URL}/article/${article.slug || article.id}`,
           settings: dmSettings,
         });
       } catch (e) {

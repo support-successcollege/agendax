@@ -64,13 +64,26 @@ async function handleEvent(
   }
 
   const title = titles.get(hit.rule.article_id) ?? "";
-  const text = renderMessage(hit.rule.message, { title }, hit.rule.link_url);
+  const { body, link } = renderMessage(hit.rule.message, { title }, hit.rule.link_url);
 
   try {
     if (event.kind === "comment") {
-      await sendPrivateReply(event.network, creds, event.eventId, text);
+      const { recipientId } = await sendPrivateReply(event.network, creds, event.eventId, body);
+      // The link travels as its own message, which is the only form Meta
+      // reliably turns into something tappable. A private reply is allowed
+      // once per comment, so the second message goes to the person the first
+      // one opened a conversation with. If their id did not come back, the
+      // link is better appended than lost.
+      if (link) {
+        if (recipientId) {
+          await sendDirectMessage(event.network, creds, recipientId, link);
+        } else {
+          console.error("no recipient id came back; the link cannot be sent separately");
+        }
+      }
     } else {
-      await sendDirectMessage(event.network, creds, event.senderId, text);
+      await sendDirectMessage(event.network, creds, event.senderId, body);
+      if (link) await sendDirectMessage(event.network, creds, event.senderId, link);
     }
     await finish({ matched: true, sent: true, automation_id: hit.rule.id });
     await supabase.rpc("bump_automation", { p_id: hit.rule.id, p_sent: true });

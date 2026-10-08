@@ -107,10 +107,29 @@ export function withCtaLine(text: string, cta: string): string {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** Fills {title} / {link} (and tolerates a template that mentions neither). */
-export function renderMessage(template: string, article: { title: string }, link: string): string {
-  const filled = template.replaceAll("{title}", article.title).replaceAll("{link}", link);
-  return filled.includes(link) ? filled : `${filled}\n${link}`;
+/**
+ * The private reply, split in two: the words, and then the link by itself.
+ *
+ * A link inside a paragraph is not reliably recognised by Messenger or
+ * Instagram — the article's Hebrew slug stops their detector, and the
+ * percent-encoded form fares no better — while a message whose whole body is
+ * the address is linked and given a preview card. So {link} is removed from
+ * the text and sent after it as a message of its own.
+ */
+export function renderMessage(
+  template: string,
+  article: { title: string },
+  link: string,
+): { body: string; link: string } {
+  const body = template
+    .replaceAll("{title}", article.title)
+    .replaceAll("{link}", "")
+    // The placeholder usually sits on its own line; taking it out must not
+    // leave a hole in the middle of the message.
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { body: body || article.title, link };
 }
 
 // ---------------------------------------------------------------- keywords
@@ -278,7 +297,7 @@ export async function sendPrivateReply(
   creds: Record<string, string>,
   commentId: string,
   text: string,
-): Promise<string> {
+): Promise<{ messageId: string; recipientId: string }> {
   const token = await fbPageToken(creds);
 
   // Instagram messaging has been documented on two different nodes — the
@@ -304,7 +323,14 @@ export async function sendPrivateReply(
       }),
     });
     const data = await resp.json().catch(() => ({}));
-    if (resp.ok) return String(data?.message_id ?? data?.id ?? "");
+    if (resp.ok) {
+      return {
+        messageId: String(data?.message_id ?? data?.id ?? ""),
+        // Only the reply's answer carries the person's id in the form the
+        // messaging API accepts; the id on the comment is a different scope.
+        recipientId: String(data?.recipient_id ?? ""),
+      };
+    }
     failures.push(`${id}: ${resp.status} ${data?.error?.message ?? JSON.stringify(data).slice(0, 150)}`);
   }
   throw new Error(`private reply — ${failures.join(" | ")}`);
