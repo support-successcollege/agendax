@@ -35,7 +35,13 @@ export type AutomationSettings = {
   dm_public_reply: boolean;
   dm_window_days: number;
   dm_message_template: string;
+  /** text = the link on the last line; button = a labelled control. */
+  dm_message_format: "text" | "button";
+  dm_button_label: string;
 };
+
+/** What Meta's send API accepts as a message: plain words, or a template. */
+export type MessageBody = { text: string } | { attachment: Record<string, unknown> };
 
 const DEFAULT_TEMPLATE =
   "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}";
@@ -43,7 +49,7 @@ const DEFAULT_TEMPLATE =
 export async function loadAutomationSettings(supabase: any): Promise<AutomationSettings> {
   const { data } = await supabase
     .from("social_settings")
-    .select("dm_automation, dm_public_reply, dm_window_days, dm_message_template")
+    .select("dm_automation, dm_public_reply, dm_window_days, dm_message_template, dm_message_format, dm_button_label")
     .eq("id", 1)
     .maybeSingle();
   return {
@@ -51,6 +57,8 @@ export async function loadAutomationSettings(supabase: any): Promise<AutomationS
     dm_public_reply: data?.dm_public_reply ?? true,
     dm_window_days: Number(data?.dm_window_days) || 7,
     dm_message_template: String(data?.dm_message_template || "").trim() || DEFAULT_TEMPLATE,
+    dm_message_format: data?.dm_message_format === "button" ? "button" : "text",
+    dm_button_label: String(data?.dm_button_label || "").trim() || "לכתבה המלאה",
   };
 }
 
@@ -121,6 +129,40 @@ export function withCtaLine(text: string, cta: string): string {
  * published at its Hebrew headline; /a/<code> survives that, inside a message
  * as well as alone.
  */
+/**
+ * The reply as Meta's API wants it, in whichever of the two forms is chosen,
+ * plus the text form to fall back on.
+ *
+ * A button is the better read — the article sits behind a labelled control and
+ * nothing depends on Meta recognising a link — but it is the less-travelled
+ * path on Instagram, so a refusal must not cost the reader their answer.
+ */
+export function buildMessage(
+  settings: AutomationSettings,
+  article: { title: string },
+  link: string,
+): { primary: MessageBody; fallback: MessageBody | null } {
+  const text = renderMessage(settings.dm_message_template, article, link);
+  if (settings.dm_message_format !== "button") return { primary: { text }, fallback: null };
+
+  // The words without the address: the button carries it. Instagram caps the
+  // template's text at 640 characters.
+  const words = renderMessage(settings.dm_message_template, article, "").trim().slice(0, 640);
+  return {
+    primary: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text: words || article.title,
+          buttons: [{ type: "web_url", url: link, title: settings.dm_button_label.slice(0, 20) }],
+        },
+      },
+    },
+    fallback: { text },
+  };
+}
+
 export function renderMessage(template: string, article: { title: string }, link: string): string {
   const body = template
     .replaceAll("{title}", article.title)
@@ -130,7 +172,8 @@ export function renderMessage(template: string, article: { title: string }, link
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return `${body || article.title}\n\n${link}`;
+  const words = body || article.title;
+  return link ? `${words}\n\n${link}` : words;
 }
 
 // ---------------------------------------------------------------- keywords
@@ -297,9 +340,9 @@ export async function sendPrivateReply(
   platform: "instagram" | "facebook",
   creds: Record<string, string>,
   commentId: string,
-  text: string,
+  message: MessageBody,
 ): Promise<{ messageId: string; recipientId: string }> {
-  return await send(platform, creds, { comment_id: commentId }, text, "private reply");
+  return await send(platform, creds, { comment_id: commentId }, message, "private reply");
 }
 
 /**
@@ -314,7 +357,7 @@ async function send(
   platform: "instagram" | "facebook",
   creds: Record<string, string>,
   recipient: Record<string, string>,
-  text: string,
+  message: MessageBody,
   what: string,
 ): Promise<{ messageId: string; recipientId: string }> {
   const token = await fbPageToken(creds);
@@ -329,7 +372,7 @@ async function send(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipient,
-        message: { text },
+        message,
         ...(platform === "facebook" ? { messaging_type: "RESPONSE" } : {}),
         access_token: token,
       }),
@@ -356,9 +399,9 @@ export async function sendDirectMessage(
   platform: "instagram" | "facebook",
   creds: Record<string, string>,
   recipientId: string,
-  text: string,
+  message: MessageBody,
 ): Promise<string> {
-  const { messageId } = await send(platform, creds, { id: recipientId }, text, "direct message");
+  const { messageId } = await send(platform, creds, { id: recipientId }, message, "direct message");
   return messageId;
 }
 

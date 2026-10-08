@@ -6714,6 +6714,8 @@ export type Database = {
           auto_fill: boolean
           auto_stories: boolean
           dm_automation: boolean
+          dm_button_label: string
+          dm_message_format: string
           dm_message_template: string
           dm_public_reply: boolean
           dm_window_days: number
@@ -6727,6 +6729,8 @@ export type Database = {
           auto_fill?: boolean
           auto_stories?: boolean
           dm_automation?: boolean
+          dm_button_label?: string
+          dm_message_format?: string
           dm_message_template?: string
           dm_public_reply?: boolean
           dm_window_days?: number
@@ -6740,6 +6744,8 @@ export type Database = {
           auto_fill?: boolean
           auto_stories?: boolean
           dm_automation?: boolean
+          dm_button_label?: string
+          dm_message_format?: string
           dm_message_template?: string
           dm_public_reply?: boolean
           dm_window_days?: number

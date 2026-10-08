@@ -42,6 +42,8 @@ type Settings = {
   dm_public_reply: boolean;
   dm_window_days: number;
   dm_message_template: string;
+  dm_message_format: "text" | "button";
+  dm_button_label: string;
 };
 
 type Rule = {
@@ -102,6 +104,8 @@ const DEFAULTS: Settings = {
   dm_public_reply: true,
   dm_window_days: 7,
   dm_message_template: "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}",
+  dm_message_format: "text",
+  dm_button_label: "לכתבה המלאה",
 };
 
 const AdminDmAutomationCard = () => {
@@ -123,7 +127,9 @@ const AdminDmAutomationCard = () => {
     const [settingsRes, rulesRes, eventsRes] = await Promise.all([
       supabase
         .from("social_settings")
-        .select("dm_automation, dm_public_reply, dm_window_days, dm_message_template")
+        .select(
+          "dm_automation, dm_public_reply, dm_window_days, dm_message_template, dm_message_format, dm_button_label",
+        )
         .eq("id", 1)
         .maybeSingle(),
       supabase
@@ -143,6 +149,8 @@ const AdminDmAutomationCard = () => {
         dm_public_reply: settingsRes.data.dm_public_reply ?? true,
         dm_window_days: settingsRes.data.dm_window_days ?? 7,
         dm_message_template: settingsRes.data.dm_message_template || DEFAULTS.dm_message_template,
+        dm_message_format: settingsRes.data.dm_message_format === "button" ? "button" : "text",
+        dm_button_label: settingsRes.data.dm_button_label || DEFAULTS.dm_button_label,
       });
     }
     setRules((rulesRes.data ?? []) as unknown as Rule[]);
@@ -500,6 +508,47 @@ const AdminDmAutomationCard = () => {
             />
           </label>
 
+          <div className="space-y-2">
+            <span className="text-sm font-medium">צורת ההודעה</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-0.5 rounded-md border p-0.5">
+                {([
+                  ["text", "קישור בסוף"],
+                  ["button", "כפתור"],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, dm_message_format: value }))}
+                    className={`h-7 rounded px-3 text-sm ${
+                      settings.dm_message_format === value
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </span>
+              {settings.dm_message_format === "button" && (
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">כיתוב הכפתור</span>
+                  <Input
+                    className="h-8 w-44"
+                    maxLength={20}
+                    value={settings.dm_button_label}
+                    onChange={(e) => setSettings((s) => ({ ...s, dm_button_label: e.target.value }))}
+                  />
+                </label>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              "קישור בסוף" הוא מה שנבדק ועובד. "כפתור" נראה טוב יותר ולא תלוי בזיהוי קישור, אבל הוא
+              הנתיב הפחות סלול באינסטגרם — אם מטא תסרב לו, נשלחת אוטומטית גרסת הטקסט ואף קורא לא נשאר
+              בלי תשובה.
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <span className="text-sm font-medium">ההודעה הפרטית</span>
             <Textarea
@@ -508,8 +557,8 @@ const AdminDmAutomationCard = () => {
               onChange={(e) => setSettings((s) => ({ ...s, dm_message_template: e.target.value }))}
             />
             <p className="text-xs text-muted-foreground">
-              <code>{"{title}"}</code> = כותרת הכתבה, <code>{"{link}"}</code> = הקישור אליה. אם הקישור לא
-              מופיע בתבנית הוא יתווסף בסוף.
+              <code>{"{title}"}</code> = כותרת הכתבה, <code>{"{link}"}</code> = הקישור אליה, והוא תמיד
+              מגיע בשורה האחרונה. במצב "כפתור" הקישור יושב על הכפתור והטקסט נשאר בלעדיו.
             </p>
           </div>
 

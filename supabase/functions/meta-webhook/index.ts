@@ -19,7 +19,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { getSecret } from "../_shared/secrets.ts";
 import {
   type AutomationRow,
-  renderMessage,
+  type AutomationSettings,
+  buildMessage,
+  loadAutomationSettings,
   sendDirectMessage,
   sendPrivateReply,
   sendPublicReply,
@@ -32,6 +34,7 @@ async function handleEvent(
   rules: AutomationRow[],
   accounts: Record<Network, Record<string, string> | undefined>,
   titles: Map<string, string>,
+  settings: AutomationSettings,
 ): Promise<string> {
   // The ledger row is the lock. Taken before any match or send, so a retried
   // delivery stops here instead of messaging the person a second time.
@@ -64,13 +67,33 @@ async function handleEvent(
   }
 
   const title = titles.get(hit.rule.article_id) ?? "";
-  const text = renderMessage(hit.rule.message, { title }, hit.rule.link_url);
+  // The rule carries the wording it was armed with; the format is read now, so
+  // switching it in the panel takes effect on the next comment.
+  const { primary, fallback } = buildMessage(
+    { ...settings, dm_message_template: hit.rule.message },
+    { title },
+    hit.rule.link_url,
+  );
+
+  /** The chosen form, and the plain one if Meta will not take it. */
+  const deliver = async (message: typeof primary) => {
+    if (event.kind === "comment") {
+      await sendPrivateReply(event.network, creds, event.eventId, message);
+    } else {
+      await sendDirectMessage(event.network, creds, event.senderId, message);
+    }
+  };
 
   try {
-    if (event.kind === "comment") {
-      await sendPrivateReply(event.network, creds, event.eventId, text);
-    } else {
-      await sendDirectMessage(event.network, creds, event.senderId, text);
+    try {
+      await deliver(primary);
+    } catch (e) {
+      // A template Instagram will not accept must not cost the reader their
+      // answer: the words and the link go out instead, and the panel's choice
+      // is the only thing lost.
+      if (!fallback) throw e;
+      console.error("the button was refused, sending the text form:", (e as Error).message);
+      await deliver(fallback);
     }
     await finish({ matched: true, sent: true, automation_id: hit.rule.id });
     await supabase.rpc("bump_automation", { p_id: hit.rule.id, p_sent: true });
@@ -175,9 +198,10 @@ serve(async (req) => {
 
     // A delivery can carry a batch; the cap keeps one request inside the
     // runtime's budget, and anything beyond it comes back on Meta's retry.
+    const settings = await loadAutomationSettings(supabase);
     const outcomes: string[] = [];
     for (const event of events.slice(0, 20)) {
-      outcomes.push(await handleEvent(supabase, event, rules, accounts, titles));
+      outcomes.push(await handleEvent(supabase, event, rules, accounts, titles, settings));
     }
     console.log(`meta-webhook: ${outcomes.join(", ")}`);
   } catch (e) {
