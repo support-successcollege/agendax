@@ -125,7 +125,7 @@ const need = (creds: Creds, keys: string[], platform: string) => {
  * for its own access_token returns the page token in both cases. Posting
  * always uses the result, so the panel accepts either without ceremony.
  */
-async function fbPageToken(creds: Creds): Promise<string> {
+export async function fbPageToken(creds: Creds): Promise<string> {
   const resp = await fetch(
     `https://graph.facebook.com/v21.0/${creds.page_id}?fields=access_token&access_token=${encodeURIComponent(creds.access_token)}`,
   );

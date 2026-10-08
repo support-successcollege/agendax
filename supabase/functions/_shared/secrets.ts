@@ -22,6 +22,10 @@ const PANEL_KEYS = new Set([
   "OPENAI_API_KEY",
   // Not a key: which provider the model chain tries first.
   "AI_PRIMARY",
+  // Meta's webhook pair: the app secret that signs every delivery, and the
+  // token Meta echoes when the callback URL is registered.
+  "META_APP_SECRET",
+  "META_VERIFY_TOKEN",
 ]);
 
 /** One fetch of the table per worker; a warm worker reuses it. */

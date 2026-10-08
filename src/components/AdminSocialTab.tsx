@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import AdminSocialScheduler from "@/components/AdminSocialScheduler";
 import AdminSocialLinksCard from "@/components/AdminSocialLinksCard";
 import AdminCarouselStudio from "@/components/AdminCarouselStudio";
+import AdminDmAutomationCard from "@/components/AdminDmAutomationCard";
 import {
   Share2,
   Loader2,
@@ -321,6 +322,9 @@ const AdminSocialTab = () => {
           fetchAll();
         }}
       />
+
+      {/* Comment-to-DM, which rides on every Facebook / Instagram post above */}
+      <AdminDmAutomationCard />
 
       {/* Manual publish */}
       <Card>

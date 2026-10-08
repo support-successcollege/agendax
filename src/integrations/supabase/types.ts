@@ -6458,6 +6458,112 @@ export type Database = {
         }
         Relationships: []
       }
+      social_automation_events: {
+        Row: {
+          automation_id: string | null
+          comment_id: string
+          comment_text: string | null
+          created_at: string
+          error: string | null
+          matched: boolean
+          platform: string
+          sender_id: string | null
+          sent: boolean
+        }
+        Insert: {
+          automation_id?: string | null
+          comment_id: string
+          comment_text?: string | null
+          created_at?: string
+          error?: string | null
+          matched?: boolean
+          platform: string
+          sender_id?: string | null
+          sent?: boolean
+        }
+        Update: {
+          automation_id?: string | null
+          comment_id?: string
+          comment_text?: string | null
+          created_at?: string
+          error?: string | null
+          matched?: boolean
+          platform?: string
+          sender_id?: string | null
+          sent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_automation_events_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "social_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_automations: {
+        Row: {
+          article_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          keywords: string[]
+          last_event_at: string | null
+          link_url: string
+          matched_count: number
+          message: string
+          platform: string
+          post_external_id: string | null
+          public_reply: string
+          sent_count: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          keywords?: string[]
+          last_event_at?: string | null
+          link_url?: string
+          matched_count?: number
+          message?: string
+          platform: string
+          post_external_id?: string | null
+          public_reply?: string
+          sent_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          keywords?: string[]
+          last_event_at?: string | null
+          link_url?: string
+          matched_count?: number
+          message?: string
+          platform?: string
+          post_external_id?: string | null
+          public_reply?: string
+          sent_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_automations_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_carousels: {
         Row: {
           article_id: string
@@ -6607,6 +6713,10 @@ export type Database = {
         Row: {
           auto_fill: boolean
           auto_stories: boolean
+          dm_automation: boolean
+          dm_message_template: string
+          dm_public_reply: boolean
+          dm_window_days: number
           id: number
           linkedin_link_in_comment: boolean
           posts_per_day: number
@@ -6616,6 +6726,10 @@ export type Database = {
         Insert: {
           auto_fill?: boolean
           auto_stories?: boolean
+          dm_automation?: boolean
+          dm_message_template?: string
+          dm_public_reply?: boolean
+          dm_window_days?: number
           id?: number
           linkedin_link_in_comment?: boolean
           posts_per_day?: number
@@ -6625,6 +6739,10 @@ export type Database = {
         Update: {
           auto_fill?: boolean
           auto_stories?: boolean
+          dm_automation?: boolean
+          dm_message_template?: string
+          dm_public_reply?: boolean
+          dm_window_days?: number
           id?: number
           linkedin_link_in_comment?: boolean
           posts_per_day?: number
@@ -6901,6 +7019,7 @@ export type Database = {
           weekend_target: number
         }[]
       }
+      bump_automation: { Args: { p_id: string; p_sent: boolean }; Returns: undefined }
       integration_secret_keys: { Args: never; Returns: string[] }
       integration_secrets_status: {
         Args: never

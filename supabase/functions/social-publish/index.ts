@@ -18,6 +18,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { authorize, corsHeaders, json } from "../_shared/ingest.ts";
 import {
+  armAutomation,
+  loadAutomationSettings,
+  planAutomation,
+  withCtaLine,
+} from "../_shared/dmAutomation.ts";
+import {
   SITE_URL,
   generatePostText,
   publishFacebook,
@@ -132,6 +138,26 @@ async function publishStory(
     const { externalId } = account.platform === "facebook"
       ? await publishFacebookStory(account.credentials, { imageUrl: image })
       : await publishInstagramStory(account.credentials, { imageUrl: image });
+    // A story's image is rendered, so it cannot ask for a word — but a reply
+    // to it arrives as a message, and if the reader types the word the
+    // article's post asked for, they get the link. Reuse only: no story ever
+    // invents a keyword nothing on screen mentions.
+    const dmSettings = await loadAutomationSettings(supabase);
+    const dmPlan = await planAutomation(supabase, article, dmSettings, { reuseOnly: true });
+    if (dmPlan && externalId) {
+      try {
+        await armAutomation(supabase, {
+          articleId: article.id,
+          platform: storyPlatform as "facebook_story" | "instagram_story",
+          postExternalId: externalId,
+          keywords: dmPlan.keywords,
+          link: `${SITE_URL}/article/${article.slug || article.id}`,
+          settings: dmSettings,
+        });
+      } catch (e) {
+        console.error(`DM AUTOMATION NOT ARMED: ${storyPlatform} ${externalId} —`, (e as Error).message);
+      }
+    }
     await supabase.from("social_posts").upsert(
       { article_id: article.id, platform: storyPlatform, status: "posted", external_id: externalId, post_text: null, error: null },
       { onConflict: "article_id,platform" },
@@ -238,6 +264,15 @@ async function publishOne(
     // Link-in-comment: no URL in the body (a prepared text may still carry
     // one), and the "link in the first comment" footer.
     if (linkInComment) text = withLinkInCommentFooter(text);
+
+    // Comment-to-DM (Meta only): the post asks for a word, and the rule that
+    // answers it is armed below, once the post has an id to bind it to. The
+    // line is added here so what readers are promised and what the webhook
+    // listens for cannot drift apart.
+    const isMeta = account.platform === "facebook" || account.platform === "instagram";
+    const dmSettings = isMeta ? await loadAutomationSettings(supabase) : null;
+    const dmPlan = dmSettings ? await planAutomation(supabase, article, dmSettings) : null;
+    if (dmPlan) text = withCtaLine(text, dmPlan.cta);
     let externalId = "";
     let warning: string | undefined;
     switch (account.platform) {
@@ -270,6 +305,27 @@ async function publishOne(
         break;
       }
     }
+    // The post is up, so the rule can point at it. A failure to arm leaves the
+    // post carrying a promise nothing will keep, which is worth shouting about
+    // — but not worth marking the post itself as failed.
+    if (dmPlan && dmSettings && externalId) {
+      try {
+        await armAutomation(supabase, {
+          articleId: article.id,
+          platform: account.platform as "facebook" | "instagram",
+          postExternalId: externalId,
+          keywords: dmPlan.keywords,
+          link: `${SITE_URL}/article/${article.slug || article.id}`,
+          settings: dmSettings,
+        });
+      } catch (e) {
+        console.error(
+          `DM AUTOMATION NOT ARMED: ${account.platform} ${externalId} asks for "${dmPlan.keywords[0]}" and nothing will answer —`,
+          (e as Error).message,
+        );
+      }
+    }
+
     // A warning (post live, follow-up comment failed) is kept in `error` for
     // the admin panel to show, while the status stays "posted".
     if (warning) console.error(`${account.platform} warning:`, warning);
@@ -472,6 +528,12 @@ async function publishCarousel(
     ? "הקרוסלה עדיין לא מוכנה — יש שקפים שלא רונדרו"
     : null;
 
+  // One word for the whole carousel, chosen before the first network so both
+  // feeds ask for the same thing.
+  const dmSettings = await loadAutomationSettings(supabase);
+  const dmPlan = notReady ? null : await planAutomation(supabase, article, dmSettings);
+  const caption = dmPlan ? withCtaLine(carousel.caption, dmPlan.cta) : carousel?.caption;
+
   const results: { platform: string; ok: boolean; error?: string }[] = [];
   for (const account of targets) {
     const ledger = `${account.platform}_carousel`;
@@ -487,18 +549,32 @@ async function publishCarousel(
     try {
       const { externalId } = account.platform === "instagram"
         // Instagram captions cannot carry a working link; the last slide says where to go.
-        ? await publishInstagramCarousel(account.credentials, { caption: carousel.caption, imageUrls: urls })
-        : await publishFacebookCarousel(account.credentials, { text: `${carousel.caption}\n\n${link}`, imageUrls: urls });
+        ? await publishInstagramCarousel(account.credentials, { caption, imageUrls: urls })
+        : await publishFacebookCarousel(account.credentials, { text: `${caption}\n\n${link}`, imageUrls: urls });
       await supabase.from("social_posts").upsert(
-        { article_id: article.id, platform: ledger, status: "posted", external_id: externalId, post_text: carousel.caption, error: null },
+        { article_id: article.id, platform: ledger, status: "posted", external_id: externalId, post_text: caption, error: null },
         { onConflict: "article_id,platform" },
       );
+      if (dmPlan && externalId) {
+        try {
+          await armAutomation(supabase, {
+            articleId: article.id,
+            platform: account.platform,
+            postExternalId: externalId,
+            keywords: dmPlan.keywords,
+            link,
+            settings: dmSettings,
+          });
+        } catch (e) {
+          console.error(`DM AUTOMATION NOT ARMED: ${ledger} ${externalId} —`, (e as Error).message);
+        }
+      }
       results.push({ platform: ledger, ok: true });
     } catch (e: any) {
       const message = e?.message || String(e);
       console.error(`${ledger} failed:`, message);
       await supabase.from("social_posts").upsert(
-        { article_id: article.id, platform: ledger, status: "failed", post_text: carousel.caption, error: message.slice(0, 500) },
+        { article_id: article.id, platform: ledger, status: "failed", post_text: caption, error: message.slice(0, 500) },
         { onConflict: "article_id,platform" },
       );
       results.push({ platform: ledger, ok: false, error: message });
