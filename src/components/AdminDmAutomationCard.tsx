@@ -83,6 +83,9 @@ type Check = {
 const NEEDED_SCOPES = [
   "pages_manage_metadata",
   "pages_messaging",
+  // Writing the public reply under a comment on the page's own post. Not
+  // pages_read_engagement, which only reads it.
+  "pages_manage_engagement",
   "instagram_manage_comments",
   "instagram_manage_messages",
 ];

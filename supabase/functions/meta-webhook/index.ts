@@ -146,6 +146,13 @@ serve(async (req) => {
       for (const id of [creds.ig_user_id, creds.page_id]) if (id) ourIds.add(String(id));
     }
 
+    // Instagram is reached through the page it is connected to, and the page's
+    // id lives on the Facebook row. Without it an Instagram send has only one
+    // node to try, and the other one is the node Meta may actually allow.
+    if (accounts.instagram && accounts.facebook?.page_id && !accounts.instagram.page_id) {
+      accounts.instagram = { ...accounts.instagram, page_id: accounts.facebook.page_id };
+    }
+
     const events = extractEvents(payload, ourIds);
     if (events.length === 0) return new Response("ok", { status: 200 });
 
