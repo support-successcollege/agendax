@@ -6715,6 +6715,8 @@ export type Database = {
           auto_stories: boolean
           dm_automation: boolean
           dm_button_label: string
+          dm_follow_button_label: string
+          dm_follow_invite: string
           dm_message_format: string
           dm_message_template: string
           dm_public_reply: boolean
@@ -6730,6 +6732,8 @@ export type Database = {
           auto_stories?: boolean
           dm_automation?: boolean
           dm_button_label?: string
+          dm_follow_button_label?: string
+          dm_follow_invite?: string
           dm_message_format?: string
           dm_message_template?: string
           dm_public_reply?: boolean
@@ -6745,6 +6749,8 @@ export type Database = {
           auto_stories?: boolean
           dm_automation?: boolean
           dm_button_label?: string
+          dm_follow_button_label?: string
+          dm_follow_invite?: string
           dm_message_format?: string
           dm_message_template?: string
           dm_public_reply?: boolean

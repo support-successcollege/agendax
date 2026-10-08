@@ -38,6 +38,9 @@ export type AutomationSettings = {
   /** text = the link on the last line; button = a labelled control. */
   dm_message_format: "text" | "button";
   dm_button_label: string;
+  /** The line inviting the reader to follow. Empty = no invitation. */
+  dm_follow_invite: string;
+  dm_follow_button_label: string;
 };
 
 /** What Meta's send API accepts as a message: plain words, or a template. */
@@ -49,7 +52,9 @@ const DEFAULT_TEMPLATE =
 export async function loadAutomationSettings(supabase: any): Promise<AutomationSettings> {
   const { data } = await supabase
     .from("social_settings")
-    .select("dm_automation, dm_public_reply, dm_window_days, dm_message_template, dm_message_format, dm_button_label")
+    .select(
+      "dm_automation, dm_public_reply, dm_window_days, dm_message_template, dm_message_format, dm_button_label, dm_follow_invite, dm_follow_button_label",
+    )
     .eq("id", 1)
     .maybeSingle();
   return {
@@ -59,6 +64,9 @@ export async function loadAutomationSettings(supabase: any): Promise<AutomationS
     dm_message_template: String(data?.dm_message_template || "").trim() || DEFAULT_TEMPLATE,
     dm_message_format: data?.dm_message_format === "button" ? "button" : "text",
     dm_button_label: String(data?.dm_button_label || "").trim() || "לכתבה המלאה",
+    // No fallback text here: blank is a choice, not a missing value.
+    dm_follow_invite: String(data?.dm_follow_invite ?? "").trim(),
+    dm_follow_button_label: String(data?.dm_follow_button_label || "").trim() || "עקבו אחרינו",
   };
 }
 
@@ -130,6 +138,21 @@ export function withCtaLine(text: string, cta: string): string {
  * as well as alone.
  */
 /**
+ * Where the site says its own Instagram and Facebook accounts are, which is
+ * also what the footer and the floating rail point at — one place to change.
+ */
+export async function profileUrl(supabase: any, network: "instagram" | "facebook"): Promise<string> {
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "social_links")
+    .maybeSingle();
+  const entry = (data?.value as Record<string, { url?: string }> | null)?.[network];
+  const url = String(entry?.url ?? "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+}
+
+/**
  * The reply as Meta's API wants it, in whichever of the two forms is chosen,
  * plus the text form to fall back on.
  *
@@ -141,22 +164,30 @@ export function buildMessage(
   settings: AutomationSettings,
   article: { title: string },
   link: string,
+  follow = "",
 ): { primary: MessageBody; fallback: MessageBody | null } {
-  const text = renderMessage(settings.dm_message_template, article, link);
+  // The invitation to follow goes above the address, never below it: the link
+  // has to be the last line for Messenger and Instagram to take all of it.
+  const invite = settings.dm_follow_invite;
+  const withInvite = (words: string) => (invite ? `${words}\n\n${invite}` : words);
+
+  const text = renderMessage(withInvite(renderMessage(settings.dm_message_template, article, "")), article, link);
   if (settings.dm_message_format !== "button") return { primary: { text }, fallback: null };
 
-  // The words without the address: the button carries it. Instagram caps the
-  // template's text at 640 characters.
-  const words = renderMessage(settings.dm_message_template, article, "").trim().slice(0, 640);
+  // The words without the address: the buttons carry it. Instagram caps the
+  // template's text at 640 characters, and Meta allows three buttons.
+  const words = withInvite(renderMessage(settings.dm_message_template, article, "")).trim().slice(0, 640);
+  const buttons: Record<string, string>[] = [
+    { type: "web_url", url: link, title: settings.dm_button_label.slice(0, 20) },
+  ];
+  if (follow) {
+    buttons.push({ type: "web_url", url: follow, title: settings.dm_follow_button_label.slice(0, 20) });
+  }
   return {
     primary: {
       attachment: {
         type: "template",
-        payload: {
-          template_type: "button",
-          text: words || article.title,
-          buttons: [{ type: "web_url", url: link, title: settings.dm_button_label.slice(0, 20) }],
-        },
+        payload: { template_type: "button", text: words || article.title, buttons },
       },
     },
     fallback: { text },

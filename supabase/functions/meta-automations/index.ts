@@ -13,6 +13,9 @@
 //                              messages (the half of the setup that has an API)
 //   { action: "test", text } — which rule and word this comment would hit;
 //                              sends nothing
+//   { action: "profile", senderId }
+//                            — what Meta will tell us about a commenter,
+//                              including whether they follow the account
 //   { action: "exchangeToken", userToken }
 //                            — turns a short-lived user token from the Graph
 //                              API Explorer into a page token that does not
@@ -384,6 +387,33 @@ serve(async (req) => {
         }
       }
       return json({ ok: true, matched: false, checked: rules.length });
+    }
+
+    // ---------- what Meta knows about a commenter ----------
+    // Asked before anything is built on it: the field that says whether a
+    // person follows the account is documented, but documentation has been a
+    // poor guide to what this app is actually entitled to.
+    if (action === "profile") {
+      const senderId = String(body?.senderId ?? "").trim();
+      if (!senderId) return json({ error: "חסר מזהה משתמש" }, 400);
+      const creds = accounts.instagram?.credentials ?? {};
+      const token = await fbPageToken({ ...creds, page_id: facebook.page_id, access_token: facebook.access_token });
+      const fields = "name,username,profile_pic,follower_count,is_user_follow_business,is_business_follow_user,is_verified_user";
+      const resp = await fetch(
+        `https://graph.facebook.com/v21.0/${encodeURIComponent(senderId)}?fields=${fields}&access_token=${encodeURIComponent(token)}`,
+      );
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        return json({ ok: false, error: data?.error?.message ?? `HTTP ${resp.status}`, code: data?.error?.code }, 200);
+      }
+      // Deliberately not the name or the picture: the question here is only
+      // which fields this app may read.
+      return json({
+        ok: true,
+        fieldsReturned: Object.keys(data),
+        followsUs: data?.is_user_follow_business ?? null,
+        weFollowThem: data?.is_business_follow_user ?? null,
+      });
     }
 
     // ---------- a page token that does not expire ----------

@@ -44,6 +44,8 @@ type Settings = {
   dm_message_template: string;
   dm_message_format: "text" | "button";
   dm_button_label: string;
+  dm_follow_invite: string;
+  dm_follow_button_label: string;
 };
 
 type Rule = {
@@ -106,6 +108,8 @@ const DEFAULTS: Settings = {
   dm_message_template: "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}",
   dm_message_format: "text",
   dm_button_label: "לכתבה המלאה",
+  dm_follow_invite: "עקבו אחרינו כדי לא לפספס את הבאות 👇",
+  dm_follow_button_label: "עקבו אחרינו",
 };
 
 const AdminDmAutomationCard = () => {
@@ -128,7 +132,7 @@ const AdminDmAutomationCard = () => {
       supabase
         .from("social_settings")
         .select(
-          "dm_automation, dm_public_reply, dm_window_days, dm_message_template, dm_message_format, dm_button_label",
+          "dm_automation, dm_public_reply, dm_window_days, dm_message_template, dm_message_format, dm_button_label, dm_follow_invite, dm_follow_button_label",
         )
         .eq("id", 1)
         .maybeSingle(),
@@ -151,6 +155,10 @@ const AdminDmAutomationCard = () => {
         dm_message_template: settingsRes.data.dm_message_template || DEFAULTS.dm_message_template,
         dm_message_format: settingsRes.data.dm_message_format === "button" ? "button" : "text",
         dm_button_label: settingsRes.data.dm_button_label || DEFAULTS.dm_button_label,
+        // Blank is a choice here, so it is kept rather than filled in.
+        dm_follow_invite: settingsRes.data.dm_follow_invite ?? DEFAULTS.dm_follow_invite,
+        dm_follow_button_label:
+          settingsRes.data.dm_follow_button_label || DEFAULTS.dm_follow_button_label,
       });
     }
     setRules((rulesRes.data ?? []) as unknown as Rule[]);
@@ -559,6 +567,34 @@ const AdminDmAutomationCard = () => {
             <p className="text-xs text-muted-foreground">
               <code>{"{title}"}</code> = כותרת הכתבה, <code>{"{link}"}</code> = הקישור אליה, והוא תמיד
               מגיע בשורה האחרונה. במצב "כפתור" הקישור יושב על הכפתור והטקסט נשאר בלעדיו.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium">הזמנה לעקוב</span>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                className="h-9 min-w-[260px] flex-1"
+                placeholder="ריק = בלי הזמנה"
+                value={settings.dm_follow_invite}
+                onChange={(e) => setSettings((s) => ({ ...s, dm_follow_invite: e.target.value }))}
+              />
+              {settings.dm_message_format === "button" && (
+                <Input
+                  className="h-9 w-44"
+                  maxLength={20}
+                  placeholder="כיתוב כפתור העקיבה"
+                  value={settings.dm_follow_button_label}
+                  onChange={(e) => setSettings((s) => ({ ...s, dm_follow_button_label: e.target.value }))}
+                />
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              נוספת מעל הקישור, אף פעם מתחתיו. במצב "כפתור" מתווסף גם כפתור שני שמוביל לחשבון —
+              הכתובת נלקחת מכרטיס "קישורים לרשתות" ואין מה להזין כאן.
+              <br />
+              הכתבה נשלחת תמיד, גם למי שלא עוקב: בדיקת עקיבה חסומה עד שמטא תאשר Advanced Access,
+              ובפייסבוק אין לה מקבילה בכלל.
             </p>
           </div>
 

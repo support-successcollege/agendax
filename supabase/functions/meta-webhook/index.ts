@@ -22,6 +22,7 @@ import {
   type AutomationSettings,
   buildMessage,
   loadAutomationSettings,
+  profileUrl,
   sendDirectMessage,
   sendPrivateReply,
   sendPublicReply,
@@ -35,6 +36,7 @@ async function handleEvent(
   accounts: Record<Network, Record<string, string> | undefined>,
   titles: Map<string, string>,
   settings: AutomationSettings,
+  follows: Record<Network, string>,
 ): Promise<string> {
   // The ledger row is the lock. Taken before any match or send, so a retried
   // delivery stops here instead of messaging the person a second time.
@@ -73,6 +75,7 @@ async function handleEvent(
     { ...settings, dm_message_template: hit.rule.message },
     { title },
     hit.rule.link_url,
+    follows[event.network],
   );
 
   /** The chosen form, and the plain one if Meta will not take it. */
@@ -199,9 +202,15 @@ serve(async (req) => {
     // A delivery can carry a batch; the cap keeps one request inside the
     // runtime's budget, and anything beyond it comes back on Meta's retry.
     const settings = await loadAutomationSettings(supabase);
+    // Only needed for the button form, but read once either way: it is one
+    // row, and the alternative is reading it per comment in a batch.
+    const follows: Record<Network, string> = {
+      instagram: await profileUrl(supabase, "instagram"),
+      facebook: await profileUrl(supabase, "facebook"),
+    };
     const outcomes: string[] = [];
     for (const event of events.slice(0, 20)) {
-      outcomes.push(await handleEvent(supabase, event, rules, accounts, titles, settings));
+      outcomes.push(await handleEvent(supabase, event, rules, accounts, titles, settings, follows));
     }
     console.log(`meta-webhook: ${outcomes.join(", ")}`);
   } catch (e) {
