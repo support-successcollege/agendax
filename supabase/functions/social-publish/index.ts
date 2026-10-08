@@ -59,6 +59,15 @@ const storyAgeHours = (article: { source_published_at?: string | null; published
   if (!when) return 0;
   return (Date.now() - Date.parse(when)) / 3_600_000;
 };
+/**
+ * The address a private message can carry: ASCII and short, because Meta stops
+ * recognising a link at the first non-Latin character and every article's slug
+ * is its Hebrew headline. /a/<code> is rewritten to the `go` function, which
+ * sends the reader on to the real article.
+ */
+const shortLink = (articleId: string, source: string) =>
+  `${SITE_URL}/a/${articleId.slice(0, 8)}?s=${source}`;
+
 const ARTICLE_COLS =
   "id, slug, title, excerpt, category, category_slug, content, image_url, published_at, source_published_at";
 
@@ -151,7 +160,7 @@ async function publishStory(
           platform: storyPlatform as "facebook_story" | "instagram_story",
           postExternalId: externalId,
           keywords: dmPlan.keywords,
-          link: `${SITE_URL}/article/${article.slug || article.id}`,
+          link: shortLink(article.id, account.platform === "instagram" ? "ig-story" : "fb-story"),
           settings: dmSettings,
         });
       } catch (e) {
@@ -315,7 +324,7 @@ async function publishOne(
           platform: account.platform as "facebook" | "instagram",
           postExternalId: externalId,
           keywords: dmPlan.keywords,
-          link: `${SITE_URL}/article/${article.slug || article.id}`,
+          link: shortLink(article.id, account.platform === "instagram" ? "ig" : "fb"),
           settings: dmSettings,
         });
       } catch (e) {
@@ -562,7 +571,7 @@ async function publishCarousel(
             platform: account.platform,
             postExternalId: externalId,
             keywords: dmPlan.keywords,
-            link,
+            link: shortLink(article.id, account.platform === "instagram" ? "ig" : "fb"),
             settings: dmSettings,
           });
         } catch (e) {

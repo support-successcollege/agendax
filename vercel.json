@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bun run build",
   "outputDirectory": "dist/client",
-  "installCommand": "bun install"
+  "installCommand": "bun install",
+  "rewrites": [
+    {
+      "source": "/a/:code",
+      "destination": "https://kjazrljlfreczicstymr.supabase.co/functions/v1/go?code=:code"
+    }
+  ]
 }
