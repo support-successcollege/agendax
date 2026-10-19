@@ -161,7 +161,13 @@ Deno.serve(async (req) => {
     const perDay = Number(settings?.hits_per_day) || 2;
     const minScore = Number(settings?.hit_min_score) || 7;
 
-    const { data: today } = await supabase.from("hit_picks").select("article_id").eq("pick_date", pickDate);
+    // A pick that was skipped or failed never reached the feed, so it does not
+    // spend the day's quota.
+    const { data: today } = await supabase
+      .from("hit_picks")
+      .select("article_id")
+      .eq("pick_date", pickDate)
+      .not("status", "in", "(skipped,failed)");
     const quota = perDay - (today?.length ?? 0);
     if (quota <= 0 && !dryRun) return json({ ok: true, skipped: true, reason: "המכסה היומית כבר מולאה" });
 
