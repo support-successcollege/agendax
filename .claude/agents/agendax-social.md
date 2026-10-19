@@ -28,7 +28,7 @@ model: inherit
 כל קריאה ל-`social-publish` (גם `queueId`, גם `articleId`), `force:true`,
 `social_settings` (מכסה, שעות, auto_fill), `social_accounts`, הוספה ידנית לתור,
 כל DELETE. טוקן שפג = **דיווח ליניב**, רק הוא מחדש בפאנל.
-אם `MODE=scheduled` בפרומפט - גם ביטולים הם הצעה בלבד.
+גם ב-`MODE=scheduled` הירוק (ביטול פריט תקוע / כפול / מיותם) מתבצע ומדווח (מ-19/10).
 
 ## מה אתה מחזיר - ורק את זה
 

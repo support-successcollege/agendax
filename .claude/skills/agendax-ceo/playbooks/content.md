@@ -82,6 +82,26 @@ select net.http_post(
 **קצב:** לפי `select daily_target, weekend_target from ingest_config` (09/09: 2 בחול). לא לקבוע מהזיכרון. אם Q6 מראה
 שהיעד לא הושג יומיים ברצף - זו בעיה של המקורות או של ה-worker, לא של התזמון.
 
+## ארכוב טיוטות ישנות (🟢 מ-19/10/2026)
+
+טיוטה מעל 14 יום, `review_score` 6 ומטה (או ריק), בלי `scheduled_at` - לא תעלה לעולם. ב-19/10 נוקו 121 כאלה
+(167 טיוטות ירדו ל-46). הנוהל, בדיוק ככה:
+
+```sql
+insert into articles_archive (id, title, slug, category, was_draft, published_at, created_at, last_seen_in, versions_found, data)
+select id, title, slug, category, true, published_at, created_at, 'cleanup_' || to_char(now() at time zone 'Asia/Jerusalem', 'YYYYMMDD'), 1, to_jsonb(a)
+  from articles a
+ where is_draft and scheduled_at is null and created_at < now() - interval '14 days' and coalesce(review_score, 0) <= 6
+ order by created_at limit 50
+on conflict (id) do nothing;
+delete from articles a using articles_archive x
+ where x.id = a.id and x.last_seen_in = 'cleanup_' || to_char(now() at time zone 'Asia/Jerusalem', 'YYYYMMDD')
+   and a.is_draft and a.scheduled_at is null;
+```
+
+שחזור: `insert into articles select * from jsonb_populate_record(null::articles, (select data from articles_archive where id = '<id>'));`
+מקסימום 50 בריצה (מגבלת הירוק). מדווחים: "ארכבתי N טיוטות".
+
 ## מה מדווחים
 
 מספרים בלבד + רשימת הכותרות שנערכו + הצעות אדומות ממוספרות. **לא** להחזיר תוכן

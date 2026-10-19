@@ -27,8 +27,8 @@ model: inherit
 
 `set_featured_article()`, `refresh_hero_rotation()`, `hero_rotation`, `editors_picks`
 ידני או `force:true`, `site_settings`, כל קריאה ל-`send-newsletter` (גם עם
-`testEmail`), `index-article`, `submit-sitemap` ידני, שינויי קוד. אם
-`MODE=scheduled` בפרומפט - גם `editors-picks` הוא הצעה בלבד.
+`testEmail`), `index-article`, `submit-sitemap` ידני, שינויי קוד.
+גם ב-`MODE=scheduled` בניית בחירת עורכים חסרה (בלי `force`) היא ירוקה (מ-19/10).
 
 ## כללי ניוזלטר
 

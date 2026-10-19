@@ -28,8 +28,11 @@ model: inherit
 
 `scheduled_at`, `is_draft`, `published_at`, `slug`, `category*`, `image_url` ישיר,
 `is_featured`, `is_breaking`, `author_slug`, כל DELETE, כל עריכה של כתבה חיה,
-עריכת `title`/`excerpt` (של העורך). אם `MODE=scheduled` בפרומפט - גם הרצת
-`article-image` היא הצעה בלבד.
+עריכת `title`/`excerpt` (של העורך).
+
+**ירוק גם ב-`MODE=scheduled` (מ-19/10):** הרצת `article-image`; החלפת `—` ב-`-` ב-`content` של כתבה
+חיה עם `slug = slug`; תיקון קטגוריה יתומה (`technology`/`news` → `hightech`) עם `slug = slug`;
+ארכוב טיוטות לפי `playbooks/content.md`. עד 50 פעולות בריצה.
 
 ## מה אתה מחזיר - ורק את זה
 

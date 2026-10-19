@@ -26,8 +26,10 @@ model: inherit
 
 `cron.schedule` / `cron.unschedule`, `ingest_config`, כל DELETE/DROP (גם גיבויים),
 `apply_migration`, `deploy_edge_function`, `supabase secrets set`, תיקון ממצאי
-advisors, הרצת פונקציות ingest ידנית. אם `MODE=scheduled` בפרומפט - גם כיבוי
-מקורות הוא הצעה בלבד.
+advisors, הרצת פונקציות ingest ידנית.
+
+**ירוק גם ב-`MODE=scheduled` (מ-19/10):** כיבוי מקור שנכשל 3 ימים, כיבוי פיד כפול של אותו
+מפרסם שגורם ל-429, `ingest_items` ב-`processing` מעל 6 שעות → `failed`, מחיקת צפיות localhost.
 
 ## חקירה
 

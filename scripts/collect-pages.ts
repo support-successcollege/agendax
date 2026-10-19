@@ -11,6 +11,8 @@
 type PageEntry = {
   path: string;
   sitemap?: {
+    /** Prerender the page but leave it out of sitemap.xml. */
+    exclude?: boolean;
     priority?: number;
     changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
     lastmod?: string;
@@ -113,8 +115,16 @@ export async function collectPrerenderPages(
     };
   });
 
+  // An empty listing is a thin page: /jobs and /courses are still prerendered
+  // (the navbar links to them) but stay out of the sitemap until they list
+  // something, so Google is not invited to index an empty shelf.
+  const emptyListing = new Set([
+    ...(jobs.length === 0 ? ["/jobs"] : []),
+    ...(courses.length === 0 ? ["/courses"] : []),
+  ]);
+
   const pages: PageEntry[] = [
-    ...STATIC_PAGES,
+    ...STATIC_PAGES.map((page) => (emptyListing.has(page.path) ? { path: page.path, sitemap: { exclude: true } } : page)),
     // Every navbar category is its own page. "home" is the homepage itself.
     ...categories
       .filter((category) => category.slug !== "home")
