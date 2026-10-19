@@ -206,9 +206,12 @@ const DEFAULT_PROXY_HOSTS = [
   "maariv.co.il", "kan.org.il", "funder.co.il", "themarker.com", "calcalist.co.il",
 ];
 
+/** The relay secret, trimmed: pasted values pick up stray whitespace. */
+const proxySecret = () => (Deno.env.get("FETCH_PROXY_SECRET") ?? "").trim();
+
 function proxyTarget(url: string): string | null {
   const base = Deno.env.get("FETCH_PROXY_URL");
-  if (!base || !Deno.env.get("FETCH_PROXY_SECRET")) return null;
+  if (!base || !proxySecret()) return null;
   const hosts = (Deno.env.get("FETCH_PROXY_HOSTS") || "").split(",").map((h) => h.trim()).filter(Boolean);
   const list = hosts.length ? hosts : DEFAULT_PROXY_HOSTS;
   let host: string;
@@ -225,7 +228,7 @@ async function sourceFetch(url: string, init: RequestInit): Promise<Response> {
   const relayed = proxyTarget(url);
   if (!relayed) return await fetch(url, init);
   const headers = new Headers(init.headers);
-  headers.set("x-proxy-secret", Deno.env.get("FETCH_PROXY_SECRET") ?? "");
+  headers.set("x-proxy-secret", proxySecret());
   const resp = await fetch(relayed, { ...init, headers });
   // The relay reports where the redirects ended, so callers that keep the
   // final URL (fetchArticleText) still see the article's own address.

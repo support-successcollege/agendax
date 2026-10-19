@@ -47,8 +47,10 @@ const plain = (status: number, text: string) =>
   new Response(text, { status, headers: { "content-type": "text/plain; charset=utf-8" } });
 
 export async function GET(request: Request): Promise<Response> {
-  const secret = process.env.FETCH_PROXY_SECRET;
-  if (!secret || request.headers.get("x-proxy-secret") !== secret) return plain(401, "unauthorized");
+  // Trimmed on both sides: a value pasted from the clipboard into a dashboard
+  // easily carries a trailing newline on one side and not the other.
+  const secret = (process.env.FETCH_PROXY_SECRET || "").trim();
+  if (!secret || (request.headers.get("x-proxy-secret") || "").trim() !== secret) return plain(401, "unauthorized");
 
   const raw = new URL(request.url).searchParams.get("url") || "";
   let target: URL;
