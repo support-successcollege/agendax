@@ -193,6 +193,47 @@ const BROWSER_HEADERS = {
   "Accept-Language": "en,he;q=0.8",
 };
 
+/**
+ * Hosts whose Cloudflare blocks the Supabase network outright ("Attention
+ * Required", 403 since 06/09/2026) while serving an ordinary connection. For
+ * these, fetches go through the site's Vercel relay (/api/fetch). Set
+ * FETCH_PROXY_URL and FETCH_PROXY_SECRET to switch it on; without them every
+ * fetch stays direct, exactly as before. FETCH_PROXY_HOSTS (comma separated)
+ * overrides the list.
+ */
+const DEFAULT_PROXY_HOSTS = [
+  "geektime.co.il", "timesofisrael.com", "pc.co.il", "israelhayom.co.il", "zman.co.il",
+  "maariv.co.il", "kan.org.il", "funder.co.il", "themarker.com", "calcalist.co.il",
+];
+
+function proxyTarget(url: string): string | null {
+  const base = Deno.env.get("FETCH_PROXY_URL");
+  if (!base || !Deno.env.get("FETCH_PROXY_SECRET")) return null;
+  const hosts = (Deno.env.get("FETCH_PROXY_HOSTS") || "").split(",").map((h) => h.trim()).filter(Boolean);
+  const list = hosts.length ? hosts : DEFAULT_PROXY_HOSTS;
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  return list.some((h) => host === h || host.endsWith(`.${h}`)) ? `${base}?url=${encodeURIComponent(url)}` : null;
+}
+
+/** fetch(), relayed through Vercel for the hosts that block us. */
+async function sourceFetch(url: string, init: RequestInit): Promise<Response> {
+  const relayed = proxyTarget(url);
+  if (!relayed) return await fetch(url, init);
+  const headers = new Headers(init.headers);
+  headers.set("x-proxy-secret", Deno.env.get("FETCH_PROXY_SECRET") ?? "");
+  const resp = await fetch(relayed, { ...init, headers });
+  // The relay reports where the redirects ended, so callers that keep the
+  // final URL (fetchArticleText) still see the article's own address.
+  const finalUrl = resp.headers.get("x-upstream-url");
+  if (finalUrl) Object.defineProperty(resp, "url", { value: finalUrl });
+  return resp;
+}
+
 /** Reads at most `limit` bytes, then closes the stream — a capped feed still
  *  parses, because every item that matters sits at the top of the document. */
 async function readCappedText(resp: Response, limit: number): Promise<string> {
@@ -226,7 +267,7 @@ export async function fetchFeed(
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    const resp = await fetch(feedUrl, { redirect: "follow", signal: ctrl.signal, headers: BROWSER_HEADERS });
+    const resp = await sourceFetch(feedUrl, { redirect: "follow", signal: ctrl.signal, headers: BROWSER_HEADERS });
     clearTimeout(timer);
     if (!resp.ok) {
       await resp.body?.cancel();
@@ -452,7 +493,7 @@ export async function fetchArticleText(
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    const resp = await fetch(url, { redirect: "follow", signal: ctrl.signal, headers: BROWSER_HEADERS });
+    const resp = await sourceFetch(url, { redirect: "follow", signal: ctrl.signal, headers: BROWSER_HEADERS });
     clearTimeout(timer);
     if (!resp.ok) return null;
     const html = await resp.text();
