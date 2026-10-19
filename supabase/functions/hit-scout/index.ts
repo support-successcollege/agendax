@@ -5,7 +5,7 @@
 // carousel brought 30% of all page views — 575 and 218 — while a regular
 // article got 3-5 and a quarter of them got none. The site does not need more
 // articles; it needs the right one pushed hard. So every morning this reads
-// the last day and a half of published articles, scores each for how likely an
+// the last ten hours of published articles, scores each for how likely an
 // Israeli reader is to stop, save and share it, and hands the winners to
 // social-carousel. hit_studio_advance() (SQL, every few minutes) finishes the
 // carousel and puts it in the queue.
@@ -33,6 +33,7 @@ type Candidate = {
   category: string | null;
   image_url: string | null;
   published_at: string;
+  source_published_at: string | null;
 };
 
 type Pick = { id: string; score: number; angle: string; reason: string };
@@ -41,6 +42,14 @@ const israelToday = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
 
 const hoursAgo = (n: number) => new Date(Date.now() - n * 3600_000).toISOString();
+
+/**
+ * How far back to look. social-publish refuses a story older than 24 hours at
+ * its slot (by its source date), and the next hit slot can be up to ~13 hours
+ * away, so a pick older than this would be cancelled at the door. On 19/10
+ * three 36-hour picks were.
+ */
+const FRESH_HOURS = 10;
 
 /** The same test the publish gate uses: a stock photo is not an image. */
 const hasRealImage = (url: string | null) => {
@@ -80,7 +89,7 @@ async function scoreWithModel(
           `- reason: למה היא תעבוד, עד 15 מילים.\n` +
           `אל תמציא עובדות שלא מופיעות בכותרת ובתקציר.`,
       },
-      { role: "user", content: `=== כתבות מ-36 השעות האחרונות ===\n${candidates.map(line).join("\n")}` },
+      { role: "user", content: `=== כתבות מ-${FRESH_HOURS} השעות האחרונות ===\n${candidates.map(line).join("\n")}` },
     ],
     tools: [
       {
@@ -165,14 +174,19 @@ Deno.serve(async (req) => {
 
     const { data: pool, error: poolErr } = await supabase
       .from("articles")
-      .select("id, title, excerpt, category, image_url, published_at")
+      .select("id, title, excerpt, category, image_url, published_at, source_published_at")
       .eq("is_draft", false)
       .neq("category_slug", "marketing")
-      .gte("published_at", hoursAgo(36))
+      .gte("published_at", hoursAgo(FRESH_HOURS))
       .order("published_at", { ascending: false })
       .limit(60);
     if (poolErr) throw new Error(`שליפת הכתבות נכשלה: ${poolErr.message}`);
-    const candidates = ((pool ?? []) as Candidate[]).filter((a) => hasRealImage(a.image_url) && !spent.has(a.id));
+    // Age is judged the way social-publish judges it: by the source's own date
+    // when there is one, so a story we published late is still an old story.
+    const freshSince = hoursAgo(FRESH_HOURS);
+    const candidates = ((pool ?? []) as Candidate[]).filter(
+      (a) => hasRealImage(a.image_url) && !spent.has(a.id) && (a.source_published_at || a.published_at) >= freshSince,
+    );
     if (candidates.length === 0) return json({ ok: true, skipped: true, reason: "אין כתבות מועמדות" });
 
     const { data: winners } = await supabase.rpc("top_articles_human", { p_days: 30, p_limit: 8 });
