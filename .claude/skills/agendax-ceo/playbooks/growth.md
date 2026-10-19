@@ -1,4 +1,34 @@
-# Playbook: צמיחה - תנועה, SEO, עמוד הבית, ניוזלטר
+# Playbook: צמיחה - להיטים, תנועה, SEO, עמוד הבית, ניוזלטר
+
+## להיטים - המנוע הראשי (מ-18/10/2026)
+
+**למה:** ב-30 הימים עד 18/10 שתי כתבות שקיבלו קרוסלה הביאו 30% מכל הצפיות (575 ו-218).
+כתבה רגילה הביאה 3-5, ורבע מהכתבות לא קיבלו אף צפייה. כמות לא מביאה קהל; להיט שדוחפים כן.
+
+**איך זה רץ, לבד:**
+1. `agendax-hit-scout` (cron, 04:00 ו-13:00 UTC) → Edge Function `hit-scout`: נותנת ציון 1-10
+   לכתבות מ-36 השעות האחרונות לפי קריירה / חינם / כסף / שימושי / זווית ישראלית, עם דוגמאות
+   ממה שבאמת עבד (`top_articles_human`). עד `hits_per_day` עם ציון ≥ `hit_min_score` נכנסים
+   ל-`hit_picks`, ולכל אחד נפתחת קרוסלה.
+2. `agendax-hit-studio` (cron, כל דקה) → `hit_studio_advance()`: מקדם את הקרוסלה צעד כל 3 דקות,
+   וכשהיא מוכנה מכניס אותה ל-`social_queue` (kind `carousel`) בשעת להיט פנויה (`hit_slots`,
+   ברירת מחדל 12:15 ו-20:15 ישראל). `social-publish` מפרסם ומוסיף מילת מפתח להודעה פרטית.
+3. ההגדרות ב-`growth_settings` (שורה אחת). שינוי שלהן 🔴.
+
+**מה בודקים בכל ריצה:**
+```sql
+select h.pick_date, a.title, h.score, h.status, h.scheduled_at at time zone 'Asia/Jerusalem' as slot, h.error
+from hit_picks h join articles a on a.id = h.article_id
+where h.pick_date > current_date - 3 order by h.created_at desc;
+```
+- אין בחירה היום אחרי 08:00 ישראל = ה-cron או הפונקציה נכשלו (`query_logs` על `hit-scout`).
+- `status = 'carousel'` יותר מ-90 דקות = הקרוסלה תקועה. `hit_studio_advance()` ירוק להרצה ידנית.
+- `failed` = לראות `error`. ניסיון חוזר: `update hit_picks set status='carousel', error=null where id=...` (🔴).
+
+**מדידה:** תמיד `human_page_views`, לא `page_views` (כשליש בוטים). הדוח השבועי:
+`select growth_weekly_report();` - זה של `agendax-analyst`.
+
+**כותב המדריכים** (`agendax-guides`) - מדריכים שנשארים רלוונטיים, לגוגל ולשיתוף. כותב טיוטות בלבד.
 
 ## תנועה
 

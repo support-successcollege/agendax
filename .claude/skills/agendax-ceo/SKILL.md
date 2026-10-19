@@ -22,11 +22,21 @@ description: מנכ"ל Agendax - הסוכן שמנהל את אתר החדשות 
 | תוכן | `agendax-content` | `playbooks/content.md` | טיוטות, תזמון, איזון קטגוריות, תמונות, תרגומי מכונה |
 | רשתות | `agendax-social` | `playbooks/social.md` | תור הפרסום, כשלים, כיסוי, תמונות פוסט |
 | בריאות | `agendax-health` | `playbooks/health.md` | crons, ingest, מקורות, שגיאות HTTP, גיבויים, advisors |
-| צמיחה | `agendax-growth` | `playbooks/growth.md` | תנועה, SEO, בחירת העורכים, עמוד הבית, ניוזלטר |
+| צמיחה | `agendax-growth` | `playbooks/growth.md` | להיטים, תנועה, SEO, בחירת העורכים, עמוד הבית, ניוזלטר |
 | הנדסה | `agendax-engineer` | `playbooks/engineering.md` | קוד: Edge Functions, מיגרציות, פרונט. רק במשימה מוגדרת |
 | עריכה | `agendax-editor` | `.claude/agents/agendax-editor.md` | ניקוי ועריכת טיוטות. הבעלים היחיד של עריכת תוכן |
+| אנליסט | `agendax-analyst` | `playbooks/growth.md` (להיטים) | דוח צמיחה שבועי מ-`growth_weekly_report()`. קריאה בלבד |
+| מדריכים | `agendax-guides` | `.claude/agents/agendax-guides.md` | מדריכים שנשארים רלוונטיים, לגוגל ולשיתוף. טיוטות בלבד |
 
 ארבע המחלקות הראשונות רצות **במקביל** בכל ריצה יומית. הנדסה ועריכה רצות רק כשיש להן עבודה.
+האנליסט רץ פעם בשבוע (ראשון), והמדריכים לפי בקשה.
+
+**צייד הלהיטים והסטודיו רצים לבד בענן** (`hit-scout` + `hit_studio_advance()`, ראה
+`playbooks/growth.md`). מחלקת הצמיחה בודקת אותם בכל ריצה יומית.
+
+**אם הרישום ל-`manager_runs` נדחה בהרשאות** (קורה בריצה מתוזמנת): שמור את הדוח המלא
+כקובץ `.agendax-run\ceo-reports\YYYY-MM-DD.md` בתוך הריפו (לא מחוץ לו - בקשת הרשאה תוקעת ריצה מתוזמנת), כולל ההצעות עם ה-SQL.
+ראש המטה קורא משם. דוח שלא נשמר באף מקום = ריצה שלא קרתה.
 
 ---
 

@@ -85,6 +85,9 @@ select status_code, left(content, 500) from net._http_response where id = <reque
 | `agendax-sitemap-submit` | `10 4 * * *` | הגשת sitemap לגוגל |
 | `agendax-hero-rotation` | `0 1 * * 0` (ראשון) | `refresh_hero_rotation()` |
 | `agendax-team-digest` | `30 4 * * *` | מייל סיכום לצוות |
+| `agendax-hit-scout` | `0 4,13 * * *` | Edge Function `hit-scout`: בוחר 1-2 להיטים ביום ופותח להם קרוסלה. נוסף 18/10/2026 |
+| `agendax-hit-studio` | `* * * * *` | `hit_studio_advance()`: מקדם קרוסלות של להיטים ומכניס לתור בשעות הלהיטים |
+| `agendax-prune-backups` | `15 1 * * *` | `prune_article_backups()`: מוחק `articles_backup_/snap_YYYYMMDD` בני 7+ ימים (מינימום 7 נשארים), שומר כתבות שנמחקו ב-`articles_archive`, רושם ל-`maintenance_log`. נוסף 18/10/2026 |
 | `agendax-industry-events` (+retry `5 8`) | `20 3 * * *` | איסוף אירועי תעשייה |
 | `agendax-morning-brief` (+retry `10 8`) | `40 3 * * *` | בריף בוקר |
 

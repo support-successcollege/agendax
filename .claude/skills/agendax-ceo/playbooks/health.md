@@ -64,7 +64,7 @@
 | כתבות שנוצרו היום | ≥ `ingest_config.daily_target` (או `weekend_target` בשישי-שבת) |
 | מקורות פעילים | ≥ 800 |
 | `net._http_response` עם 4xx/5xx ב-24ש' | 0 |
-| `articles_backup_*` | ≤ 9 טבלאות |
+| `articles_backup_*` | ≤ 35 טבלאות (`agendax-prune-backups` מוחק כל לילה עותקים בני 7+ ימים; יותר מ-35 = ה-cron נכשל, בדוק `maintenance_log`) |
 
 ## מה מדווחים
 

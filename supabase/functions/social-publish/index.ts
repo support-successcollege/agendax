@@ -592,6 +592,33 @@ async function publishCarousel(
   return results;
 }
 
+/**
+ * LinkedIn lets an unverified member share 5 times a day through the API; the
+ * 6th answers 429 "share limit has been reached for unverified members". From
+ * 09/10 to 18/10/2026 the 19:00 and 21:00 posts failed every single day. So
+ * past the cap LinkedIn is left out of the item quietly — Facebook and
+ * Instagram still go — instead of logging a failure LinkedIn already promised.
+ * social_settings.linkedin_daily_cap overrides it (raise it once the member is
+ * verified; 0 = no cap).
+ */
+const LINKEDIN_DAILY_CAP = 5;
+
+async function linkedinCapReached(supabase: any): Promise<boolean> {
+  const { data: settings } = await supabase.from("social_settings").select("*").eq("id", 1).maybeSingle();
+  const raw = settings?.linkedin_daily_cap;
+  const cap = raw === null || raw === undefined ? LINKEDIN_DAILY_CAP : Number(raw);
+  if (!cap) return false;
+  const { data: recent } = await supabase
+    .from("social_posts")
+    .select("created_at")
+    .eq("platform", "linkedin")
+    .eq("status", "posted")
+    .gte("created_at", new Date(Date.now() - 26 * 3600_000).toISOString());
+  const today = israelDate(new Date());
+  const postedToday = (recent ?? []).filter((r: any) => israelDate(new Date(r.created_at)) === today).length;
+  return postedToday >= cap;
+}
+
 /** Publish one queue item; marks it publishing → posted/failed. */
 async function runQueueItem(supabase: any, item: QueueRow, accounts: Account[]): Promise<any> {
   // Claim it — a second sweep that overlaps must not double-post.
@@ -629,7 +656,10 @@ async function runQueueItem(supabase: any, item: QueueRow, accounts: Account[]):
   const wanted = item.kind === "story" || item.kind === "carousel"
     ? item.platforms.filter((p) => p === "facebook" || p === "instagram")
     : item.platforms;
-  const targets = accounts.filter((a) => a.enabled && wanted.includes(a.platform));
+  let targets = accounts.filter((a) => a.enabled && wanted.includes(a.platform));
+  if (targets.some((a) => a.platform === "linkedin") && await linkedinCapReached(supabase)) {
+    targets = targets.filter((a) => a.platform !== "linkedin");
+  }
   if (targets.length === 0) {
     await finish({ status: "failed", error: "אין פלטפורמות פעילות מבין אלה שנבחרו" });
     return { id: item.id, ok: false, error: "אין פלטפורמות פעילות" };

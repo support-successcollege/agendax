@@ -102,3 +102,8 @@ verify_jwt = false
 # the same as its sibling generate-social-post.
 [functions.generate-whatsapp-post]
 verify_jwt = false
+
+# Daily hit picker: scores the last 36 hours, starts a carousel for the
+# winners. Cron carries the shared secret; cron-or-admin authorized.
+[functions.hit-scout]
+verify_jwt = false

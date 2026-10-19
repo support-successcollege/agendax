@@ -41,6 +41,13 @@ export type AutomationSettings = {
   /** The line inviting the reader to follow. Empty = no invitation. */
   dm_follow_invite: string;
   dm_follow_button_label: string;
+  /**
+   * Where the third button sends a reader who wants more than one article:
+   * the newsletter / WhatsApp signup. Empty = no button. A DM reader already
+   * raised a hand once; this is the cheapest moment to keep them.
+   */
+  dm_join_url: string;
+  dm_join_button_label: string;
 };
 
 /** What Meta's send API accepts as a message: plain words, or a template. */
@@ -50,11 +57,11 @@ const DEFAULT_TEMPLATE =
   "היי! הנה הכתבה המלאה 📩\n\n{title}\n{link}";
 
 export async function loadAutomationSettings(supabase: any): Promise<AutomationSettings> {
+  // "*" rather than a column list: a column this code knows about but the
+  // database does not yet must not turn the whole automation off.
   const { data } = await supabase
     .from("social_settings")
-    .select(
-      "dm_automation, dm_public_reply, dm_window_days, dm_message_template, dm_message_format, dm_button_label, dm_follow_invite, dm_follow_button_label",
-    )
+    .select("*")
     .eq("id", 1)
     .maybeSingle();
   return {
@@ -67,6 +74,8 @@ export async function loadAutomationSettings(supabase: any): Promise<AutomationS
     // No fallback text here: blank is a choice, not a missing value.
     dm_follow_invite: String(data?.dm_follow_invite ?? "").trim(),
     dm_follow_button_label: String(data?.dm_follow_button_label || "").trim() || "עקבו אחרינו",
+    dm_join_url: String(data?.dm_join_url ?? "").trim(),
+    dm_join_button_label: String(data?.dm_join_button_label || "").trim() || "לניוזלטר היומי",
   };
 }
 
@@ -182,6 +191,9 @@ export function buildMessage(
   ];
   if (follow) {
     buttons.push({ type: "web_url", url: follow, title: settings.dm_follow_button_label.slice(0, 20) });
+  }
+  if (settings.dm_join_url && buttons.length < 3) {
+    buttons.push({ type: "web_url", url: settings.dm_join_url, title: settings.dm_join_button_label.slice(0, 20) });
   }
   return {
     primary: {
