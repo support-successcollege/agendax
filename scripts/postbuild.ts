@@ -46,6 +46,19 @@ console.log("[postbuild] index.html -> 404.html");
 //     Google to ignore the signal.
 const SITEMAP_EXCLUDE = [/^\/admin(\/|$)/, /^\/auth(\/|$)/, /^\/reset-password(\/|$)/];
 
+// Pages collect-pages marked `sitemap.exclude` (an empty /jobs or /courses).
+// The crawl rediscovers them as trailing-slash twins with default sitemap
+// settings, so the exclusion has to be applied here, after normalising.
+const excludedPaths = new Set<string>();
+const pagesPath = join(OUT_DIR, "pages.json");
+if (existsSync(pagesPath)) {
+  const data = JSON.parse(await readFile(pagesPath, "utf8"));
+  const list: { path?: string; sitemap?: { exclude?: boolean } }[] = Array.isArray(data) ? data : (data.pages ?? []);
+  for (const page of list) {
+    if (page.sitemap?.exclude && page.path) excludedPaths.add(page.path.replace(/(.)\/$/, "$1"));
+  }
+}
+
 const sitemapPath = join(OUT_DIR, "sitemap.xml");
 if (existsSync(sitemapPath)) {
   const xml = await readFile(sitemapPath, "utf8");
@@ -71,7 +84,7 @@ if (existsSync(sitemapPath)) {
     let path = parsed.pathname;
     if (path !== "/" && path.endsWith("/")) path = path.slice(0, -1);
 
-    if (SITEMAP_EXCLUDE.some((re) => re.test(decodeURIComponent(path)))) {
+    if (SITEMAP_EXCLUDE.some((re) => re.test(decodeURIComponent(path))) || excludedPaths.has(path)) {
       dropped++;
       continue;
     }
