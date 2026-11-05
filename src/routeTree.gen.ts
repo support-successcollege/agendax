@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccessibilityRouteImport } from './routes/accessibility'
-import { Route as AiPolicyRouteImport } from './routes/ai-policy'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as NewsroomRouteImport } from './routes/newsroom'
@@ -46,11 +45,6 @@ const AboutRoute = AboutRouteImport.update({
 const AccessibilityRoute = AccessibilityRouteImport.update({
   id: '/accessibility',
   path: '/accessibility',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AiPolicyRoute = AiPolicyRouteImport.update({
-  id: '/ai-policy',
-  path: '/ai-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -153,7 +147,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
-  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
   '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
@@ -178,7 +171,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
-  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
   '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
@@ -204,7 +196,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/accessibility': typeof AccessibilityRoute
-  '/ai-policy': typeof AiPolicyRoute
   '/auth': typeof AuthRoute
   '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
@@ -231,7 +222,6 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/accessibility'
-    | '/ai-policy'
     | '/auth'
     | '/join'
     | '/newsroom'
@@ -256,7 +246,6 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/accessibility'
-    | '/ai-policy'
     | '/auth'
     | '/join'
     | '/newsroom'
@@ -281,7 +270,6 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/accessibility'
-    | '/ai-policy'
     | '/auth'
     | '/join'
     | '/newsroom'
@@ -307,7 +295,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AccessibilityRoute: typeof AccessibilityRoute
-  AiPolicyRoute: typeof AiPolicyRoute
   AuthRoute: typeof AuthRoute
   JoinRoute: typeof JoinRoute
   NewsroomRoute: typeof NewsroomRoute
@@ -350,13 +337,6 @@ declare module '@tanstack/react-router' {
       path: '/accessibility'
       fullPath: '/accessibility'
       preLoaderRoute: typeof AccessibilityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ai-policy': {
-      id: '/ai-policy'
-      path: '/ai-policy'
-      fullPath: '/ai-policy'
-      preLoaderRoute: typeof AiPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -499,7 +479,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AccessibilityRoute: AccessibilityRoute,
-  AiPolicyRoute: AiPolicyRoute,
   AuthRoute: AuthRoute,
   JoinRoute: JoinRoute,
   NewsroomRoute: NewsroomRoute,

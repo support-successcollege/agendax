@@ -40,7 +40,6 @@ const Footer = () => {
             <li><Link to="/join" className="hover:text-foreground transition-colors">הצטרפו לעדכונים</Link></li>
             <li><Link to="/about" className="hover:text-foreground transition-colors">אודות</Link></li>
             <li><Link to="/newsroom" className="hover:text-foreground transition-colors">חדר החדשות</Link></li>
-            <li><Link to="/ai-policy" className="hover:text-foreground transition-colors">מדיניות AI</Link></li>
             <li><Link to="/privacy" className="hover:text-foreground transition-colors">מדיניות פרטיות</Link></li>
             <li><Link to="/terms" className="hover:text-foreground transition-colors">תנאי שימוש</Link></li>
             <li><Link to="/accessibility" className="hover:text-foreground transition-colors">הצהרת נגישות</Link></li>

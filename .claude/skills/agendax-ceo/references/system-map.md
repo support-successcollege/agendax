@@ -115,9 +115,13 @@ Gemini flash → flash-lite → … → **Claude** (`ANTHROPIC_API_KEY`, `CLAUDE
 
 ## חדר החדשות (authors)
 
-מאז מיגרציות 34-35 לכל כתבה יש `author_slug` שמצביע על `authors` - סוכני כתיבה
-עם שם ישראלי, `kind='agent'`, תחום (`beat`), וקטגוריות. הביילן באתר אומר במפורש
-שזה סוכן. **לא לשנות** `authors` בלי אישור - זה משפיע על כל הכתבות.
+לכל כתבה יש `author_slug` (NOT NULL) שמצביע על `authors`. מאז מיגרציה 49 אין
+סוכני כתיבה: שני סוגים בלבד, `human` (כתב אמיתי) ו-`system` (`agendax`, "חדשות
+AgendaX"). ingest-worker חותם תמיד `agendax`; שם של כתב נכנס לכתבה רק בבחירה ידנית
+בטופס הכתבה. לאף כתב אין קטגוריות (`authors_no_beat`). ניהול: טאב "כתבים" באדמין.
+מחיקת כתב עם כתבות רק דרך `reassign_and_delete_author`. `/ai-policy` ו-
+`/author/{eden,itay,shira,roi}` מפנים ב-301 (vercel.json). **לא לשנות** `authors`
+בלי אישור - זה משפיע על כל הכתבות.
 
 ## טבלאות מרכזיות
 

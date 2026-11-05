@@ -15,10 +15,7 @@ export const authorUrl = (slug: string) => `${SITE_URL}/author/${slug}`;
  * The schema.org entity behind a byline, shared by NewsArticle.author and the
  * ProfilePage mainEntity so both point at the same @id.
  *
- * A human writer is a Person. An AI agent and the newsroom byline are
- * Organizations: there is no schema.org type for "software that writes", and
- * of the two that `author` accepts, Person would be a false claim on every one
- * of those stories.
+ * A staff writer is a Person. The newsroom byline is an Organization.
  */
 export const authorEntity = (author: SchemaAuthor) => {
   const url = authorUrl(author.slug);
@@ -34,7 +31,7 @@ export const authorEntity = (author: SchemaAuthor) => {
   }
   return {
     "@type": "Organization",
-    "@id": `${url}#${author.kind === "system" ? "organization" : "agent"}`,
+    "@id": `${url}#organization`,
     name: author.name,
     url,
     logo: image,

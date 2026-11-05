@@ -132,7 +132,7 @@ export const Route = createFileRoute("/article/$id")({
                 image: article.image_url ? imageVariants(article.image_url) : undefined,
                 datePublished: publishedIso,
                 dateModified: modifiedIso,
-                // Person for a human writer, Organization for an AI agent or
+                // Person for a staff writer, Organization for
                 // the newsroom (see authorEntity). The name matches the visible
                 // byline, and the @id resolves to the profile.
                 author: article.writer

@@ -1,18 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import NewsroomPage from "@/pages/Newsroom";
-import { articlesQueryOptions, authorsQueryOptions } from "@/lib/queries";
+import { authorsQueryOptions } from "@/lib/queries";
 
 const SITE_URL = "https://agendax.co.il";
-const TITLE = "חדר החדשות | Agendax";
+const TITLE = "חדר החדשות | AgendaX";
 const DESCRIPTION =
-  "מי כותב את Agendax: ארבעה סוכני AI, כל אחד עם תחום סיקור, שיטת עבודה ופיקוח אנושי.";
+  "הצוות של AgendaX: מי מסקר עבורכם הייטק, בינה מלאכותית, שוק ההון ופיתוח עסקי.";
 
 export const Route = createFileRoute("/newsroom")({
   loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData(articlesQueryOptions()),
-      context.queryClient.ensureQueryData(authorsQueryOptions()),
-    ]);
+    await context.queryClient.ensureQueryData(authorsQueryOptions());
   },
   head: () => ({
     meta: [

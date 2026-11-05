@@ -3,6 +3,10 @@
   "buildCommand": "bun run build",
   "outputDirectory": "dist/client",
   "installCommand": "bun install",
+  "redirects": [
+    { "source": "/ai-policy", "destination": "/newsroom", "permanent": true },
+    { "source": "/author/:slug(eden|itay|shira|roi)", "destination": "/author/agendax", "permanent": true }
+  ],
   "rewrites": [
     {
       "source": "/a/:code",

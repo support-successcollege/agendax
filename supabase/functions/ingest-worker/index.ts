@@ -488,18 +488,6 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
     : await supabase.rpc("next_publish_slot", { _step_minutes: slotStepMinutes });
   if (slotErr) console.error("next_publish_slot failed", slotErr);
 
-  // Whoever covers this beat signs it. Falling back to the newsroom byline is
-  // deliberate: a story outside the four beats must not be attributed to an
-  // agent that does not cover it.
-  const { data: beatAuthor } = await supabase
-    .from("authors")
-    .select("slug, name")
-    .eq("is_active", true)
-    .contains("category_slugs", [category_slug])
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
   // Links the writer produced are kept only when they point at an offered
   // article; the "קראו גם" line then carries up to two of the rest, after the
   // closing box so the box is not the thing wrapping it.
@@ -514,8 +502,10 @@ async function processItem(supabase: any, item: Item, slotStepMinutes: number): 
       category,
       category_slug,
       image_url: imageUrl,
-      author: beatAuthor?.name ?? "מערכת Agendax",
-      author_slug: beatAuthor?.slug ?? null,
+      // The pipeline always signs as the newsroom. A staff writer's name goes
+      // on a story only when an editor picks them in the article form.
+      author: "חדשות AgendaX",
+      author_slug: "agendax",
       is_draft: true,
       scheduled_at: slot ?? null,
       is_breaking: false,

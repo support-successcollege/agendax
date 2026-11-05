@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +26,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useCategories } from "@/hooks/useCategories";
 import {
   ExternalLink,
   ImagePlus,
@@ -62,7 +60,6 @@ import {
 
 const KIND_LABEL: Record<AuthorKind, string> = {
   human: "כתב",
-  ai: "סוכן AI",
   system: "מערכת",
 };
 
@@ -115,9 +112,9 @@ const AdminWritersTab = () => {
               כתבים
             </CardTitle>
             <CardDescription className="mt-1.5 max-w-[70ch]">
-              כל כתבה משויכת לכתב ומקושרת לעמוד הפרופיל שלו. כתבה בלי כתב נחתמת
-              "מערכת AGENDAX". סוכני AI מקבלים קטגוריות, והסוכן החדשותי חותם
-              בשמם על כתבות חדשות בקטגוריה.
+              כל כתבה משויכת לכתב ומקושרת לעמוד הפרופיל שלו. כתבות שנכנסות
+              אוטומטית, וכל כתבה בלי כתב, נחתמות "חדשות AgendaX". שם של כתב
+              נכנס לכתבה רק כשבוחרים אותו ידנית בעריכת הכתבה.
             </CardDescription>
           </div>
           <Button
@@ -293,14 +290,12 @@ const WriterDialog = ({
   onSaved: () => void;
 }) => {
   const { toast } = useToast();
-  const { categories } = useCategories();
   const [draft, setDraft] = useState<AuthorDraft>(initial);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const isNew = slug === null;
   const isSystem = slug === SYSTEM_AUTHOR_SLUG;
-  const isAi = draft.kind === "ai";
   const set = (patch: Partial<AuthorDraft>) =>
     setDraft((prev) => ({ ...prev, ...patch }));
   const problem = validateDraft(draft);
@@ -328,18 +323,16 @@ const WriterDialog = ({
       toast({ title: problem, variant: "destructive" });
       return;
     }
-    // A beat belongs to an agent only (the database enforces it too).
-    const clean: AuthorDraft = isAi ? draft : { ...draft, categorySlugs: [] };
     setSaving(true);
     try {
       if (isNew) {
-        const created = await createAuthor(clean);
+        const created = await createAuthor(draft);
         toast({
           title: "הכתב נוצר",
           description: `/author/${decodeURIComponent(created)}`,
         });
       } else {
-        await saveAuthor(slug, clean);
+        await saveAuthor(slug, draft);
         toast({ title: "הפרופיל נשמר" });
       }
       onSaved();
@@ -431,7 +424,7 @@ const WriterDialog = ({
             </Field>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div>
             <Field label="שם" required>
               <Input
                 value={draft.name}
@@ -443,22 +436,6 @@ const WriterDialog = ({
                 </p>
               )}
             </Field>
-            <Field label="סוג">
-              <Select
-                value={draft.kind}
-                disabled={isSystem}
-                onValueChange={(kind) => set({ kind: kind as AuthorKind })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="human">כתב (אדם)</SelectItem>
-                  <SelectItem value="ai">סוכן AI</SelectItem>
-                  {isSystem && <SelectItem value="system">מערכת</SelectItem>}
-                </SelectContent>
-              </Select>
-            </Field>
           </div>
 
           <Field
@@ -469,7 +446,7 @@ const WriterDialog = ({
             <Input
               value={draft.role}
               onChange={(e) => set({ role: e.target.value })}
-              placeholder={isAi ? "סוכן כתיבה · הייטק" : "כתבת הייטק"}
+              placeholder="כתבת הייטק"
             />
           </Field>
 
@@ -490,49 +467,6 @@ const WriterDialog = ({
               onChange={(e) => set({ beat: e.target.value })}
             />
           </Field>
-
-          {isAi && (
-            <>
-              <Field label="שורת הסיום בפרופיל (מקושרת למדיניות ה-AI)">
-                <Textarea
-                  rows={2}
-                  value={draft.modelNote}
-                  onChange={(e) => set({ modelNote: e.target.value })}
-                />
-              </Field>
-              <Field label="קטגוריות שהסוכן חותם עליהן">
-                <div className="flex flex-wrap gap-3">
-                  {categories
-                    .filter((c) => c.slug !== "home")
-                    .map((category) => {
-                      const checked = draft.categorySlugs.includes(
-                        category.slug,
-                      );
-                      return (
-                        <label
-                          key={category.slug}
-                          className="flex items-center gap-1.5 text-sm"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(on) =>
-                              set({
-                                categorySlugs: on
-                                  ? [...draft.categorySlugs, category.slug]
-                                  : draft.categorySlugs.filter(
-                                      (s) => s !== category.slug,
-                                    ),
-                              })
-                            }
-                          />
-                          {category.name}
-                        </label>
-                      );
-                    })}
-                </div>
-              </Field>
-            </>
-          )}
 
           {!isSystem && (
             <label className="flex items-center gap-2 text-sm">

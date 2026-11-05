@@ -29,7 +29,7 @@ const WriterSelect = ({ id, value, onChange }: Props) => {
       }
     >
       <SelectTrigger id={id}>
-        <SelectValue placeholder="מערכת AGENDAX" />
+        <SelectValue placeholder="חדשות AgendaX" />
       </SelectTrigger>
       <SelectContent>
         {(authors ?? []).map((author) => (

@@ -10,12 +10,7 @@ import { CategorySkeleton } from "@/components/PageSkeleton";
 import WriterAvatar from "@/components/article/WriterAvatar";
 
 /**
- * The page behind a byline.
- *
- * For an AI agent its job is disclosure, not personality: a reader arriving
- * from an article should learn that a machine wrote it, which beat that machine
- * covers, and who answers for what it publishes. For a human writer it is the
- * usual profile: photo, role, bio, and the stories.
+ * The page behind a byline: photo, role, bio, and the writer's stories.
  */
 const AuthorPage = () => {
   const { slug = "" } = useParams<{ slug: string }>();
@@ -52,7 +47,6 @@ const AuthorPage = () => {
   const pageCount = Math.max(1, Math.ceil(total / AUTHOR_PAGE_SIZE));
   const pageHref = (n: number) =>
     n > 1 ? `/author/${author.slug}?page=${n}` : `/author/${author.slug}`;
-  const isAi = author.kind === "ai";
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,12 +81,6 @@ const AuthorPage = () => {
                 <h1 className="text-[28px] md:text-[34px] font-black leading-none text-foreground">
                   {author.name}
                 </h1>
-                {/* Stated at the top, not in the footnotes. */}
-                {isAi && (
-                  <span className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-[3px] text-[11px] font-bold tracking-wide text-primary">
-                    סוכן AI
-                  </span>
-                )}
               </div>
               <p className="mt-2 text-[14px] font-semibold text-foreground/80">
                 {author.role}
@@ -199,23 +187,7 @@ const AuthorPage = () => {
           </div>
 
           <aside className="min-w-0 lg:border-r lg:border-border lg:pr-8">
-            {isAi && author.modelNote && (
-              <section className="rounded-md border border-border bg-surface-1 p-5">
-                <p className="text-[13.5px] leading-relaxed text-muted-foreground">
-                  {author.modelNote}
-                </p>
-                <Link
-                  to="/ai-policy"
-                  className="mt-3 inline-block text-[13px] font-semibold text-primary hover:underline"
-                >
-                  מדיניות ה-AI שלנו
-                </Link>
-              </section>
-            )}
-
-            <section
-              className={`${isAi && author.modelNote ? "mt-4 " : ""}rounded-md border border-border bg-surface-1 p-5`}
-            >
+            <section className="rounded-md border border-border bg-surface-1 p-5">
               <h2 className="text-[15px] font-black text-foreground">
                 מצאתם טעות?
               </h2>

@@ -47,17 +47,6 @@ const Byline = ({ author, authorSlug, publishedAt }: Props) => {
               {name}
             </span>
           )}
-          {/* Said on the article itself, not only on the profile: a reader
-              who never clicks through still knows. */}
-          {writer?.kind === "ai" && (
-            <Link
-              to="/ai-policy"
-              className="rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-[1px] text-[10.5px] font-bold text-primary hover:bg-primary/20 transition-colors"
-              title="נכתב על ידי סוכן AI - למדיניות המלאה"
-            >
-              סוכן AI
-            </Link>
-          )}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
           {writer?.role && <span>{writer.role}</span>}

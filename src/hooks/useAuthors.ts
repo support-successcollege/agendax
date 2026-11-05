@@ -6,16 +6,13 @@ const db: any = supabase;
 /**
  * A byline with a page behind it.
  *
- * Three kinds of writer share one roster:
- *  - 'ai'     a declared writing agent. Its page says plainly that a machine
- *             wrote the story; a profile that implied a person would be worse
- *             than no profile at all.
+ * Two kinds of writer share one roster:
  *  - 'human'  a real staff writer. Marked up as a schema.org Person.
- *  - 'system' the newsroom byline, "מערכת AGENDAX", for stories that belong to
+ *  - 'system' the newsroom byline, "חדשות AgendaX", for stories that belong to
  *             no single writer. Every article has an author, so this is where
- *             the rest land.
+ *             the rest land, including everything the pipeline writes.
  */
-export type AuthorKind = "ai" | "human" | "system";
+export type AuthorKind = "human" | "system";
 
 export type Author = {
   slug: string;
@@ -24,14 +21,9 @@ export type Author = {
   role: string;
   beat: string | null;
   bio: string;
-  /** Retained from an earlier draft of the profiles; nothing renders it. */
-  method: string;
-  /** The one line under the bio, linking on to the AI policy. */
-  modelNote: string;
   avatarUrl: string | null;
   /** Alt text for the photo. Empty means the photo is decorative. */
   photoAlt: string;
-  categorySlugs: string[];
   sortOrder: number;
 };
 
@@ -75,16 +67,13 @@ const mapDbToAuthor = (row: any): Author => ({
   role: row.role,
   beat: row.beat ?? null,
   bio: row.bio ?? "",
-  method: row.method ?? "",
-  modelNote: row.model_note ?? "",
   avatarUrl: row.avatar_url ?? null,
   photoAlt: row.photo_alt ?? "",
-  categorySlugs: row.category_slugs ?? [],
   sortOrder: row.sort_order ?? 0,
 });
 
 const AUTHOR_COLUMNS =
-  "slug, name, kind, role, beat, bio, method, model_note, avatar_url, photo_alt, category_slugs, sort_order";
+  "slug, name, kind, role, beat, bio, avatar_url, photo_alt, sort_order";
 
 export const fetchAuthors = async (): Promise<Author[]> => {
   const { data, error } = await db
@@ -129,10 +118,8 @@ export type AuthorDraft = {
   role: string;
   beat: string | null;
   bio: string;
-  modelNote: string;
   avatarUrl: string | null;
   photoAlt: string;
-  categorySlugs: string[];
   isActive: boolean;
 };
 
@@ -142,10 +129,8 @@ export const emptyDraft = (): AuthorDraft => ({
   role: "",
   beat: null,
   bio: "",
-  modelNote: "",
   avatarUrl: null,
   photoAlt: "",
-  categorySlugs: [],
   isActive: true,
 });
 
@@ -155,10 +140,8 @@ export const draftFromAuthor = (author: AdminAuthor): AuthorDraft => ({
   role: author.role,
   beat: author.beat,
   bio: author.bio,
-  modelNote: author.modelNote,
   avatarUrl: author.avatarUrl,
   photoAlt: author.photoAlt,
-  categorySlugs: author.categorySlugs,
   isActive: author.isActive,
 });
 
@@ -178,10 +161,8 @@ const toRow = (draft: AuthorDraft) => ({
   role: draft.role.trim(),
   beat: draft.beat?.trim() || null,
   bio: draft.bio.trim(),
-  model_note: draft.modelNote.trim(),
   avatar_url: draft.avatarUrl,
   photo_alt: draft.photoAlt.trim() || null,
-  category_slugs: draft.categorySlugs,
   is_active: draft.isActive,
   updated_at: new Date().toISOString(),
 });
