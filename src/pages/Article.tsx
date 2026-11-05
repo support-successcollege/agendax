@@ -18,6 +18,7 @@ import ArticleReactions from "@/components/ArticleReactions";
 import ArticleComments from "@/components/ArticleComments";
 import ArticleShare from "@/components/ArticleShare";
 import ArticleReader from "@/components/ArticleReader";
+import Byline from "@/components/article/Byline";
 import ArticleNewsletterCard from "@/components/ArticleNewsletterCard";
 import ReadingProgress from "@/components/ReadingProgress";
 import { ArticleSkeleton } from "@/components/PageSkeleton";
@@ -105,38 +106,11 @@ const Article = () => {
             </p>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-y border-border py-2.5 text-[12.5px] text-muted-foreground">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                {article.authorSlug ? (
-                  <span className="flex items-center gap-1.5">
-                    <Link
-                      to={`/author/${article.authorSlug}`}
-                      className="font-semibold text-foreground/80 hover:text-primary transition-colors"
-                    >
-                      {article.author}
-                    </Link>
-                    {/* Said on the article itself, not only on the profile: a
-                        reader who never clicks through still knows. */}
-                    <Link
-                      to="/ai-policy"
-                      className="rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-[1px] text-[10.5px] font-bold text-primary hover:bg-primary/20 transition-colors"
-                      title="נכתב על ידי סוכן AI — למדיניות המלאה"
-                    >
-                      סוכן AI
-                    </Link>
-                  </span>
-                ) : (
-                  <span className="font-semibold text-foreground/80">{article.author}</span>
-                )}
-                <span className="tabular-nums">
-                  {new Date(article.publishedAt || article.date).toLocaleDateString("he-IL", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
-                <span className="tabular-nums">{timeLabel(article.publishedAt || article.date)}</span>
-              </div>
+              <Byline
+                author={article.author}
+                authorSlug={article.authorSlug}
+                publishedAt={article.publishedAt || article.date}
+              />
               <ArticleReader title={article.title} excerpt={article.excerpt} content={article.content} />
             </div>
           </div>

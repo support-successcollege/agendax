@@ -4,6 +4,7 @@ import { Link } from "@/lib/router-compat";
 import { useArticles } from "@/hooks/useArticles";
 import { useAuthors } from "@/hooks/useAuthors";
 import { CategorySkeleton } from "@/components/PageSkeleton";
+import WriterAvatar from "@/components/article/WriterAvatar";
 
 /**
  * The roster.
@@ -56,15 +57,7 @@ const NewsroomPage = () => {
               className="group rounded-md border border-border bg-surface-1 p-5 transition-colors hover:border-primary/50"
             >
               <div className="flex items-start gap-4">
-                {author.avatarUrl && (
-                  <img
-                    src={author.avatarUrl}
-                    alt=""
-                    width={64}
-                    height={64}
-                    className="h-16 w-16 shrink-0 rounded-full bg-surface-2"
-                  />
-                )}
+                <WriterAvatar name={author.name} avatarUrl={author.avatarUrl} size={64} />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-[19px] font-black text-foreground group-hover:text-primary transition-colors">

@@ -86,7 +86,11 @@ export default defineConfig(async ({ mode, command }) => {
           autoSubfolderIndex: true,
           failOnError: false,
           concurrency: 4,
-          filter: ({ path }) => !isClientOnly(path),
+          // A writer's ?page=N is the same static file as page 1 on a static
+          // host; the client loads the page it asks for. Prerendering it would
+          // only emit a file named after a query string.
+          filter: ({ path }) =>
+            !isClientOnly(path) && !(path.startsWith("/author/") && path.includes("?")),
         },
         // SPA shell mode is deliberately off: it rewrites "/" into a data-less
         // shell and no real index.html is emitted, which would cost the homepage

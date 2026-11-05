@@ -20,7 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import AdminAuthorsCard from "@/components/AdminAuthorsCard";
 import AdminIntegrationsCard from "@/components/AdminIntegrationsCard";
 import AdminQualityCard from "@/components/AdminQualityCard";
 import {
@@ -830,8 +829,6 @@ const AdminGlobalIngestTab = () => {
       </Card>
 
       <AdminQualityCard />
-
-      <AdminAuthorsCard />
 
       <AdminIntegrationsCard />
     </div>

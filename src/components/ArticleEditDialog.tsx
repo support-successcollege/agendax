@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import ImageUpload from "@/components/ImageUpload";
 import RichTextEditor from "@/components/RichTextEditor";
+import WriterSelect from "@/components/article/WriterSelect";
 import { Clock, Calendar, Link2, ExternalLink } from "lucide-react";
 
 type SourceLink = { title: string; url: string };
@@ -149,10 +150,10 @@ const ArticleEditDialog = ({ article, open, onOpenChange, onSave }: ArticleEditD
             </div>
             <div className="space-y-2">
               <Label htmlFor="author">כותב</Label>
-              <Input
+              <WriterSelect
                 id="author"
-                value={editedArticle.author}
-                onChange={(e) => setEditedArticle({ ...editedArticle, author: e.target.value })}
+                value={editedArticle.authorSlug}
+                onChange={(authorSlug, author) => setEditedArticle({ ...editedArticle, authorSlug, author })}
               />
             </div>
           </div>

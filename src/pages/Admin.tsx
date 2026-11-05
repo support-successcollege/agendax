@@ -23,6 +23,7 @@ import AdminCommentsTab from "@/components/AdminCommentsTab";
 import AdminHighlightsTab from "@/components/AdminHighlightsTab";
 import AdminWidgetsTab from "@/components/AdminWidgetsTab";
 import AdminNewsletterTab from "@/components/AdminNewsletterTab";
+import AdminWritersTab from "@/components/AdminWritersTab";
 import AdminGlobalIngestTab from "@/components/AdminGlobalIngestTab";
 import AdminSocialTab from "@/components/AdminSocialTab";
 import AdminMarketingTab from "@/components/AdminMarketingTab";
@@ -446,6 +447,7 @@ const Admin = () => {
             {[
               { id: "dashboard", label: "סקירה כללית", icon: BarChart3 },
               { id: "articles", label: "כתבות", icon: Newspaper },
+              { id: "writers", label: "כתבים", icon: PenLine },
               { id: "highlights", label: "בזק ומובילה", icon: Zap },
               { id: "comments", label: `תגובות${pendingComments.length > 0 ? ` (${pendingComments.length})` : ""}`, icon: MessageCircle },
               { id: "categories", label: "קטגוריות", icon: Settings },
@@ -993,6 +995,7 @@ const Admin = () => {
         {activeTab === "marketing" && <AdminMarketingTab />}
 
         {activeTab === "newsletter" && <AdminNewsletterTab />}
+        {activeTab === "writers" && <AdminWritersTab />}
         </motion.div>
       </div>
 

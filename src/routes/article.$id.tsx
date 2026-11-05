@@ -4,9 +4,12 @@ import { imageVariants } from "@/lib/imageUtils";
 import {
   articleQueryOptions,
   articlesQueryOptions,
+  authorsQueryOptions,
   categoriesQueryOptions,
   isUuid,
 } from "@/lib/queries";
+import { authorEntity } from "@/lib/authorSchema";
+import type { Author } from "@/hooks/useAuthors";
 import { socialLinksQueryOptions } from "@/hooks/useSocialLinks";
 
 const SITE_URL = "https://agendax.co.il";
@@ -17,10 +20,13 @@ export const Route = createFileRoute("/article/$id")({
   // Fetch the full article on the server so both the crawler and the reader
   // get the article body in the initial HTML.
   loader: async ({ params, context }) => {
-    const [article] = await Promise.all([
+    const [article, , , authors] = await Promise.all([
       context.queryClient.ensureQueryData(articleQueryOptions(params.id)),
       context.queryClient.ensureQueryData(articlesQueryOptions()),
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
+      // The byline's photo and role come from the roster; primed so they are
+      // in the prerendered HTML and the schema knows Person from Organization.
+      context.queryClient.ensureQueryData(authorsQueryOptions()).catch(() => []),
       // The follow block under the story reads the account URLs; primed here
       // so they are in the prerendered HTML. A settings hiccup must not take
       // the article page down with it, so a failure just leaves the defaults.
@@ -40,6 +46,9 @@ export const Route = createFileRoute("/article/$id")({
     }
 
     const meta = article && !article.isDraft ? article : null;
+    const writer = meta?.authorSlug
+      ? (authors as Author[]).find((a) => a.slug === meta.authorSlug)
+      : undefined;
     return {
       meta: meta
         ? {
@@ -53,6 +62,9 @@ export const Route = createFileRoute("/article/$id")({
             categorySlug: meta.categorySlug,
             author: meta.author,
             authorSlug: meta.authorSlug ?? null,
+            writer: writer
+              ? { slug: writer.slug, name: writer.name, kind: writer.kind, avatarUrl: writer.avatarUrl }
+              : null,
             category: meta.category,
           }
         : null,
@@ -120,18 +132,11 @@ export const Route = createFileRoute("/article/$id")({
                 image: article.image_url ? imageVariants(article.image_url) : undefined,
                 datePublished: publishedIso,
                 dateModified: modifiedIso,
-// The author is a declared AI agent, so it is an Organization with a
-                // page that says exactly that. `Person` is the other type
-                // `author` accepts and it would be a false claim on every one of
-                // these stories. The name matches the visible byline, and the
-                // @id resolves to the profile.
-                author: article.authorSlug
-                  ? {
-                      "@type": "Organization",
-                      "@id": `${SITE_URL}/author/${article.authorSlug}#agent`,
-                      name: article.author,
-                      url: `${SITE_URL}/author/${article.authorSlug}`,
-                    }
+                // Person for a human writer, Organization for an AI agent or
+                // the newsroom (see authorEntity). The name matches the visible
+                // byline, and the @id resolves to the profile.
+                author: article.writer
+                  ? authorEntity(article.writer)
                   : {
                       "@type": "Organization",
                       "@id": `${SITE_URL}/newsroom#newsroom`,

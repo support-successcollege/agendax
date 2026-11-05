@@ -32,7 +32,9 @@ const AiPolicyPage = () => {
   const { data: authors } = useAuthors();
   // Listed from the roster, so renaming an agent in the panel cannot leave this
   // page introducing a writer the site no longer has.
+  // Agents only: a human writer or the newsroom byline is not an AI agent.
   const roster = (authors ?? [])
+    .filter((author) => author.kind === "ai")
     .map((author) => `${author.name} (${beatOf(author.role)})`)
     .join(", ");
 

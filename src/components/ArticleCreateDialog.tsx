@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import ImageUpload from "@/components/ImageUpload";
 import RichTextEditor from "@/components/RichTextEditor";
+import WriterSelect from "@/components/article/WriterSelect";
 import { Calendar, Clock } from "lucide-react";
 
 interface ArticleCreateDialogProps {
@@ -41,7 +42,8 @@ const buildDefaultArticle = (initial?: Partial<Omit<Article, "id">>): Omit<Artic
   categorySlug: "",
   date: new Date().toISOString().split("T")[0],
   imageUrl: "",
-  author: "מערכת Agendax",
+  author: "מערכת AGENDAX",
+  authorSlug: "agendax",
   isBreaking: false,
   isFeatured: false,
   isDraft: false,
@@ -109,7 +111,8 @@ const ArticleCreateDialog = ({ open, onOpenChange, onSave, initialArticle }: Art
       categorySlug: "",
       date: new Date().toISOString().split("T")[0],
       imageUrl: "",
-      author: "מערכת Agendax",
+      author: "מערכת AGENDAX",
+      authorSlug: "agendax",
       isBreaking: false,
       isFeatured: false,
       isDraft: false,
@@ -176,10 +179,10 @@ const ArticleCreateDialog = ({ open, onOpenChange, onSave, initialArticle }: Art
             </div>
             <div className="space-y-2">
               <Label htmlFor="author">כותב</Label>
-              <Input
+              <WriterSelect
                 id="author"
-                value={newArticle.author}
-                onChange={(e) => setNewArticle({ ...newArticle, author: e.target.value })}
+                value={newArticle.authorSlug}
+                onChange={(authorSlug, author) => setNewArticle({ ...newArticle, authorSlug, author })}
               />
             </div>
           </div>

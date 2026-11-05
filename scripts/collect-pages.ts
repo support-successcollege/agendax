@@ -86,10 +86,13 @@ export async function collectPrerenderPages(
       "categories",
       "select=slug&is_active=eq.true&limit=100",
     ),
+    // Active writers only (RLS hides the rest from anon), and only those with
+    // a published story: an empty profile is noindex, so it stays out of the
+    // sitemap too.
     selectRows<{ slug: string }>(
       env,
-      "authors",
-      "select=slug&is_active=eq.true&limit=100",
+      "author_article_counts",
+      "select=slug&published_count=gt.0&limit=500",
     ),
   ]);
 

@@ -209,6 +209,28 @@ export const authorsQueryOptions = () =>
     staleTime: 300_000,
   });
 
+export const AUTHOR_PAGE_SIZE = 20;
+
+/** One page of a writer's published stories, newest first, with the total. */
+export const authorArticlesQueryOptions = (slug: string, page: number) =>
+  queryOptions({
+    queryKey: ["author-articles", slug, page],
+    queryFn: async (): Promise<{ articles: Article[]; total: number }> => {
+      const from = (page - 1) * AUTHOR_PAGE_SIZE;
+      const { data, error, count } = await supabase
+        .from("articles")
+        .select(ARTICLE_LIST_COLUMNS, { count: "exact" })
+        .eq("author_slug", slug)
+        .eq("is_draft", false)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .range(from, from + AUTHOR_PAGE_SIZE - 1);
+      if (error) throw error;
+      return { articles: ((data as any[]) ?? []).map(mapDbToArticle), total: count ?? 0 };
+    },
+    staleTime: 60_000,
+  });
+
 export const authorQueryOptions = (slug: string) =>
   queryOptions({
     queryKey: ["author", slug],
