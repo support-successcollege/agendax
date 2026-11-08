@@ -107,3 +107,8 @@ verify_jwt = false
 # winners. Cron carries the shared secret; cron-or-admin authorized.
 [functions.hit-scout]
 verify_jwt = false
+
+# The newsletter sender: the admin tab sends by hand, and the weekly cron
+# (migration 050) carries the shared secret. Cron-or-admin authorized.
+[functions.send-newsletter]
+verify_jwt = false
