@@ -19,7 +19,8 @@ import ArticleComments from "@/components/ArticleComments";
 import ArticleShare from "@/components/ArticleShare";
 import ArticleReader from "@/components/ArticleReader";
 import Byline from "@/components/article/Byline";
-import ArticleNewsletterCard from "@/components/ArticleNewsletterCard";
+import InlineSubscribe from "@/components/news/InlineSubscribe";
+import { splitAtParagraph } from "@/lib/splitHtml";
 import ReadingProgress from "@/components/ReadingProgress";
 import { ArticleSkeleton } from "@/components/PageSkeleton";
 
@@ -48,6 +49,12 @@ const Article = () => {
     );
   }, [widgets, article]);
 
+  // The story split about 40% in, where the mid-story signup goes. Null for
+  // short or plain-text stories, which get only the one after the text.
+  const contentHalves = useMemo(
+    () => (article?.content.includes("<") ? splitAtParagraph(article.content) : null),
+    [article?.content],
+  );
 
   if (isLoading) {
     return <ArticleSkeleton />;
@@ -138,7 +145,13 @@ const Article = () => {
                 own measure inside it. */}
             <div className="mx-auto max-w-[70ch]">
             {/* Content */}
-            {article.content.includes('<') ? (
+            {contentHalves ? (
+              <>
+                <RichHtmlContent content={contentHalves[0]} widgets={widgets} />
+                <InlineSubscribe category={article.category} placement="mid" />
+                <RichHtmlContent content={contentHalves[1]} widgets={widgets} />
+              </>
+            ) : article.content.includes('<') ? (
               // HTML content from rich text editor
               <RichHtmlContent content={article.content} widgets={widgets} />
             ) : (
@@ -239,6 +252,10 @@ const Article = () => {
               </div>
             )}
 
+            {/* The follow ask, right where the story ends: before banners,
+                share and comments, which most readers never reach. */}
+            <InlineSubscribe category={article.category} placement="end" />
+
             {/* Article Banners */}
             {articleBanners.length > 0 && (
               <div className="mt-8">
@@ -257,8 +274,6 @@ const Article = () => {
               <ArticleComments articleId={article.id} />
             </div>
 
-            {/* Newsletter Signup */}
-            <ArticleNewsletterCard category={article.category} />
             </div>
           </article>
 
