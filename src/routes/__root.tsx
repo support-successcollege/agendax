@@ -37,6 +37,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "סדר היום של עולם החדשנות — הייטק, בינה מלאכותית, שוקי ההון והחברות שמזיזות אותם. סיקור שוטף בעברית, עם ההקשר שצריך כדי להבין למה זה משנה.",
       },
       { name: "google-site-verification", content: "dngVRAfNgIAWjQb7weDfwod_hMlikFCR0yA_ovFN0JM" },
+      // Links the site to its AdSense account - Google's meta-tag method.
+      { name: "google-adsense-account", content: "ca-pub-1429645771074558" },
       { name: "author", content: "Agendax" },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "he_IL" },
@@ -63,16 +65,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
     scripts: [
-      {
-        // Google AdSense, as the literal tag Google hands out. It used to be
-        // injected after the load event to protect LCP, but AdSense verifies
-        // the site by crawling the static HTML for this exact <script> - an
-        // inline loader does not count and the account stays unverified.
-        // `async` keeps it off the critical path anyway.
-        src: "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2472621584944709",
-        async: true,
-        crossOrigin: "anonymous",
-      },
+      // No AdSense script on purpose. The account (ca-pub-1429645771074558) is
+      // still in review, and ownership is proven by the google-adsense-account
+      // meta tag above plus public/ads.txt - neither needs the ad loader. The
+      // loader injects an <ins> into <body> before React hydrates, which broke
+      // hydration. When the site is approved and ads are switched on, load it
+      // after hydration rather than from the static head.
       // Google tag (gtag.js) - GA4 property G-K49KV1HGD1. Two tags, exactly as
       // Google hands them out: the async loader, then the inline bootstrap.
       {
