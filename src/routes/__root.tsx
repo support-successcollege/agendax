@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
 import FloatingSocials from "@/components/FloatingSocials";
 import PageViewTracker from "@/components/PageViewTracker";
+import { socialLinksQueryOptions } from "@/hooks/useSocialLinks";
 
 import appCss from "../styles.css?url";
 
@@ -16,6 +17,15 @@ const SUPABASE_ORIGIN =
   import.meta.env["VITE_SUPABASE_URL"] ?? "https://gplszhhmothdbrqnpier.supabase.co";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  // The footer and the floating rail are on every page and read the account
+  // URLs from site_settings. Primed here, once for all routes, so the
+  // prerendered HTML carries the same links the browser will render - without
+  // it the server falls back to the compiled-in defaults, the client swaps in
+  // the real ones, and hydration fails. A settings hiccup must not take a page
+  // down, so a failure just leaves the defaults.
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(socialLinksQueryOptions()).catch(() => null);
+  },
   head: () => ({
     meta: [
       { charSet: "UTF-8" },

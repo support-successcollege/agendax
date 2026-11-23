@@ -41,12 +41,14 @@ const Header = () => {
           it is the first thing with any weight. */}
       <div className="bg-surface-deep/60 text-muted-foreground">
         <div className="container flex items-center justify-between py-1.5">
-          <span className="type-label-mono text-muted-foreground/70 normal-case">
+          {/* Today's date differs between the build and the reader by design. */}
+          <span className="type-label-mono text-muted-foreground/70 normal-case" suppressHydrationWarning>
             {new Date().toLocaleDateString("he-IL", {
               weekday: "long",
               year: "numeric",
               month: "long",
               day: "numeric",
+              timeZone: "Asia/Jerusalem",
             })}
           </span>
           <button

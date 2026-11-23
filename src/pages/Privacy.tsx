@@ -11,7 +11,7 @@ const Privacy = () => {
         <main className="container py-12">
           <div className="max-w-3xl mx-auto">
             <h1 className="text-4xl font-bold text-foreground mb-8">מדיניות פרטיות</h1>
-            <p className="text-muted-foreground mb-8">עודכן לאחרונה: {new Date().toLocaleDateString('he-IL')}</p>
+            <p className="text-muted-foreground mb-8" suppressHydrationWarning>עודכן לאחרונה: {new Date().toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' })}</p>
             
             <div className="prose prose-lg max-w-none text-foreground/80 space-y-6">
               <section>

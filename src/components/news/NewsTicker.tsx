@@ -1,7 +1,7 @@
 import { Link } from "@/lib/router-compat";
 import type { Article } from "@/hooks/useArticles";
 import { getBreakingNews } from "@/hooks/useArticles";
-import { timeLabel } from "@/lib/newsTime";
+import { TimeLabel } from "@/lib/newsTime";
 
 /**
  * The strip every news homepage opens with: the latest headlines side by side,
@@ -49,7 +49,7 @@ const NewsTicker = ({ articles }: { articles: Article[] }) => {
                   {article.title}
                 </p>
                 <span className="mt-1 block text-[11px] tabular-nums text-muted-foreground">
-                  {timeLabel(article.publishedAt || article.date)}
+                  <TimeLabel value={article.publishedAt || article.date} />
                 </span>
               </Link>
             </li>

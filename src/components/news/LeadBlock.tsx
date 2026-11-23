@@ -79,7 +79,10 @@ const LeadBlock = ({ articles }: { articles: Article[] }) => {
 
   return (
     <section aria-label="הכותרת הראשית">
-      <p className="mb-3 text-[12px] font-semibold tracking-wide text-muted-foreground">{mastheadDate()}</p>
+      {/* Today's date differs between the build and the reader by design. */}
+      <p className="mb-3 text-[12px] font-semibold tracking-wide text-muted-foreground" suppressHydrationWarning>
+        {mastheadDate()}
+      </p>
 
       <div
         onMouseEnter={() => (hovering.current = true)}

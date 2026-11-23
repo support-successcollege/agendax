@@ -70,6 +70,7 @@ const Footer = () => {
         <button
           onClick={() => { window.location.href = "/auth"; }}
           className="hover:text-foreground transition-colors cursor-pointer"
+          suppressHydrationWarning
         >
           © {new Date().getFullYear()} Agendax. כל הזכויות שמורות.
         </button>

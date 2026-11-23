@@ -59,8 +59,8 @@ const Accessibility = () => {
 
           <section>
             <h2 className="text-xl font-bold text-foreground mb-3">עדכון אחרון</h2>
-            <p className="text-foreground/80">
-              הצהרת נגישות זו עודכנה לאחרונה בתאריך: {new Date().toLocaleDateString("he-IL", { year: "numeric", month: "long", day: "numeric" })}
+            <p className="text-foreground/80" suppressHydrationWarning>
+              הצהרת נגישות זו עודכנה לאחרונה בתאריך: {new Date().toLocaleDateString("he-IL", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Jerusalem" })}
             </p>
           </section>
         </article>

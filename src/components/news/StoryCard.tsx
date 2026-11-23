@@ -2,7 +2,7 @@ import { Link } from "@/lib/router-compat";
 import type { Article } from "@/hooks/useArticles";
 import OptimizedImage from "@/components/OptimizedImage";
 import { categoryColor } from "@/lib/categoryColor";
-import { timeLabel } from "@/lib/newsTime";
+import { useTimeLabel } from "@/lib/newsTime";
 
 /**
  * The one story unit the whole site is built from, in the four densities a
@@ -38,7 +38,7 @@ export function CategoryTag({ article, className = "" }: { article: Article; cla
 
 const StoryCard = ({ article, variant = "card", priority = false, className = "" }: StoryCardProps) => {
   const href = `/article/${encodeURIComponent(article.slug || article.id)}`;
-  const when = timeLabel(article.publishedAt || article.date);
+  const when = useTimeLabel(article.publishedAt || article.date);
 
   if (variant === "lead") {
     return (

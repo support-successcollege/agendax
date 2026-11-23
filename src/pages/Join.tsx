@@ -6,7 +6,7 @@ import { useArticles } from "@/hooks/useArticles";
 import { useCategories } from "@/hooks/useCategories";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
 import { sendAdminNotification } from "@/lib/admin.functions";
-import { timeLabel } from "@/lib/newsTime";
+import { TimeLabel, useHydrated } from "@/lib/newsTime";
 import { articleSlugOrId } from "@/lib/queries";
 import { Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
@@ -53,13 +53,19 @@ const JoinPage = () => {
   );
   const lead = live[0];
 
-  /** Today's output, counted on the reader's own clock — the page's only claim. */
+  /**
+   * Today's output, counted on the reader's own clock — the page's only claim.
+   * The build has no such clock, so the prerendered HTML and the hydration
+   * pass leave the figure blank and it fills in right after.
+   */
+  const hydrated = useHydrated();
   const todayCount = useMemo(() => {
+    if (!hydrated) return 0;
     const today = new Date().toDateString();
     return articles.filter(
       (a) => !a.isDraft && new Date(a.publishedAt || a.date).toDateString() === today,
     ).length;
-  }, [articles]);
+  }, [articles, hydrated]);
 
   const topics = useMemo(
     () => categories.filter((c) => c.isActive && c.slug !== "home" && c.slug !== "marketing"),
@@ -175,7 +181,7 @@ const JoinPage = () => {
                   agendax.co.il
                 </p>
                 <p className="mt-1 text-left text-[10.5px] text-[#8696a0]" dir="ltr">
-                  {lead ? timeLabel(lead.publishedAt || lead.date) : "09:41"} ✓✓
+                  {lead ? <TimeLabel value={lead.publishedAt || lead.date} /> : "09:41"} ✓✓
                 </p>
               </div>
             </div>
@@ -322,7 +328,7 @@ const JoinPage = () => {
                         {article.title}
                       </span>
                       <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
-                        {timeLabel(article.publishedAt || article.date)}
+                        <TimeLabel value={article.publishedAt || article.date} />
                       </span>
                     </Link>
                   </li>

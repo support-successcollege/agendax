@@ -1,6 +1,6 @@
 import { Link } from "@/lib/router-compat";
 import { useAuthors } from "@/hooks/useAuthors";
-import { timeLabel } from "@/lib/newsTime";
+import { useTimeLabel } from "@/lib/newsTime";
 import WriterAvatar from "@/components/article/WriterAvatar";
 
 type Props = {
@@ -24,6 +24,7 @@ const Byline = ({ author, authorSlug, publishedAt }: Props) => {
     : undefined;
   const name = writer?.name ?? author;
   const date = new Date(publishedAt);
+  const when = useTimeLabel(publishedAt);
 
   return (
     <div className="flex min-w-0 items-center gap-2.5">
@@ -56,9 +57,10 @@ const Byline = ({ author, authorSlug, publishedAt }: Props) => {
               day: "numeric",
               month: "long",
               year: "numeric",
+              timeZone: "Asia/Jerusalem",
             })}
             {" · "}
-            {timeLabel(publishedAt)}
+            {when}
           </time>
         </div>
       </div>
