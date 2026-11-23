@@ -38,10 +38,20 @@ const STATIC_PAGES: PageEntry[] = [
 // the regular sitemap but deliberately carry no <news:news> block.
 const NEWS_WINDOW_MS = 48 * 60 * 60 * 1000;
 
+// PostgREST answers with at most 1,000 rows per request on this project,
+// whatever `limit` asks for, and it truncates silently. So every table is read
+// in pages, and the total the server reports is what ends the loop: an article
+// that is published but missing from this list is a permanent 404 for crawlers.
+const PAGE_SIZE = 1000;
+// 50 pages = 50,000 rows. Needing more than that is a bug, not a bigger site.
+const MAX_PAGES = 50;
+
+/** `query` carries no limit/offset: `maxRows` is the limit, paging is done here. */
 async function selectRows<T>(
   env: Record<string, string>,
   table: string,
   query: string,
+  maxRows: number,
 ): Promise<T[]> {
   const url = env["VITE_SUPABASE_URL"];
   const key = env["VITE_SUPABASE_PUBLISHABLE_KEY"];
@@ -51,15 +61,47 @@ async function selectRows<T>(
     );
   }
 
-  const response = await fetch(`${url}/rest/v1/${table}?${query}`, {
-    headers: { apikey: key, Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(
-      `collect-pages: ${table} query failed with ${response.status} ${await response.text()}`,
+  const rows: T[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const pageLimit = Math.min(PAGE_SIZE, maxRows - rows.length);
+    const response = await fetch(
+      `${url}/rest/v1/${table}?${query}&limit=${pageLimit}&offset=${rows.length}`,
+      { headers: { apikey: key, Accept: "application/json", Prefer: "count=exact" } },
     );
+    if (!response.ok) {
+      throw new Error(
+        `collect-pages: ${table} query failed with ${response.status} ${await response.text()}`,
+      );
+    }
+    const batch = (await response.json()) as T[];
+    rows.push(...batch);
+
+    // Content-Range is "0-999/1114": after the slash, every row the query matches.
+    const contentRange = response.headers.get("content-range");
+    const total = Number(contentRange?.split("/")[1]);
+    if (!Number.isFinite(total)) {
+      throw new Error(
+        `collect-pages: ${table} returned no row count (Content-Range: ${contentRange}), cannot tell if the list is complete.`,
+      );
+    }
+
+    const expected = Math.min(total, maxRows);
+    if (rows.length >= expected) {
+      const capped = total > maxRows ? ` - CAPPED by limit ${maxRows}, raise it` : "";
+      console.log(
+        `[collect-pages] ${table}: ${rows.length} of ${total} rows in ${page} request(s)${capped}`,
+      );
+      return rows;
+    }
+    if (batch.length === 0) {
+      throw new Error(
+        `collect-pages: ${table} stopped at ${rows.length} of ${expected} rows (empty page).`,
+      );
+    }
   }
-  return (await response.json()) as T[];
+  throw new Error(
+    `collect-pages: ${table} was not fully read within ${MAX_PAGES} pages (${rows.length} rows so far).`,
+  );
 }
 
 export async function collectPrerenderPages(
@@ -69,19 +111,24 @@ export async function collectPrerenderPages(
     selectRows<{ slug: string | null; id: string; date: string; title: string; content_updated_at: string | null; published_at: string | null }>(
       env,
       "articles",
-      "select=slug,id,date,title,content_updated_at,published_at&is_draft=eq.false&order=date.desc&limit=5000",
+      // `date` is a calendar day shared by many articles; without the id
+      // tiebreaker the order is not stable and pages can skip or repeat rows.
+      "select=slug,id,date,title,content_updated_at,published_at&is_draft=eq.false&order=date.desc,id.desc",
+      5000,
     ),
     selectRows<{ slug: string }>(
       env,
       "courses",
-      "select=slug&is_published=eq.true&limit=500",
+      "select=slug&is_published=eq.true",
+      500,
     ),
-    selectRows<{ slug: string }>(env, "events", "select=slug&limit=500"),
-    selectRows<{ id: string }>(env, "jobs", "select=id&is_active=eq.true&limit=1000"),
+    selectRows<{ slug: string }>(env, "events", "select=slug", 500),
+    selectRows<{ id: string }>(env, "jobs", "select=id&is_active=eq.true", 1000),
     selectRows<{ slug: string }>(
       env,
       "categories",
-      "select=slug&is_active=eq.true&limit=100",
+      "select=slug&is_active=eq.true",
+      100,
     ),
     // Active writers only (RLS hides the rest from anon), and only those with
     // a published story: an empty profile is noindex, so it stays out of the
@@ -89,7 +136,8 @@ export async function collectPrerenderPages(
     selectRows<{ slug: string }>(
       env,
       "author_article_counts",
-      "select=slug&published_count=gt.0&limit=500",
+      "select=slug&published_count=gt.0",
+      500,
     ),
   ]);
 
