@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
+import AdSenseLoader, { ADSENSE_CLIENT } from "@/components/AdSenseLoader";
 import FloatingSocials from "@/components/FloatingSocials";
 import PageViewTracker from "@/components/PageViewTracker";
 import { socialLinksQueryOptions } from "@/hooks/useSocialLinks";
@@ -38,7 +39,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { name: "google-site-verification", content: "dngVRAfNgIAWjQb7weDfwod_hMlikFCR0yA_ovFN0JM" },
       // Links the site to its AdSense account - Google's meta-tag method.
-      { name: "google-adsense-account", content: "ca-pub-1429645771074558" },
+      { name: "google-adsense-account", content: ADSENSE_CLIENT },
       { name: "author", content: "Agendax" },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "he_IL" },
@@ -72,12 +73,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
     scripts: [
-      // No AdSense script on purpose. The account (ca-pub-1429645771074558) is
-      // still in review, and ownership is proven by the google-adsense-account
-      // meta tag above plus public/ads.txt - neither needs the ad loader. The
-      // loader injects an <ins> into <body> before React hydrates, which broke
-      // hydration. When the site is approved and ads are switched on, load it
-      // after hydration rather than from the static head.
+      // No AdSense script here on purpose. From the static head the loader
+      // injects an <ins> into <body> before React hydrates, which broke
+      // hydration. It is loaded after hydration by <AdSenseLoader />, which
+      // stays switched off until Google approves the site.
       // Google tag (gtag.js) - GA4 property G-K49KV1HGD1. Two tags, exactly as
       // Google hands them out: the async loader, then the inline bootstrap.
       {
@@ -125,6 +124,7 @@ function RootComponent() {
           </a>
           <Outlet />
           <PageViewTracker />
+          <AdSenseLoader />
           <AccessibilityWidget />
           <FloatingSocials />
         </TooltipProvider>
