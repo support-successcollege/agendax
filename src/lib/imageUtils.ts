@@ -30,9 +30,13 @@ export function getOptimizedImageUrl(
   if (options.width) params.set("width", String(options.width));
   if (options.height) params.set("height", String(options.height));
   params.set("quality", String(options.quality ?? 75));
-  // Only apply resize mode if explicitly provided. Without it, Supabase keeps
-  // the original aspect ratio (height auto-calculated from width), preventing cropping.
-  if (options.resize) params.set("resize", options.resize);
+  // The endpoint's default mode is "cover", and with a width but no height it
+  // keeps the ORIGINAL height: a 1376x768 banner asked for at width=480 came
+  // back 480x768, a tall centre strip instead of the banner. "contain" is what
+  // scales to the width and keeps the picture's own proportions, so a
+  // width-only request asks for it explicitly.
+  const resize = options.resize ?? (options.width && !options.height ? "contain" : undefined);
+  if (resize) params.set("resize", resize);
 
   return `${transformedBase}?${params.toString()}`;
 }
