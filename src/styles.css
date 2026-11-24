@@ -383,6 +383,44 @@
   transform: scale(0.97);
 }
 
+/* One type scale for the whole panel. Card titles used to be 24px in some
+   cards and 16px in others, both larger than the 14px page title; the page
+   title is now the largest thing on the screen and every card title sits one
+   step below it. These rules are unlayered, so they win over the utilities
+   without touching the two dozen components that set them. */
+.admin-scope h3.tracking-tight {
+  font-size: 1.0625rem;
+  line-height: 1.35;
+}
+
+/* Nothing in the panel is set below 12px. */
+.admin-scope .text-\[10px\],
+.admin-scope .text-\[11px\] {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+@media (max-width: 639px) {
+  /* 24px of padding on both sides of a 343px card leaves too little room. */
+  .admin-scope .bg-card > .p-6 {
+    padding: 1rem;
+  }
+
+  .admin-scope .bg-card > .p-6.pt-0 {
+    padding-top: 0;
+  }
+
+  /* Touch targets: the standard controls grow to 44px on a phone. Switches,
+     checkboxes and the dense icon buttons inside rows keep their size. */
+  .admin-scope :where(button, select, input, textarea, [role="combobox"]):where(.h-8, .h-9, .h-10) {
+    min-height: 2.75rem;
+  }
+
+  .admin-scope :where(button):where(.w-8, .w-9, .w-10) {
+    min-width: 2.75rem;
+  }
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));

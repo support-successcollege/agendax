@@ -350,7 +350,7 @@ const AdminDmAutomationCard = () => {
               וסמן את השדות <span dir="ltr">comments</span> ו-<span dir="ltr">messages</span> (גם ל-Instagram וגם ל-Page).
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code className="rounded bg-muted px-2 py-1 text-xs" dir="ltr">
+              <code className="min-w-0 max-w-full break-all rounded bg-muted px-2 py-1 text-xs" dir="ltr">
                 {check?.webhookUrl ?? "…"}
               </code>
               <Button

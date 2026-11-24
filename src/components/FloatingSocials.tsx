@@ -1,8 +1,12 @@
 import { useVisibleSocialLinks } from "@/hooks/useSocialLinks";
+import { useLocation } from "@/lib/router-compat";
 
 /** The rail of account buttons; which ones appear is set in the panel. */
 const FloatingSocials = () => {
   const socials = useVisibleSocialLinks();
+  const { pathname } = useLocation();
+  // The rail is for readers. Over the admin panel it only covers controls.
+  if (pathname.startsWith("/admin")) return null;
   if (socials.length === 0) return null;
 
   return (

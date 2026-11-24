@@ -382,6 +382,96 @@ const AdminSocialScheduler = ({ articles, enabledPlatforms, onChanged }: Props) 
 
   return (
     <>
+      {/* The queue is what gets checked every day, so it leads. Adding to it
+          comes next, and the schedule settings, which change rarely, last. */}
+      {/* Queue */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarClock className="w-4 h-4 text-primary" />
+            התור הקרוב
+            <Badge variant="secondary" className="mr-1">{upcoming.length}</Badge>
+          </CardTitle>
+          <CardDescription>לחיצה על השעה משנה מועד; לחיצה על קיצור הרשת מוסיפה/מסירה אותה מהפריט.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {groups.length === 0 ? (
+            <p className="text-sm text-muted-foreground">התור ריק. {settings.auto_fill ? "המערכת תמלא אותו בבדיקה הבאה (כל 5 דקות) אם יש כתבות חדשות." : "המילוי האוטומטי כבוי — הוסף פריטים ידנית."}</p>
+          ) : (
+            groups.map(([day, items]) => (
+              <div key={day}>
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">{day}</p>
+                <div className="space-y-1.5">{items.map((i) => renderItem(i, true))}</div>
+              </div>
+            ))
+          )}
+          {done.length > 0 && (
+            <div className="pt-2 border-t">
+              <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1" onClick={() => setShowDone((v) => !v)}>
+                {showDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5 rotate-45" />}
+                {showDone ? "הסתר" : "הצג"} פריטים שהושלמו/בוטלו ({done.length})
+              </button>
+              {showDone && <div className="space-y-1.5 mt-2">{done.map((i) => renderItem(i))}</div>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add to queue */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Plus className="w-4 h-4 text-primary" />
+            הוספה לתור
+          </CardTitle>
+          <CardDescription>בחר כתבה, פוסט או סטורי, פלטפורמות ומועד — ויעלה אוטומטית בזמן.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <select
+            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={newArticle}
+            onChange={(e) => setNewArticle(e.target.value)}
+            aria-label="כתבה לתור"
+          >
+            <option value="">בחר כתבה...</option>
+            {published.map((a) => (
+              <option key={a.id} value={a.id}>{a.title}</option>
+            ))}
+          </select>
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="flex items-center gap-1 border rounded-md p-0.5">
+              {(["post", "story"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setNewKind(k)}
+                  className={`px-3 h-7 rounded text-sm ${newKind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  {k === "post" ? "פוסט" : "סטורי"}
+                </button>
+              ))}
+            </span>
+            {(newKind === "story" ? STORY_PLATFORMS : ALL_PLATFORMS).map((p) => (
+              <label key={p} className={`flex items-center gap-1.5 text-sm ${enabledPlatforms.includes(p) ? "" : "opacity-40 pointer-events-none"}`}>
+                <Checkbox
+                  checked={newPlatforms.includes(p)}
+                  onCheckedChange={(v) => setNewPlatforms((t) => (v ? [...t, p] : t.filter((x) => x !== p)))}
+                />
+                {PLATFORM_LABEL[p]}
+              </label>
+            ))}
+            <label className="flex items-center gap-2 text-sm mr-auto">
+              מועד
+              <Input type="datetime-local" dir="ltr" className="h-8 w-[200px]" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
+            </label>
+          </div>
+          <Button size="sm" className="gap-1.5" disabled={adding || enabledPlatforms.length === 0} onClick={addToQueue}>
+            {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            הוסף לתור
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Settings */}
       <Card>
         <CardHeader>
@@ -443,94 +533,6 @@ const AdminSocialScheduler = ({ articles, enabledPlatforms, onChanged }: Props) 
             {savingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             שמור הגדרות לוז
           </Button>
-        </CardContent>
-      </Card>
-
-      {/* Add to queue */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Plus className="w-4 h-4 text-primary" />
-            הוספה לתור
-          </CardTitle>
-          <CardDescription>בחר כתבה, פוסט או סטורי, פלטפורמות ומועד — ויעלה אוטומטית בזמן.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <select
-            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-            value={newArticle}
-            onChange={(e) => setNewArticle(e.target.value)}
-            aria-label="כתבה לתור"
-          >
-            <option value="">בחר כתבה...</option>
-            {published.map((a) => (
-              <option key={a.id} value={a.id}>{a.title}</option>
-            ))}
-          </select>
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="flex items-center gap-1 border rounded-md p-0.5">
-              {(["post", "story"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setNewKind(k)}
-                  className={`px-3 h-7 rounded text-sm ${newKind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-                >
-                  {k === "post" ? "פוסט" : "סטורי"}
-                </button>
-              ))}
-            </span>
-            {(newKind === "story" ? STORY_PLATFORMS : ALL_PLATFORMS).map((p) => (
-              <label key={p} className={`flex items-center gap-1.5 text-sm ${enabledPlatforms.includes(p) ? "" : "opacity-40 pointer-events-none"}`}>
-                <Checkbox
-                  checked={newPlatforms.includes(p)}
-                  onCheckedChange={(v) => setNewPlatforms((t) => (v ? [...t, p] : t.filter((x) => x !== p)))}
-                />
-                {PLATFORM_LABEL[p]}
-              </label>
-            ))}
-            <label className="flex items-center gap-2 text-sm mr-auto">
-              מועד
-              <Input type="datetime-local" dir="ltr" className="h-8 w-[200px]" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
-            </label>
-          </div>
-          <Button size="sm" className="gap-1.5" disabled={adding || enabledPlatforms.length === 0} onClick={addToQueue}>
-            {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-            הוסף לתור
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Queue */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <CalendarClock className="w-4 h-4 text-primary" />
-            התור הקרוב
-            <Badge variant="secondary" className="mr-1">{upcoming.length}</Badge>
-          </CardTitle>
-          <CardDescription>לחיצה על השעה משנה מועד; לחיצה על קיצור הרשת מוסיפה/מסירה אותה מהפריט.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {groups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">התור ריק. {settings.auto_fill ? "המערכת תמלא אותו בבדיקה הבאה (כל 5 דקות) אם יש כתבות חדשות." : "המילוי האוטומטי כבוי — הוסף פריטים ידנית."}</p>
-          ) : (
-            groups.map(([day, items]) => (
-              <div key={day}>
-                <p className="text-xs font-semibold text-muted-foreground mb-1.5">{day}</p>
-                <div className="space-y-1.5">{items.map((i) => renderItem(i, true))}</div>
-              </div>
-            ))
-          )}
-          {done.length > 0 && (
-            <div className="pt-2 border-t">
-              <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1" onClick={() => setShowDone((v) => !v)}>
-                {showDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5 rotate-45" />}
-                {showDone ? "הסתר" : "הצג"} פריטים שהושלמו/בוטלו ({done.length})
-              </button>
-              {showDone && <div className="space-y-1.5 mt-2">{done.map((i) => renderItem(i))}</div>}
-            </div>
-          )}
         </CardContent>
       </Card>
     </>

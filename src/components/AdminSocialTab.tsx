@@ -25,7 +25,27 @@ import {
   Linkedin,
   Twitter,
   History,
+  Eye,
+  EyeOff,
+  CalendarClock,
+  Images,
+  MessageSquare,
+  Plug,
 } from "lucide-react";
+
+// The tab used to be nine cards in one scroll, with the rarely touched
+// connection settings sitting above the daily queue. Four sections, queue
+// first.
+type Section = "queue" | "carousel" | "dm" | "connections";
+const SECTIONS: { id: Section; label: string; Icon: typeof Share2 }[] = [
+  { id: "queue", label: "תור ולוז", Icon: CalendarClock },
+  { id: "carousel", label: "קרוסלות", Icon: Images },
+  { id: "dm", label: "תגובה ל-DM", Icon: MessageSquare },
+  { id: "connections", label: "חיבורים", Icon: Plug },
+];
+
+/** Credential fields that must not sit on screen in plain text. */
+const SECRET_FIELD = /token|secret|api_key/i;
 
 type Platform = "facebook" | "instagram" | "linkedin" | "x";
 
@@ -118,6 +138,9 @@ const AdminSocialTab = () => {
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [savingPlatform, setSavingPlatform] = useState<Platform | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [section, setSection] = useState<Section>("queue");
+  // Which secret fields the editor chose to reveal, keyed "platform.field".
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
 
   // Manual publish state
   const [publishArticleId, setPublishArticleId] = useState("");
@@ -224,6 +247,25 @@ const AdminSocialTab = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="מקטעי רשתות חברתיות">
+        {SECTIONS.map(({ id, label, Icon }) => (
+          <Button
+            key={id}
+            size="sm"
+            variant={section === id ? "default" : "outline"}
+            className="shrink-0 gap-1.5"
+            aria-pressed={section === id}
+            onClick={() => setSection(id)}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Sections stay mounted and are only hidden, so a half-built carousel
+          or an unsaved rule survives a look at another section. */}
+      <div className={section === "connections" ? "space-y-6" : "hidden"}>
       {/* Where the site's own buttons point — separate from the publishing
           credentials below, which are about posting rather than linking. */}
       <AdminSocialLinksCard />
@@ -276,19 +318,40 @@ const AdminSocialTab = () => {
                       <span className="text-[10px] text-muted-foreground">אוטומטי</span>
                     </div>
                   </div>
-                  {meta.fields.map((f) => (
-                    <Input
-                      key={f.key}
-                      dir="ltr"
-                      placeholder={f.hint ? `${f.label} (${f.hint})` : f.label}
-                      value={row.credentials[f.key] ?? ""}
-                      onChange={(e) =>
-                        setAccount(platform, {
-                          credentials: { ...row.credentials, [f.key]: e.target.value },
-                        })
-                      }
-                    />
-                  ))}
+                  {meta.fields.map((f) => {
+                    const isSecret = SECRET_FIELD.test(f.key);
+                    const fieldId = `${platform}.${f.key}`;
+                    const isShown = !!revealed[fieldId];
+                    return (
+                      <div key={f.key} className="relative">
+                        <Input
+                          dir="ltr"
+                          type={isSecret && !isShown ? "password" : "text"}
+                          autoComplete={isSecret ? "new-password" : "off"}
+                          aria-label={f.label}
+                          className={isSecret ? "pr-11" : undefined}
+                          placeholder={f.hint ? `${f.label} (${f.hint})` : f.label}
+                          value={row.credentials[f.key] ?? ""}
+                          onChange={(e) =>
+                            setAccount(platform, {
+                              credentials: { ...row.credentials, [f.key]: e.target.value },
+                            })
+                          }
+                        />
+                        {isSecret && (
+                          <button
+                            type="button"
+                            onClick={() => setRevealed((prev) => ({ ...prev, [fieldId]: !isShown }))}
+                            aria-label={isShown ? `הסתר ${f.label}` : `הצג ${f.label}`}
+                            aria-pressed={isShown}
+                            className="absolute right-0.5 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+                          >
+                            {isShown ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                   <p className="text-[11px] text-muted-foreground leading-relaxed">{meta.help}</p>
                   <Button
                     size="sm"
@@ -311,9 +374,14 @@ const AdminSocialTab = () => {
         </CardContent>
       </Card>
 
-      {/* Schedule + queue */}
-      <AdminSocialScheduler key={queueVersion} articles={articles} enabledPlatforms={enabledPlatforms} onChanged={fetchAll} />
+      </div>
 
+      {/* Schedule + queue */}
+      <div className={section === "queue" ? "space-y-6" : "hidden"}>
+      <AdminSocialScheduler key={queueVersion} articles={articles} enabledPlatforms={enabledPlatforms} onChanged={fetchAll} />
+      </div>
+
+      <div className={section === "carousel" ? "" : "hidden"}>
       <AdminCarouselStudio
         articles={articles}
         enabledPlatforms={enabledPlatforms}
@@ -322,10 +390,14 @@ const AdminSocialTab = () => {
           fetchAll();
         }}
       />
+      </div>
 
       {/* Comment-to-DM, which rides on every Facebook / Instagram post above */}
+      <div className={section === "dm" ? "" : "hidden"}>
       <AdminDmAutomationCard />
+      </div>
 
+      <div className={section === "queue" ? "space-y-6" : "hidden"}>
       {/* Manual publish */}
       <Card>
         <CardHeader>
@@ -391,7 +463,7 @@ const AdminSocialTab = () => {
             פרסם עכשיו
           </Button>
           {enabledPlatforms.length === 0 && (
-            <p className="text-xs text-muted-foreground">חבר והפעל לפחות פלטפורמה אחת למעלה.</p>
+            <p className="text-xs text-muted-foreground">חבר והפעל לפחות פלטפורמה אחת במקטע "חיבורים".</p>
           )}
         </CardContent>
       </Card>
@@ -441,6 +513,7 @@ const AdminSocialTab = () => {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
