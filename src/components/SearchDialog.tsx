@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
 import { useNavigate } from "@/lib/router-compat";
-import { useArticles } from "@/hooks/useArticles";
+import {
+  SEARCH_MIN_LENGTH,
+  searchArticlesQueryOptions,
+} from "@/lib/articleQueries";
 import {
   Dialog,
   DialogContent,
@@ -15,22 +19,46 @@ interface SearchDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** How long the reader has to stop typing before the search is sent. */
+const SEARCH_DEBOUNCE_MS = 250;
+
+/**
+ * Article search. This dialog sits in the header of every page, and it used to
+ * load the whole article list on every page view so that it could filter it
+ * in memory if someone opened it. It now asks the database only while the
+ * reader is typing, which also reaches every published article instead of the
+ * newest thousand.
+ */
 const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const { articles } = useArticles();
+  const [term, setTerm] = useState("");
   const navigate = useNavigate();
 
-  // Filter only published articles
-  const publishedArticles = articles.filter(article => !article.isDraft);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setTerm(searchQuery.trim()),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  // Search in title and excerpt
-  const searchResults = searchQuery.trim()
-    ? publishedArticles.filter(
-        (article) =>
-          article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          article.excerpt.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  const searchOptions = searchArticlesQueryOptions(term);
+  const {
+    data: searchResults = [],
+    isFetching,
+    isError,
+  } = useQuery({
+    ...searchOptions,
+    enabled: open && term.length >= SEARCH_MIN_LENGTH,
+    // Keep the previous hits on screen while the next ones load, so the list
+    // does not blink empty between keystrokes.
+    placeholderData: keepPreviousData,
+  });
+
+  const typed = searchQuery.trim();
+  const tooShort = typed.length > 0 && typed.length < SEARCH_MIN_LENGTH;
+  // True from the keystroke until the answer for that exact text is in.
+  const waiting = typed !== term || isFetching;
 
   const handleArticleClick = (idOrSlug: string) => {
     onOpenChange(false);
@@ -65,14 +93,27 @@ const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
           )}
         </div>
 
-        {searchQuery.trim() && (
-          <div className="mt-4 max-h-[300px] overflow-y-auto">
-            {searchResults.length > 0 ? (
-              <div className="space-y-2">
-                {searchResults.slice(0, 10).map((article) => (
+        {typed && (
+          <div
+            className="mt-4 max-h-[300px] overflow-y-auto"
+            aria-live="polite"
+          >
+            {tooShort ? (
+              <p className="text-center text-muted-foreground py-8">
+                הקלידו לפחות {SEARCH_MIN_LENGTH} תווים
+              </p>
+            ) : isError ? (
+              <p className="text-center text-muted-foreground py-8">
+                החיפוש לא זמין כרגע. נסו שוב בעוד רגע.
+              </p>
+            ) : searchResults.length > 0 ? (
+              <div className={`space-y-2${waiting ? " opacity-60" : ""}`}>
+                {searchResults.map((article) => (
                   <button
                     key={article.id}
-                    onClick={() => handleArticleClick(article.slug || article.id)}
+                    onClick={() =>
+                      handleArticleClick(article.slug || article.id)
+                    }
                     className="w-full text-right p-3 rounded-lg hover:bg-accent transition-colors"
                   >
                     <p className="font-medium line-clamp-1">{article.title}</p>
@@ -82,6 +123,8 @@ const SearchDialog = ({ open, onOpenChange }: SearchDialogProps) => {
                   </button>
                 ))}
               </div>
+            ) : waiting ? (
+              <p className="text-center text-muted-foreground py-8">מחפש...</p>
             ) : (
               <p className="text-center text-muted-foreground py-8">
                 לא נמצאו תוצאות עבור "{searchQuery}"

@@ -3,11 +3,11 @@ import Article from "@/pages/Article";
 import { imageVariants } from "@/lib/imageUtils";
 import {
   articleQueryOptions,
-  articlesQueryOptions,
   authorsQueryOptions,
   categoriesQueryOptions,
   isUuid,
 } from "@/lib/queries";
+import { relatedArticlesQueryOptions } from "@/lib/articleQueries";
 import { authorEntity } from "@/lib/authorSchema";
 import type { Author } from "@/hooks/useAuthors";
 import { socialLinksQueryOptions } from "@/hooks/useSocialLinks";
@@ -20,9 +20,20 @@ export const Route = createFileRoute("/article/$id")({
   // Fetch the full article on the server so both the crawler and the reader
   // get the article body in the initial HTML.
   loader: async ({ params, context }) => {
+    const articlePromise = context.queryClient.ensureQueryData(articleQueryOptions(params.id));
     const [article, , , authors] = await Promise.all([
-      context.queryClient.ensureQueryData(articleQueryOptions(params.id)),
-      context.queryClient.ensureQueryData(articlesQueryOptions()),
+      articlePromise,
+      // The four stories under the article, asked for by section rather than
+      // picked out of the whole article list. Needs the article first, for
+      // its section. A failure here leaves the block out; it must not take
+      // the article down.
+      articlePromise
+        .then((found) =>
+          found && !found.isDraft
+            ? context.queryClient.ensureQueryData(relatedArticlesQueryOptions(found))
+            : null,
+        )
+        .catch(() => null),
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
       // The byline's photo and role come from the roster; primed so they are
       // in the prerendered HTML and the schema knows Person from Organization.

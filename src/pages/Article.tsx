@@ -1,6 +1,6 @@
 import { useParams, Link } from "@/lib/router-compat";
 import { useMemo } from "react";
-import { useArticles, useArticle } from "@/hooks/useArticles";
+import { useArticle } from "@/hooks/useArticles";
 import { useSidebarWidgets } from "@/hooks/useSidebarWidgets";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -27,7 +27,6 @@ import { ArticleSkeleton } from "@/components/PageSkeleton";
 const Article = () => {
   const { id } = useParams<{ id: string }>();
   const { article, isLoading } = useArticle(id);
-  const { articles: allArticles } = useArticles();
   const { widgets } = useSidebarWidgets();
 
   const articlePopup = useMemo(() => {
@@ -277,9 +276,9 @@ const Article = () => {
             </div>
           </article>
 
-          {/* Related stories, then the follow prompt: the list the loader
-              primed is filtered in memory, so both are in the prerendered HTML. */}
-          <RelatedArticles current={article} articles={allArticles} />
+          {/* Related stories, then the follow prompt: the loader primes the
+              related query, so both are in the prerendered HTML. */}
+          <RelatedArticles current={article} />
           <FollowCta />
 
           {/* Back to Home */}
