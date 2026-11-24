@@ -8,12 +8,12 @@ import { useEffect } from "react";
 export const ADSENSE_CLIENT = "ca-pub-1429645771074558";
 
 /**
- * Off until Google approves the site. Ownership is proven by the meta tag and
- * ads.txt, neither of which needs this script, and until approval the script
- * would only cost page weight. Flip to true once the site's status in AdSense
- * is "ready".
+ * The one switch for ads on the site. Turned on while the site was still in
+ * review, so that ads start on their own the moment Google approves it; until
+ * then the script loads and serves nothing. Set to false to take the script
+ * off every page.
  */
-const ADSENSE_ENABLED = false;
+const ADSENSE_ENABLED = true;
 
 const SCRIPT_ID = "adsense-loader";
 

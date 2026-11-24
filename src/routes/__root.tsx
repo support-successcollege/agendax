@@ -75,8 +75,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     scripts: [
       // No AdSense script here on purpose. From the static head the loader
       // injects an <ins> into <body> before React hydrates, which broke
-      // hydration. It is loaded after hydration by <AdSenseLoader />, which
-      // stays switched off until Google approves the site.
+      // hydration. It is loaded after hydration by <AdSenseLoader />.
       // Google tag (gtag.js) - GA4 property G-K49KV1HGD1. Two tags, exactly as
       // Google hands them out: the async loader, then the inline bootstrap.
       {
