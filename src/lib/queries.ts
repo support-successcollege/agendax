@@ -17,6 +17,9 @@ const db: any = supabase;
 export const ARTICLE_LIST_COLUMNS =
   "id, slug, title, excerpt, category, category_slug, date, image_url, author, is_breaking, is_featured, is_draft, scheduled_at, published_at, created_at, content_updated_at, author_slug";
 
+/** Rows per request when the admin panel pages through every article. */
+const ARTICLE_PAGE_SIZE = 1000;
+
 /** True for a UUID-shaped article identifier (legacy /article/<uuid> links). */
 export const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -49,13 +52,37 @@ export const articlesQueryOptions = (includeContent = false) =>
   queryOptions({
     queryKey: ["articles", { includeContent }],
     queryFn: async (): Promise<Article[]> => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select(includeContent ? "*" : ARTICLE_LIST_COLUMNS)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return ((data as any[]) ?? []).map(mapDbToArticle);
+      if (!includeContent) {
+        const { data, error } = await supabase
+          .from("articles")
+          .select(ARTICLE_LIST_COLUMNS)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return ((data as any[]) ?? []).map(mapDbToArticle);
+      }
+
+      // The admin panel is the only caller that asks for content, and it has
+      // to see every row. The API returns at most ARTICLE_PAGE_SIZE rows per
+      // request, and drafts have no published_at, so they sort last: a single
+      // request silently dropped every draft and scheduled article once the
+      // site passed that many published ones. Page until a short page comes
+      // back. The id tiebreak keeps the order stable across requests.
+      const rows: any[] = [];
+      for (let from = 0; ; from += ARTICLE_PAGE_SIZE) {
+        const { data, error } = await supabase
+          .from("articles")
+          .select("*")
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, from + ARTICLE_PAGE_SIZE - 1);
+        if (error) throw error;
+        const page = (data as any[]) ?? [];
+        rows.push(...page);
+        if (page.length < ARTICLE_PAGE_SIZE) break;
+      }
+      return rows.map(mapDbToArticle);
     },
     staleTime: 60_000,
   });
