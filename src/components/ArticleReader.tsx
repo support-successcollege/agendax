@@ -17,7 +17,11 @@ const stripHtml = (html: string): string => {
 const ArticleReader = ({ title, excerpt, content }: ArticleReaderProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
+  // Assumed supported until the browser says otherwise, so the prerendered
+  // page already holds the button. Starting from "unsupported" rendered
+  // nothing on the server; the button then appeared after hydration, wrapped
+  // the byline row on a phone and pushed the article down by a line.
+  const [isSupported, setIsSupported] = useState(true);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
@@ -72,10 +76,13 @@ const ArticleReader = ({ title, excerpt, content }: ArticleReaderProps) => {
     setIsPaused(false);
   }, []);
 
-  if (!isSupported) return null;
-
+  // Without speech synthesis the button is hidden but keeps its box, so
+  // nothing moves once the check has run.
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className={`flex items-center gap-2${isSupported ? "" : " invisible"}`}
+      aria-hidden={isSupported ? undefined : true}
+    >
       {isPlaying ? (
         <Button
           variant="outline"

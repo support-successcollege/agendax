@@ -60,8 +60,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         // ever used for Latin/numeric metadata, so it ships fewer weights.
         // Assistant is the Canva post template's face — the article cards and
         // the post-image generator render with it so they match the template.
+        //
+        // display=block, not swap. Hebrew Arimo is wider than the system
+        // fallback, so with swap a headline painted in the fallback re-wraps
+        // onto an extra line when Arimo lands a frame or two later and pushes
+        // the whole page down (CLS 0.29 on an article, measured). With block
+        // the text waits for the face (up to 3s, then falls back) and is laid
+        // out once. The cost: on a very slow connection text shows later.
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Assistant:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Assistant:wght@400;700&family=JetBrains+Mono:wght@500;700&display=block",
       },
     ],
     scripts: [
