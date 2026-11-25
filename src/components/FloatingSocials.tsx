@@ -6,7 +6,7 @@ const FloatingSocials = () => {
   const socials = useVisibleSocialLinks();
   const { pathname } = useLocation();
   // The rail is for readers. Over the admin panel it only covers controls.
-  if (pathname.startsWith("/admin")) return null;
+  if (pathname.startsWith("/admin") || pathname.startsWith("/quick")) return null;
   if (socials.length === 0) return null;
 
   return (

@@ -21,7 +21,7 @@ const BASE_PATH = process.env["BASE_PATH"] ?? "/";
 
 // Routes that must never reach a crawler: they are admin-only or auth-only and
 // render nothing meaningful without a session.
-const CLIENT_ONLY = ["/admin", "/auth", "/reset-password", "/courses/account"];
+const CLIENT_ONLY = ["/admin", "/auth", "/reset-password", "/courses/account", "/quick"];
 
 // crawlLinks yields paths that still carry a query string ("/courses/account?
 // redirect=..."), so compare on the pathname alone or admin links slip through.

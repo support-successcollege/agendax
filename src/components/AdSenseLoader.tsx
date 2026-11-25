@@ -37,7 +37,7 @@ const AdSenseLoader = () => {
     if (isLocalHost()) return;
     // The panel is not a place for ads. This only covers landing on it; a
     // visitor who reaches the panel from a public page already has the script.
-    if (window.location.pathname.startsWith("/admin")) return;
+    if (window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/quick")) return;
     if (document.getElementById(SCRIPT_ID)) return;
 
     let cancelled = false;

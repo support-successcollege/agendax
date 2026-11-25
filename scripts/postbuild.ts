@@ -44,7 +44,7 @@ console.log("[postbuild] index.html -> 404.html");
 //     one kept;
 //   • the build date as lastmod on pages that did not change, which teaches
 //     Google to ignore the signal.
-const SITEMAP_EXCLUDE = [/^\/admin(\/|$)/, /^\/auth(\/|$)/, /^\/reset-password(\/|$)/];
+const SITEMAP_EXCLUDE = [/^\/admin(\/|$)/, /^\/auth(\/|$)/, /^\/reset-password(\/|$)/, /^\/quick(\/|$)/];
 
 // Pages collect-pages marked `sitemap.exclude` (an empty /jobs or /courses).
 // The crawl rediscovers them as trailing-slash twins with default sitemap

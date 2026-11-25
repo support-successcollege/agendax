@@ -16,6 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as NewsroomRouteImport } from './routes/newsroom'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as QuickRouteImport } from './routes/quick'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ToolboxRouteImport } from './routes/toolbox'
@@ -65,6 +66,11 @@ const NewsroomRoute = NewsroomRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuickRoute = QuickRouteImport.update({
+  id: '/quick',
+  path: '/quick',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
+  '/quick': typeof QuickRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
+  '/quick': typeof QuickRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
@@ -200,6 +208,7 @@ export interface FileRoutesById {
   '/join': typeof JoinRoute
   '/newsroom': typeof NewsroomRoute
   '/privacy': typeof PrivacyRoute
+  '/quick': typeof QuickRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/toolbox': typeof ToolboxRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/newsroom'
     | '/privacy'
+    | '/quick'
     | '/reset-password'
     | '/terms'
     | '/toolbox'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/newsroom'
     | '/privacy'
+    | '/quick'
     | '/reset-password'
     | '/terms'
     | '/toolbox'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/newsroom'
     | '/privacy'
+    | '/quick'
     | '/reset-password'
     | '/terms'
     | '/toolbox'
@@ -299,6 +311,7 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute
   NewsroomRoute: typeof NewsroomRoute
   PrivacyRoute: typeof PrivacyRoute
+  QuickRoute: typeof QuickRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   ToolboxRoute: typeof ToolboxRoute
@@ -365,6 +378,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quick': {
+      id: '/quick'
+      path: '/quick'
+      fullPath: '/quick'
+      preLoaderRoute: typeof QuickRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -483,6 +503,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   NewsroomRoute: NewsroomRoute,
   PrivacyRoute: PrivacyRoute,
+  QuickRoute: QuickRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   ToolboxRoute: ToolboxRoute,

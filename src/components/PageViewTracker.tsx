@@ -37,7 +37,8 @@ const PageViewTracker = () => {
 
   useEffect(() => {
     if (!pathname) return;
-    if (pathname.startsWith("/admin")) return;
+    // Admin tools are not audience: the panel, and the quick-production page.
+    if (pathname.startsWith("/admin") || pathname.startsWith("/quick")) return;
     // Local dev (localhost / 127.0.0.1 / *.local / DEV build / localhost
     // referrer) is not an audience. Checked before lastTracked so nothing
     // is remembered for a view that was never written.
