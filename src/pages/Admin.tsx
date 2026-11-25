@@ -453,7 +453,7 @@ const Admin = () => {
           className="gap-2 bg-gradient-brand text-primary-foreground hover:opacity-90"
         >
           <Sparkles className="h-4 w-4" />
-          כתבה עם AI
+          הפקה מהירה
         </Button>
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
           <AdminNav activeTab={activeTab} onSelect={setActiveTab} pendingComments={pendingComments.length} />
@@ -488,7 +488,7 @@ const Admin = () => {
               size="icon"
               className="h-11 w-11 bg-gradient-brand text-primary-foreground hover:opacity-90"
               onClick={() => setIsAIGeneratorOpen(true)}
-              aria-label="כתבה עם AI"
+              aria-label="הפקה מהירה"
             >
               <Sparkles className="h-5 w-5" />
             </Button>

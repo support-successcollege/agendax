@@ -156,7 +156,7 @@ const AdminArticlesTab = ({
       <div className="flex flex-wrap items-center gap-2">
         <Button className="gap-2" onClick={onCreateAI}>
           <Sparkles className="w-4 h-4" />
-          כתבה עם AI
+          הפקה מהירה
         </Button>
         <Button variant="outline" className="gap-2" onClick={onCreateManual}>
           <PenLine className="w-4 h-4" />
