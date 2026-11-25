@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import NewsTicker from "@/components/news/NewsTicker";
 import LeadBlock from "@/components/news/LeadBlock";
@@ -13,7 +14,7 @@ import CategoryStrips from "@/components/CategoryStrips";
 import IndustryEvents from "@/components/IndustryEvents";
 import FundingDeals from "@/components/FundingDeals";
 import { useCategories } from "@/hooks/useCategories";
-import { useArticles } from "@/hooks/useArticles";
+import { homeFeedQueryOptions, homeSectionSlugs } from "@/lib/articleQueries";
 import { useSidebarWidgets } from "@/hooks/useSidebarWidgets";
 import { HomeSkeleton } from "@/components/PageSkeleton";
 
@@ -24,8 +25,14 @@ import { HomeSkeleton } from "@/components/PageSkeleton";
  * page instead of hopping between floating panels.
  */
 const Index = () => {
-  const { articles, isLoading: isArticlesLoading } = useArticles();
   const { categories, isLoading: isCategoriesLoading } = useCategories();
+  // Only the stories this page shows, not the whole archive. The section
+  // blocks at the bottom decide which sections are asked for, so the feed
+  // waits for the categories.
+  const { data: articles = [], isLoading: isArticlesLoading } = useQuery({
+    ...homeFeedQueryOptions(homeSectionSlugs(categories)),
+    enabled: !isCategoriesLoading,
+  });
   const { widgets } = useSidebarWidgets();
 
   const publishedArticles = articles.filter((article) => !article.isDraft);

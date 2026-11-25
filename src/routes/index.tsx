@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Index from "@/pages/Index";
-import { articlesQueryOptions, categoriesQueryOptions } from "@/lib/queries";
+import { categoriesQueryOptions } from "@/lib/queries";
+import { homeFeedQueryOptions, homeSectionSlugs } from "@/lib/articleQueries";
 
 const SITE_URL = "https://agendax.co.il";
 const TITLE = "Agendax | הייטק, AI, כספים וחברות";
@@ -10,12 +11,16 @@ const DESC =
 const SOCIAL_IMAGE = `${SITE_URL}/og-image.png`;
 
 export const Route = createFileRoute("/")({
-  // Prime the article list on the server so crawlers receive real content.
+  // Prime the front page's stories on the server so crawlers receive real
+  // content. The categories come first: they decide which sections the feed
+  // asks for.
   loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData(articlesQueryOptions()),
-      context.queryClient.ensureQueryData(categoriesQueryOptions()),
-    ]);
+    const categories = await context.queryClient.ensureQueryData(
+      categoriesQueryOptions(),
+    );
+    await context.queryClient.ensureQueryData(
+      homeFeedQueryOptions(homeSectionSlugs(categories)),
+    );
   },
   head: () => ({
     meta: [

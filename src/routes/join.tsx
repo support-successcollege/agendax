@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import JoinPage from "@/pages/Join";
-import { articlesQueryOptions, categoriesQueryOptions } from "@/lib/queries";
+import { categoriesQueryOptions } from "@/lib/queries";
+import { joinPreviewQueryOptions } from "@/lib/articleQueries";
 
 const SITE_URL = "https://agendax.co.il";
 const TITLE = "הצטרפו ל-Agendax | ערוץ וואטסאפ וניוזלטר";
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/join")({
     // after hydration.
     await Promise.all([
       context.queryClient.ensureQueryData(categoriesQueryOptions()),
-      context.queryClient.ensureQueryData(articlesQueryOptions()),
+      context.queryClient.ensureQueryData(joinPreviewQueryOptions()),
     ]);
   },
   head: () => ({

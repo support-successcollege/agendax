@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { useArticles } from "@/hooks/useArticles";
+import {
+  joinPreviewQueryOptions,
+  publishedCountQueryOptions,
+} from "@/lib/articleQueries";
 import { useCategories } from "@/hooks/useCategories";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
 import { sendAdminNotification } from "@/lib/admin.functions";
@@ -31,7 +35,7 @@ const PROMISES = ["בלי ספאם", "בלי העברת פרטים לאף אחד
 
 const JoinPage = () => {
   const { toast } = useToast();
-  const { articles } = useArticles();
+  const { data: live = [] } = useQuery(joinPreviewQueryOptions());
   const { categories } = useCategories();
   const { data: socialLinks, isLoading: linksLoading } = useSocialLinks();
 
@@ -44,28 +48,27 @@ const JoinPage = () => {
 
   const whatsappUrl = socialLinks?.whatsapp?.enabled ? socialLinks.whatsapp.url : "";
 
-  const live = useMemo(
-    () =>
-      articles
-        .filter((a) => !a.isDraft && a.categorySlug !== "marketing")
-        .slice(0, 5),
-    [articles],
-  );
   const lead = live[0];
 
   /**
    * Today's output, counted on the reader's own clock — the page's only claim.
    * The build has no such clock, so the prerendered HTML and the hydration
-   * pass leave the figure blank and it fills in right after.
+   * pass leave the figure blank; the browser then asks for the count of its
+   * own day, midnight to midnight.
    */
   const hydrated = useHydrated();
-  const todayCount = useMemo(() => {
-    if (!hydrated) return 0;
-    const today = new Date().toDateString();
-    return articles.filter(
-      (a) => !a.isDraft && new Date(a.publishedAt || a.date).toDateString() === today,
-    ).length;
-  }, [articles, hydrated]);
+  const today = useMemo(() => {
+    if (!hydrated) return null;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }, [hydrated]);
+  const { data: todayCount = 0 } = useQuery({
+    ...publishedCountQueryOptions(today?.from ?? "", today?.to ?? ""),
+    enabled: !!today,
+  });
 
   const topics = useMemo(
     () => categories.filter((c) => c.isActive && c.slug !== "home" && c.slug !== "marketing"),
